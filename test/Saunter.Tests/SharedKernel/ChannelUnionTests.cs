@@ -1,6 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using LEGO.AsyncAPI.Models;
+using ByteBard.AsyncAPI.Models;
 using Saunter.SharedKernel;
 using Shouldly;
 using Xunit;
@@ -13,32 +13,8 @@ namespace Saunter.Tests.SharedKernel
         {
             yield return new AsyncApiChannel[]
             {
-                new() { Publish = new() },
-                new() { Publish = new() },
-            };
-
-            yield return new AsyncApiChannel[]
-            {
-                new() { Subscribe = new() },
-                new() { Subscribe = new() },
-            };
-
-            yield return new AsyncApiChannel[]
-            {
-                new() { Reference = new() },
-                new() { Reference = new() },
-            };
-
-            yield return new AsyncApiChannel[]
-            {
-                new() { Reference = new() },
-                new() { Subscribe = new() },
-            };
-
-            yield return new AsyncApiChannel[]
-            {
-                new() { Reference = new() },
-                new() { Publish = new() },
+                new() { Address = "foo", Messages = new Dictionary<string, AsyncApiMessage>() },
+                new() { Address = "bar", Messages = new Dictionary<string, AsyncApiMessage>() },
             };
         }
 
@@ -46,131 +22,49 @@ namespace Saunter.Tests.SharedKernel
         [MemberData(nameof(GetOnUnionConflictData))]
         public void AsyncApiChannelUnion_OnUnion_Conflict(AsyncApiChannel source, AsyncApiChannel additionaly)
         {
-            // Arrange
-            AsyncApiChannelUnion channelUnion = new();
-
-            // Act
+            var channelUnion = new AsyncApiChannelUnion();
             var actual = () => channelUnion.Union(source, additionaly);
 
-            // Assert
             Should.Throw<InvalidOperationException>(actual);
         }
 
-        public static IEnumerable<object[]> GetOnUnionSuccessMerge()
+        [Fact]
+        public void AsyncApiChannelUnion_OnUnion_SuccessMerge()
         {
-            yield return new AsyncApiChannel[]
+            var source = new AsyncApiChannel
             {
-                new() { },
-                new() { Publish = new(), Subscribe = new() },
-                new() { Publish = new(), Subscribe = new() },
-            };
-            yield return new AsyncApiChannel[]
-            {
-                new() { Publish = new(), Subscribe = new() },
-                new() { },
-                new() { Publish = new(), Subscribe = new() },
-            };
-            yield return new AsyncApiChannel[]
-            {
-                new() { Publish = new() },
-                new() { Subscribe = new() },
-                new() { Publish = new(), Subscribe = new() },
-            };
-            yield return new AsyncApiChannel[]
-            {
-                new() { Subscribe = new() },
-                new() { Publish = new() },
-                new() { Publish = new(), Subscribe = new() },
-            };
-            yield return new AsyncApiChannel[]
-            {
-                new() { Reference = new() },
-                new() { },
-                new() { Reference = new() },
-            };
-            yield return new AsyncApiChannel[]
-            {
-                new() { },
-                new() { Reference = new() },
-                new() { Reference = new() },
-            };
-            yield return new AsyncApiChannel[]
-            {
-                new()
+                Address = "foo",
+                Description = "description",
+                Messages = new Dictionary<string, AsyncApiMessage>
                 {
-                    Description = "description",
-                    Servers = new List<string>() { "server1", "server2", },
-                    Parameters = new Dictionary<string, AsyncApiParameter>()
-                    {
-                        { "test", new() { Description = "description" } }
-                    },
+                    ["one"] = new AsyncApiMessageReference("#/components/messages/one")
                 },
-                new() { },
-                new()
+                Parameters = new Dictionary<string, AsyncApiParameter>
                 {
-                    Description = "description",
-                    Servers = new List<string>() { "server1", "server2", },
-                    Parameters = new Dictionary<string, AsyncApiParameter>()
-                    {
-                        { "test", new() { Description = "description" } }
-                    },
-                },
+                    ["tenant_id"] = new AsyncApiParameter { Description = "description", Location = "tenant_id" }
+                }
             };
-        }
 
-        [Theory]
-        [MemberData(nameof(GetOnUnionSuccessMerge))]
-        public void AsyncApiChannelUnion_OnUnion_SuccessMerge(AsyncApiChannel source, AsyncApiChannel additionaly, AsyncApiChannel expected)
-        {
-            // Arrange
-            AsyncApiChannelUnion channelUnion = new();
+            var additionaly = new AsyncApiChannel
+            {
+                Address = "foo",
+                Summary = "summary",
+                Messages = new Dictionary<string, AsyncApiMessage>
+                {
+                    ["two"] = new AsyncApiMessageReference("#/components/messages/two")
+                }
+            };
 
-            // Act
+            var channelUnion = new AsyncApiChannelUnion();
             var actual = channelUnion.Union(source, additionaly);
 
-            // Assert
             actual.ShouldNotBeNull();
-
-            actual.Description.ShouldBe(expected.Description);
-            actual.Servers.ShouldBe(expected.Servers);
-
-            actual.Parameters.Count.ShouldBe(expected.Parameters.Count);
-
-            foreach (var item in expected.Parameters)
-            {
-                actual.Parameters.ShouldContainKey(item.Key);
-            }
-
-            if (actual.Publish is null)
-            {
-                expected.Publish.ShouldBeNull();
-            }
-            else
-            {
-                expected.Publish.ShouldNotBeNull();
-                actual.Publish.OperationId.ShouldBe(expected.Publish.OperationId);
-            }
-
-            if (actual.Subscribe is null)
-            {
-                expected.Subscribe.ShouldBeNull();
-            }
-            else
-            {
-                expected.Subscribe.ShouldNotBeNull();
-                actual.Subscribe.OperationId.ShouldBe(expected.Subscribe.OperationId);
-            }
-
-            if (actual.Reference is null)
-            {
-                expected.Reference.ShouldBeNull();
-            }
-            else
-            {
-                expected.Reference.ShouldNotBeNull();
-                actual.Reference.Id.ShouldBe(expected.Reference.Id);
-                actual.Reference.Type.ShouldBe(expected.Reference.Type);
-            }
+            actual.Address.ShouldBe("foo");
+            actual.Description.ShouldBe("description");
+            actual.Summary.ShouldBe("summary");
+            actual.Messages.ShouldContainKey("one");
+            actual.Messages.ShouldContainKey("two");
+            actual.Parameters.ShouldContainKey("tenant_id");
         }
     }
 }

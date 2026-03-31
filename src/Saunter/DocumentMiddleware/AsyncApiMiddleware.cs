@@ -1,7 +1,8 @@
-﻿using System.IO;
+using System.IO;
 using System.Net;
 using System.Threading.Tasks;
-using LEGO.AsyncAPI.Models;
+using ByteBard.AsyncAPI;
+using ByteBard.AsyncAPI.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Saunter.Options;
@@ -36,13 +37,12 @@ namespace Saunter.DocumentMiddleware
             }
 
             var asyncApiSchema = _asyncApiDocumentProvider.GetDocument(documentName, _options);
-
             await RespondWithAsyncApiSchemaJson(context.Response, asyncApiSchema);
         }
 
         private static async Task RespondWithAsyncApiSchemaJson(HttpResponse response, AsyncApiDocument asyncApiSchema)
         {
-            var asyncApiSchemaJson = asyncApiSchema.SerializeAsJson(LEGO.AsyncAPI.AsyncApiVersion.AsyncApi2_0);
+            var asyncApiSchemaJson = asyncApiSchema.SerializeAsJson(AsyncApiVersion.AsyncApi3_0);
             response.StatusCode = (int)HttpStatusCode.OK;
             response.ContentType = "application/json";
 

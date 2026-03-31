@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Linq;
-using LEGO.AsyncAPI.Models;
+using ByteBard.AsyncAPI.Models;
 using Saunter.SharedKernel;
 using Shouldly;
 using Xunit;
@@ -78,7 +78,8 @@ namespace Saunter.Tests.SharedKernel
 
             // Assert
             schema.ShouldNotBeNull();
-            schema.Value.All.Count.ShouldBe(8);
+            schema.Value.All.Count.ShouldBe(2);
+            schema.Value.All.Select(x => x.Title).ShouldBe(new[] { "foo", "bar" }, ignoreOrder: true);
             schema.Value.Root.Properties.Count.ShouldBe(7);
 
             schema.Value.Root.Properties.ShouldContainKey("id");

@@ -1,4 +1,4 @@
-﻿using LEGO.AsyncAPI.Models;
+using ByteBard.AsyncAPI.Models;
 
 public interface IChannelFilter
 {

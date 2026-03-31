@@ -1,4 +1,4 @@
-﻿using LEGO.AsyncAPI.Models;
+using ByteBard.AsyncAPI.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Saunter.Options;
@@ -13,15 +13,14 @@ namespace Saunter.Tests.AttributeProvider
         [Fact]
         public void Example_OperationTraits()
         {
-            // TODO: this is not really a test, just an example of how you might use OperationTraits...
-
-            var services = new ServiceCollection() as IServiceCollection;
+            var services = new ServiceCollection();
 
             services.AddFakeLogging();
             services.AddAsyncApiSchemaGeneration(o =>
             {
                 o.AsyncApi = new AsyncApiDocument
                 {
+                    Asyncapi = "3.0.0",
                     Info = new AsyncApiInfo
                     {
                         Title = GetType().FullName,
@@ -36,6 +35,7 @@ namespace Saunter.Tests.AttributeProvider
                     }
                 };
 
+                o.AssemblyMarkerTypes = new[] { typeof(AnnotatedOperation) };
                 o.AddOperationFilter<TestOperationTraitsFilter>();
             });
 
@@ -46,22 +46,24 @@ namespace Saunter.Tests.AttributeProvider
             var document = documentProvider.GetDocument(null, options);
 
             document.Components.OperationTraits.ShouldContainKey("exampleTrait");
+            document.Operations.ShouldContainKey("AnnotatedOperation");
         }
-
 
         private class TestOperationTraitsFilter : IOperationFilter
         {
             public void Apply(AsyncApiOperation operation, OperationFilterContext context)
             {
-                operation.Traits.Add(new AsyncApiOperationTrait()
-                {
-                    Reference = new()
-                    {
-                        Id = "exampleTrait",
-                        Type = ReferenceType.OperationTrait,
-                    },
-                });
+                operation.Traits.Add(new AsyncApiOperationTraitReference("#/components/operationTraits/exampleTrait"));
             }
+        }
+
+        [AsyncApi]
+        [Channel("trait.example", "trait.example")]
+        [SendOperation(OperationId = "AnnotatedOperation")]
+        private class AnnotatedOperation
+        {
+            [Message(typeof(string))]
+            public void Publish() { }
         }
     }
 }

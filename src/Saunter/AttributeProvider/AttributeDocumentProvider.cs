@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using LEGO.AsyncAPI.Models;
+using ByteBard.AsyncAPI.Models;
+using ByteBard.AsyncAPI.Models.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Namotion.Reflection;
 using Saunter.AttributeProvider.Attributes;
@@ -29,48 +30,45 @@ namespace Saunter.AttributeProvider
 
         public AsyncApiDocument GetDocument(string? documentName, AsyncApiOptions options)
         {
-            if (options == null)
-            {
-                throw new ArgumentNullException(nameof(options));
-            }
+            ArgumentNullException.ThrowIfNull(options);
 
             var asyncApiTypes = GetAsyncApiTypes(options, documentName);
-
             var apiNamePair = options.NamedApis.FirstOrDefault(c => c.Value.Id == documentName);
-
             var clone = _cloner.CloneProtype(apiNamePair.Value ?? options.AsyncApi);
 
-            if (string.IsNullOrWhiteSpace(clone.DefaultContentType))
-            {
-                clone.DefaultContentType = "application/json";
-            }
+            clone.Asyncapi = "3.0.0";
+            clone.DefaultContentType ??= "application/json";
+            clone.Components ??= new AsyncApiComponents();
+            clone.Channels ??= new Dictionary<string, AsyncApiChannel>();
+            clone.Operations ??= new Dictionary<string, AsyncApiOperation>();
 
-            var channelItems = Enumerable.Concat(
-                GenerateChannelsFromMethods(clone.Components, options, asyncApiTypes),
-                GenerateChannelsFromClasses(clone.Components, options, asyncApiTypes));
+            var generatedItems = GenerateChannelsFromMethods(clone.Components, options, asyncApiTypes)
+                .Concat(GenerateChannelsFromClasses(clone.Components, options, asyncApiTypes));
 
-            foreach (var item in channelItems)
+            foreach (var item in generatedItems)
             {
-                if (!clone.Channels.TryAdd(item.Key, item.Value))
+                if (!clone.Channels.TryAdd(item.ChannelId, item.Channel))
                 {
-                    clone.Channels[item.Key] = _channelUnion.Union(
-                        clone.Channels[item.Key],
-                        item.Value);
+                    clone.Channels[item.ChannelId] = _channelUnion.Union(clone.Channels[item.ChannelId], item.Channel);
+                }
+
+                if (!clone.Operations.TryAdd(item.OperationId, item.Operation))
+                {
+                    throw new InvalidOperationException($"Operation conflict for '{item.OperationId}'.");
                 }
             }
 
             var filterContext = new DocumentFilterContext(asyncApiTypes);
-
             foreach (var filterType in options.DocumentFilters)
             {
                 var filter = (IDocumentFilter)_serviceProvider.GetRequiredService(filterType);
-                filter?.Apply(clone, filterContext);
+                filter.Apply(clone, filterContext);
             }
 
             return clone;
         }
 
-        private IEnumerable<KeyValuePair<string, AsyncApiChannel>> GenerateChannelsFromMethods(AsyncApiComponents components, AsyncApiOptions options, TypeInfo[] asyncApiTypes)
+        private IEnumerable<GeneratedOperation> GenerateChannelsFromMethods(AsyncApiComponents components, AsyncApiOptions options, TypeInfo[] asyncApiTypes)
         {
             var methodsWithChannelAttribute = asyncApiTypes
                 .SelectMany(type => type.DeclaredMethods)
@@ -83,37 +81,28 @@ namespace Saunter.AttributeProvider
 
             foreach (var item in methodsWithChannelAttribute)
             {
-                if (item.Channel == null)
+                var channel = item.Channel!;
+                var messageRefs = GenerateMessagesFromMethod(components, item.Method);
+                var channelItem = CreateChannel(channel, messageRefs);
+                PopulateChannelParameters(components, item.Method, channelItem);
+
+                ApplyChannelFilters(options, item.Method, channel, channelItem);
+
+                foreach (var operationAttribute in GetOperationAttributes(item.Method))
                 {
-                    continue;
+                    var operation = CreateOperation(item.Method, operationAttribute, channel.ChannelId, messageRefs);
+                    ApplyOperationFilters(item.Method, options, operationAttribute, operation);
+
+                    yield return new GeneratedOperation(
+                        channel.ChannelId,
+                        channelItem,
+                        GetOperationId(operationAttribute, item.Method, operationAttribute.Action),
+                        operation);
                 }
-
-                var channelItem = new AsyncApiChannel
-                {
-                    Servers = item.Channel.Servers?.ToList(),
-                    Description = item.Channel.Description,
-                    Parameters = GetChannelParametersFromAttributes(components, item.Method),
-                    Publish = GenerateOperationFromMethod(components, item.Method, OperationType.Publish, options),
-                    Subscribe = GenerateOperationFromMethod(components, item.Method, OperationType.Subscribe, options),
-                    Bindings = item.Channel.BindingsRef != null
-                        ? new()
-                        {
-                            Reference = new()
-                            {
-                                Id = item.Channel.BindingsRef,
-                                Type = ReferenceType.ChannelBindings,
-                            }
-                        }
-                        : null,
-                };
-
-                ApplyChannelFilters(options, item.Method, item.Channel, channelItem);
-
-                yield return new(item.Channel.Name, channelItem);
             }
         }
 
-        private IEnumerable<KeyValuePair<string, AsyncApiChannel>> GenerateChannelsFromClasses(AsyncApiComponents components, AsyncApiOptions options, TypeInfo[] asyncApiTypes)
+        private IEnumerable<GeneratedOperation> GenerateChannelsFromClasses(AsyncApiComponents components, AsyncApiOptions options, TypeInfo[] asyncApiTypes)
         {
             var classesWithChannelAttribute = asyncApiTypes
                 .Select(type => new
@@ -125,34 +114,43 @@ namespace Saunter.AttributeProvider
 
             foreach (var item in classesWithChannelAttribute)
             {
-                if (item.Channel == null)
+                var channel = item.Channel!;
+                var messageRefs = GenerateMessagesFromType(components, item.Type);
+                var channelItem = CreateChannel(channel, messageRefs);
+                PopulateChannelParameters(components, item.Type, channelItem);
+
+                ApplyChannelFilters(options, item.Type, channel, channelItem);
+
+                foreach (var operationAttribute in GetOperationAttributes(item.Type))
                 {
-                    continue;
+                    var operation = CreateOperation(item.Type, operationAttribute, channel.ChannelId, messageRefs);
+
+                    yield return new GeneratedOperation(
+                        channel.ChannelId,
+                        channelItem,
+                        GetOperationId(operationAttribute, item.Type, operationAttribute.Action),
+                        operation);
                 }
-
-                var channelItem = new AsyncApiChannel
-                {
-                    Description = item.Channel.Description,
-                    Parameters = GetChannelParametersFromAttributes(components, item.Type),
-                    Publish = GenerateOperationFromClass(components, item.Type, OperationType.Publish),
-                    Subscribe = GenerateOperationFromClass(components, item.Type, OperationType.Subscribe),
-                    Servers = item.Channel.Servers?.ToList(),
-                    Bindings = item.Channel.BindingsRef != null
-                        ? new()
-                        {
-                            Reference = new()
-                            {
-                                Id = item.Channel.BindingsRef,
-                                Type = ReferenceType.ChannelBindings,
-                            }
-                        }
-                        : null,
-                };
-
-                ApplyChannelFilters(options, item.Type, item.Channel, channelItem);
-
-                yield return new(item.Channel.Name, channelItem);
             }
+        }
+
+        private AsyncApiChannel CreateChannel(ChannelAttribute attribute, IReadOnlyList<AsyncApiMessageReference> messageReferences)
+        {
+            var channel = new AsyncApiChannel
+            {
+                Address = attribute.Address,
+                Title = attribute.Title,
+                Summary = attribute.Summary,
+                Description = attribute.Description,
+                Servers = attribute.Servers.Select(serverName => new AsyncApiServerReference($"#/servers/{serverName}")).ToList(),
+                Messages = CreateChannelMessageMap(messageReferences),
+                Parameters = new Dictionary<string, AsyncApiParameter>(),
+                Tags = new List<AsyncApiTag>(),
+                Extensions = new Dictionary<string, IAsyncApiExtension>(),
+                Bindings = CreateBindingsReference<IChannelBinding>(attribute.BindingsRef, "channelBindings"),
+            };
+
+            return channel;
         }
 
         private void ApplyChannelFilters(AsyncApiOptions options, MemberInfo member, ChannelAttribute channel, AsyncApiChannel channelItem)
@@ -166,333 +164,317 @@ namespace Saunter.AttributeProvider
             }
         }
 
-        private IDictionary<string, AsyncApiParameter> GetChannelParametersFromAttributes(AsyncApiComponents components, MemberInfo memberInfo)
+        private AsyncApiOperation CreateOperation(MethodInfo method, OperationAttribute operationAttribute, string channelId, IReadOnlyList<AsyncApiMessageReference> messageReferences)
         {
-            var attributes = memberInfo.GetCustomAttributes<ChannelParameterAttribute>();
-            var parameters = new Dictionary<string, AsyncApiParameter>(attributes.Count());
-
-            foreach (var attribute in attributes)
-            {
-                var parameterId = attribute.Name;
-
-                if (!components.Parameters.ContainsKey(parameterId))
-                {
-                    var schema = GetAsyncApiSchema(components, (TypeInfo?)attribute.Type);
-
-                    var parameter = new AsyncApiParameter
-                    {
-                        Description = attribute.Description,
-                        Location = attribute.Location,
-                        Schema = schema,
-                    };
-
-                    components.Parameters.Add(parameterId, parameter);
-                }
-
-                parameters.Add(parameterId, new()
-                {
-                    Reference = new()
-                    {
-                        Id = parameterId,
-                        Type = ReferenceType.Parameter,
-                    }
-                });
-            }
-
-            return parameters;
-        }
-
-        private AsyncApiOperation? GenerateOperationFromMethod(AsyncApiComponents components, MethodInfo method, OperationType operationType, AsyncApiOptions options)
-        {
-            var operationAttribute = GetOperationAttribute(method, operationType);
-
-            if (operationAttribute == null)
-            {
-                return null;
-            }
-
-            var messageAttributes = method.GetCustomAttributes<MessageAttribute>();
-
-            var tags = operationAttribute
-                .Tags?
-                .Select(x => new AsyncApiTag { Name = x })
-                .ToList() ?? new List<AsyncApiTag>();
-
-            var description = operationAttribute.Description ??
-                (method.GetXmlDocsRemarks() != string.Empty
-                    ? method.GetXmlDocsRemarks()
-                    : null);
-
-            var bindings = operationAttribute.BindingsRef != null
-                ? new AsyncApiBindings<LEGO.AsyncAPI.Models.Interfaces.IOperationBinding>()
-                {
-                    Reference = new()
-                    {
-                        Id = operationAttribute.BindingsRef,
-                        Type = ReferenceType.OperationBindings,
-                    }
-                }
-                : null;
-
-            var operation = new AsyncApiOperation
-            {
-                Tags = tags,
-                Description = description,
-                Message = new List<AsyncApiMessage>(),
-                OperationId = operationAttribute.OperationId ?? method.Name,
-                Summary = operationAttribute.Summary ?? method.GetXmlDocsSummary(),
-                Bindings = bindings,
-            };
-
-            if (messageAttributes.Any())
-            {
-                operation.Message = GenerateMessageFromAttributes(components, messageAttributes);
-            }
-            else if (operationAttribute.MessagePayloadType is not null)
-            {
-                operation.Message = GenerateMessageFromType(components, operationAttribute.MessagePayloadType.GetTypeInfo());
-            }
-
-            ApplyOprationFilters(method, options, operationAttribute, operation);
-
+            var operation = CreateOperationCore(method, operationAttribute, channelId, messageReferences);
             return operation;
         }
 
-        private AsyncApiOperation? GenerateOperationFromClass(AsyncApiComponents components, TypeInfo type, OperationType operationType)
+        private AsyncApiOperation CreateOperation(TypeInfo type, OperationAttribute operationAttribute, string channelId, IReadOnlyList<AsyncApiMessageReference> messageReferences)
         {
-            var operationAttribute = GetOperationAttribute(type, operationType);
-
-            if (operationAttribute == null)
-            {
-                return null;
-            }
-
-            var messages = new List<AsyncApiMessage>();
-
-            var tags = operationAttribute
-                .Tags?
-                .Select(x => new AsyncApiTag() { Name = x })
-                .ToList() ?? new List<AsyncApiTag>();
-
-            var operation = new AsyncApiOperation
-            {
-                Tags = tags,
-                Message = messages,
-                OperationId = operationAttribute.OperationId ?? type.Name,
-                Summary = operationAttribute.Summary ?? type.GetXmlDocsSummary(),
-                Description = operationAttribute.Description ?? (type.GetXmlDocsRemarks() != "" ? type.GetXmlDocsRemarks() : null),
-                Bindings = operationAttribute.BindingsRef != null
-                    ? new()
-                    {
-                        Reference = new()
-                        {
-                            Id = operationAttribute.BindingsRef,
-                            Type = ReferenceType.OperationBindings
-                        }
-                    }
-                    : null,
-            };
-
-            var attributes = type
-                .DeclaredMethods
-                .Select(m => new
-                {
-                    MessageAttributes = m.GetCustomAttributes<MessageAttribute>(),
-                    Method = m,
-                })
-                .Where(x => x.MessageAttributes.Any())
-                .SelectMany(x => x.MessageAttributes);
-
-            foreach (var attribute in attributes)
-            {
-                var message = GenerateMessageFromAttribute(components, attribute);
-
-                if (message != null)
-                {
-                    messages.Add(message);
-                }
-            }
-
+            var operation = CreateOperationCore(type, operationAttribute, channelId, messageReferences);
             return operation;
         }
 
-        private static OperationAttribute? GetOperationAttribute(MemberInfo typeOrMethod, OperationType operationType)
+        private AsyncApiOperation CreateOperationCore(MemberInfo member, OperationAttribute operationAttribute, string channelId, IReadOnlyList<AsyncApiMessageReference> messageReferences)
         {
-            return operationType switch
+            var tags = operationAttribute.Tags?.Select(tag => new AsyncApiTag { Name = tag }).Cast<AsyncApiTag>().ToList()
+                ?? new List<AsyncApiTag>();
+
+            return new AsyncApiOperation
             {
-                OperationType.Publish => typeOrMethod.GetCustomAttribute<PublishOperationAttribute>(),
-                OperationType.Subscribe => typeOrMethod.GetCustomAttribute<SubscribeOperationAttribute>(),
-                _ => null,
+                Action = operationAttribute.Action,
+                Channel = new AsyncApiChannelReference($"#/channels/{channelId}"),
+                Title = operationAttribute.Title,
+                Summary = operationAttribute.Summary ?? member.GetXmlDocsSummary(),
+                Description = operationAttribute.Description ?? (member.GetXmlDocsRemarks() != string.Empty ? member.GetXmlDocsRemarks() : null),
+                Messages = CreateOperationMessageReferences(channelId, messageReferences),
+                Tags = tags,
+                Security = new List<AsyncApiSecurityScheme>(),
+                Traits = new List<AsyncApiOperationTrait>(),
+                Extensions = new Dictionary<string, IAsyncApiExtension>(),
+                Bindings = CreateBindingsReference<IOperationBinding>(operationAttribute.BindingsRef, "operationBindings"),
             };
         }
 
-        private void ApplyOprationFilters(MethodInfo method, AsyncApiOptions options, OperationAttribute operationAttribute, AsyncApiOperation operation)
+        private void ApplyOperationFilters(MethodInfo method, AsyncApiOptions options, OperationAttribute operationAttribute, AsyncApiOperation operation)
         {
             var filterContext = new OperationFilterContext(method, operationAttribute);
 
             foreach (var filterType in options.OperationFilters)
             {
                 var filter = (IOperationFilter)_serviceProvider.GetRequiredService(filterType);
-                filter?.Apply(operation, filterContext);
+                filter.Apply(operation, filterContext);
             }
         }
 
-        private List<AsyncApiMessage> GenerateMessageFromAttributes(AsyncApiComponents components, IEnumerable<MessageAttribute> messageAttributes)
+        private IReadOnlyList<AsyncApiMessageReference> GenerateMessagesFromMethod(AsyncApiComponents components, MethodInfo method)
         {
-            List<AsyncApiMessage> messages = new();
-
-            if (messageAttributes.Count() == 1)
+            var messageAttributes = method.GetCustomAttributes<MessageAttribute>().ToArray();
+            if (messageAttributes.Any())
             {
-                var message = GenerateMessageFromAttribute(components, messageAttributes.First());
-
-                if (message is not null)
-                {
-                    messages.Add(message);
-                }
-
-                return messages;
+                return messageAttributes
+                    .Select(attribute => GenerateMessageFromAttribute(components, attribute))
+                    .Where(message => message != null)
+                    .Cast<AsyncApiMessageReference>()
+                    .ToList();
             }
 
-            foreach (var attribute in messageAttributes)
+            var operationAttribute = GetOperationAttributes(method).FirstOrDefault();
+            if (operationAttribute?.MessagePayloadType is not null)
             {
-                var message = GenerateMessageFromAttribute(components, attribute);
+                return GenerateMessageFromType(components, operationAttribute.MessagePayloadType.GetTypeInfo());
+            }
 
-                if (message != null)
+            return Array.Empty<AsyncApiMessageReference>();
+        }
+
+        private IReadOnlyList<AsyncApiMessageReference> GenerateMessagesFromType(AsyncApiComponents components, TypeInfo type)
+        {
+            var messageAttributes = type
+                .DeclaredMethods
+                .SelectMany(method => method.GetCustomAttributes<MessageAttribute>())
+                .ToArray();
+
+            if (messageAttributes.Any())
+            {
+                return messageAttributes
+                    .Select(attribute => GenerateMessageFromAttribute(components, attribute))
+                    .Where(message => message != null)
+                    .Cast<AsyncApiMessageReference>()
+                    .ToList();
+            }
+
+            var operationAttribute = GetOperationAttributes(type).FirstOrDefault();
+            if (operationAttribute?.MessagePayloadType is not null)
+            {
+                return GenerateMessageFromType(components, operationAttribute.MessagePayloadType.GetTypeInfo());
+            }
+
+            return Array.Empty<AsyncApiMessageReference>();
+        }
+
+        private List<AsyncApiMessageReference> GenerateMessageFromType(AsyncApiComponents components, TypeInfo payloadType)
+        {
+            var payloadSchema = GetAsyncApiSchemaReference(components, payloadType);
+            var messageId = payloadSchema?.Id;
+
+            if (string.IsNullOrWhiteSpace(messageId))
+            {
+                return new List<AsyncApiMessageReference>();
+            }
+
+            if (!components.Messages.ContainsKey(messageId))
+            {
+                components.Messages.Add(messageId, new AsyncApiMessage
                 {
-                    messages.Add(message);
-                }
+                    Name = messageId,
+                    Title = messageId,
+                    Payload = CreateSchemaWrapper(payloadSchema?.Schema),
+                    Tags = new List<AsyncApiTag>(),
+                    Examples = new List<AsyncApiMessageExample>(),
+                    Traits = new List<AsyncApiMessageTrait>(),
+                    Extensions = new Dictionary<string, IAsyncApiExtension>(),
+                    Bindings = new AsyncApiBindings<IMessageBinding>(),
+                });
+            }
+
+            return new List<AsyncApiMessageReference>
+            {
+                new AsyncApiMessageReference($"#/components/messages/{messageId}")
+            };
+        }
+
+        private AsyncApiMessageReference? GenerateMessageFromAttribute(AsyncApiComponents components, MessageAttribute messageAttribute)
+        {
+            if (messageAttribute.PayloadType == null)
+            {
+                return null;
+            }
+
+            var payloadSchema = GetAsyncApiSchemaReference(components, messageAttribute.PayloadType.GetTypeInfo());
+            var messageId = messageAttribute.MessageId ?? payloadSchema?.Id ?? messageAttribute.PayloadType.Name;
+
+            if (!components.Messages.ContainsKey(messageId))
+            {
+                var headersSchema = GetAsyncApiSchemaReference(components, messageAttribute.HeadersType?.GetTypeInfo());
+                var tags = messageAttribute.Tags?.Select(tag => new AsyncApiTag { Name = tag }).Cast<AsyncApiTag>().ToList()
+                    ?? new List<AsyncApiTag>();
+
+                components.Messages.Add(messageId, new AsyncApiMessage
+                {
+                    Name = messageAttribute.Name ?? payloadSchema?.Id ?? messageAttribute.PayloadType.Name,
+                    Title = messageAttribute.Title ?? payloadSchema?.Id ?? messageAttribute.PayloadType.Name,
+                    Summary = messageAttribute.Summary,
+                    Description = messageAttribute.Description,
+                    Payload = CreateSchemaWrapper(payloadSchema?.Schema),
+                    Headers = CreateSchemaWrapper(headersSchema?.Schema),
+                    Tags = tags,
+                    Examples = new List<AsyncApiMessageExample>(),
+                    Traits = new List<AsyncApiMessageTrait>(),
+                    Extensions = new Dictionary<string, IAsyncApiExtension>(),
+                    Bindings = CreateBindingsReference<IMessageBinding>(messageAttribute.BindingsRef, "messageBindings"),
+                });
+            }
+
+            return new AsyncApiMessageReference($"#/components/messages/{messageId}");
+        }
+
+        private Dictionary<string, AsyncApiMessage> CreateChannelMessageMap(IReadOnlyList<AsyncApiMessageReference> messageReferences)
+        {
+            var messages = new Dictionary<string, AsyncApiMessage>();
+
+            foreach (var messageReference in messageReferences.OfType<AsyncApiMessageReference>())
+            {
+                var messageId = GetReferenceKey(messageReference.Reference.Reference);
+                messages[messageId] = messageReference;
             }
 
             return messages;
         }
 
-        private List<AsyncApiMessage> GenerateMessageFromType(AsyncApiComponents components, TypeInfo payloadType)
+        private List<AsyncApiMessageReference> CreateOperationMessageReferences(string channelId, IReadOnlyList<AsyncApiMessageReference> messageReferences)
         {
-            var asyncApiSchema = GetAsyncApiSchema(components, payloadType);
-
-            var messageId = asyncApiSchema?.Title;
-
-            if (messageId is null)
-            {
-                return new();
-            }
-
-            if (!components.Messages.ContainsKey(messageId))
-            {
-                var message = new AsyncApiMessage
-                {
-                    Payload = asyncApiSchema,
-                    MessageId = messageId,
-                    Name = messageId,
-                    Title = messageId,
-                };
-
-                components.Messages.Add(messageId, message);
-            }
-
-            return new()
-            {
-                new()
-                {
-                    Reference = new()
-                    {
-                        Id = messageId,
-                        Type = ReferenceType.Message,
-                    }
-                }
-            };
+            return messageReferences
+                .Select(messageReference => new AsyncApiMessageReference(
+                    $"#/channels/{channelId}/messages/{GetReferenceKey(messageReference.Reference.Reference)}"))
+                .ToList();
         }
 
-        private AsyncApiMessage? GenerateMessageFromAttribute(AsyncApiComponents components, MessageAttribute messageAttribute)
+        private IDictionary<string, AsyncApiParameter> GetChannelParametersFromAttributes(MemberInfo memberInfo)
         {
-            if (messageAttribute?.PayloadType == null)
+            var attributes = memberInfo.GetCustomAttributes<ChannelParameterAttribute>().ToArray();
+            var parameters = new Dictionary<string, AsyncApiParameter>(attributes.Length);
+
+            foreach (var attribute in attributes)
             {
-                return null;
+                parameters.Add(attribute.Name, CreateChannelParameter(attribute));
             }
 
-            var bodySchema = GetAsyncApiSchema(components, (TypeInfo)messageAttribute.PayloadType);
-
-            var messageId = messageAttribute.MessageId ?? bodySchema?.Title ?? messageAttribute.PayloadType.Name;
-
-            if (!components.Messages.ContainsKey(messageId))
-            {
-                var tags = messageAttribute.Tags?
-                    .Select(x => new AsyncApiTag { Name = x })
-                    .ToList() ?? new List<AsyncApiTag>();
-
-                var headersSchema = GetAsyncApiSchema(components, (TypeInfo?)messageAttribute.HeadersType);
-
-                var message = new AsyncApiMessage
-                {
-                    MessageId = messageId,
-                    Title = messageAttribute.Title ?? bodySchema?.Title ?? messageAttribute.PayloadType.Name,
-                    Name = messageAttribute.Name ?? bodySchema?.Title ?? messageAttribute.PayloadType.Name,
-                    Summary = messageAttribute.Summary,
-                    Description = messageAttribute.Description,
-                    Tags = tags,
-                    Payload = bodySchema,
-                    Headers = headersSchema,
-                    Bindings = new()
-                    {
-                        Reference = new()
-                        {
-                            Id = messageAttribute.BindingsRef,
-                            Type = ReferenceType.MessageBindings,
-                        },
-                    },
-                };
-
-                components.Messages.Add(message.MessageId, message);
-            }
-
-            return new()
-            {
-                Reference = new()
-                {
-                    Id = messageId,
-                    Type = ReferenceType.Message,
-                }
-            };
+            return parameters;
         }
 
-        private AsyncApiSchema? GetAsyncApiSchema(AsyncApiComponents components, TypeInfo? payloadType)
+        private AsyncApiParameter CreateChannelParameter(ChannelParameterAttribute attribute)
         {
-            var generatedSchemas = _schemaGenerator.Generate(payloadType);
+            var parameter = new AsyncApiParameter
+            {
+                Description = attribute.Description,
+                Location = attribute.Location,
+                Examples = new List<string>(),
+                Enum = new List<string>(),
+                Extensions = new Dictionary<string, IAsyncApiExtension>(),
+            };
 
+            if (attribute.Type.IsEnum)
+            {
+                foreach (var value in Enum.GetNames(attribute.Type))
+                {
+                    parameter.Enum.Add(value);
+                }
+            }
+
+            return parameter;
+        }
+
+        private void PopulateChannelParameters(AsyncApiComponents components, MemberInfo member, AsyncApiChannel channel)
+        {
+            var parameters = GetChannelParametersFromAttributes(member);
+            foreach (var pair in parameters)
+            {
+                if (!components.Parameters.ContainsKey(pair.Key))
+                {
+                    components.Parameters.Add(pair.Key, pair.Value);
+                }
+
+                channel.Parameters[pair.Key] = new AsyncApiParameterReference($"#/components/parameters/{pair.Key}");
+            }
+        }
+
+        private SchemaReferenceInfo? GetAsyncApiSchemaReference(AsyncApiComponents components, TypeInfo? payloadType)
+        {
+            var generatedSchemas = _schemaGenerator.Generate(payloadType?.AsType());
             if (generatedSchemas is null)
             {
                 return null;
             }
 
-            foreach (var asyncApiSchema in generatedSchemas.Value.All)
+            foreach (var asyncApiSchema in generatedSchemas.Value.All.Where(schema => schema is not AsyncApiJsonSchemaReference))
             {
-                var key = asyncApiSchema.Title;
-
-                if (!components.Schemas.ContainsKey(key))
+                if (!string.IsNullOrWhiteSpace(asyncApiSchema.Title) && !components.Schemas.ContainsKey(asyncApiSchema.Title))
                 {
-                    components.Schemas[key] = asyncApiSchema;
+                    components.Schemas[asyncApiSchema.Title] = asyncApiSchema;
                 }
             }
 
-            return new()
+            return new SchemaReferenceInfo(
+                generatedSchemas.Value.Root.Title,
+                new AsyncApiJsonSchemaReference($"#/components/schemas/{generatedSchemas.Value.Root.Title}"));
+        }
+
+        private static AsyncApiMultiFormatSchema? CreateSchemaWrapper(AsyncApiJsonSchema? schema)
+        {
+            if (schema is null)
             {
-                Title = generatedSchemas.Value.Root.Title,
-                Reference = new()
-                {
-                    Id = generatedSchemas.Value.Root.Title,
-                    Type = ReferenceType.Schema,
-                }
+                return null;
+            }
+
+            return new AsyncApiMultiFormatSchema
+            {
+                Schema = schema,
             };
+        }
+
+        private static IEnumerable<OperationAttribute> GetOperationAttributes(MemberInfo member)
+        {
+            var send = member.GetCustomAttribute<SendOperationAttribute>();
+            if (send != null)
+            {
+                yield return send;
+            }
+
+            var receive = member.GetCustomAttribute<ReceiveOperationAttribute>();
+            if (receive != null)
+            {
+                yield return receive;
+            }
+        }
+
+        private static string GetOperationId(OperationAttribute attribute, MemberInfo member, AsyncApiAction action)
+        {
+            if (!string.IsNullOrWhiteSpace(attribute.OperationId))
+            {
+                return attribute.OperationId;
+            }
+
+            return $"{member.DeclaringType?.Name ?? member.Name}.{member.Name}.{action.ToString().ToLowerInvariant()}";
+        }
+
+        private static string GetReferenceKey(string reference)
+        {
+            var segments = reference.Split('/');
+            return segments[^1];
+        }
+
+        private static AsyncApiBindings<TBinding> CreateBindingsReference<TBinding>(string? bindingsRef, string componentName)
+            where TBinding : IBinding
+        {
+            if (string.IsNullOrWhiteSpace(bindingsRef))
+            {
+                return new AsyncApiBindings<TBinding>();
+            }
+
+            return new AsyncApiBindingsReference<TBinding>($"#/components/{componentName}/{bindingsRef}");
         }
 
         private static TypeInfo[] GetAsyncApiTypes(AsyncApiOptions options, string? apiName)
         {
-            var asyncApiTypes = options
+            return options
                 .AsyncApiSchemaTypes
-                    .Where(t => t.GetCustomAttribute<AsyncApiAttribute>()?.DocumentName == apiName)
+                .Where(t => t.GetCustomAttribute<AsyncApiAttribute>()?.DocumentName == apiName)
                 .ToArray();
-
-            return asyncApiTypes;
         }
+
+        private readonly record struct GeneratedOperation(string ChannelId, AsyncApiChannel Channel, string OperationId, AsyncApiOperation Operation);
+        private readonly record struct SchemaReferenceInfo(string Id, AsyncApiJsonSchema Schema);
     }
 }

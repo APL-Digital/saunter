@@ -1,7 +1,9 @@
-﻿using LEGO.AsyncAPI;
-using LEGO.AsyncAPI.Bindings;
-using LEGO.AsyncAPI.Models;
-using LEGO.AsyncAPI.Readers;
+using System.Collections.Generic;
+using System.IO;
+using ByteBard.AsyncAPI;
+using ByteBard.AsyncAPI.Bindings;
+using ByteBard.AsyncAPI.Models;
+using ByteBard.AsyncAPI.Readers;
 using Microsoft.Extensions.Logging;
 using Saunter.SharedKernel.Interfaces;
 
@@ -18,36 +20,24 @@ namespace Saunter.SharedKernel
 
         public AsyncApiDocument CloneProtype(AsyncApiDocument prototype)
         {
-            var jsonView = prototype.Serialize(AsyncApiVersion.AsyncApi2_0, AsyncApiFormat.Json);
-
+            var jsonView = prototype.SerializeAsJson(AsyncApiVersion.AsyncApi3_0);
             var settings = new AsyncApiReaderSettings
             {
                 Bindings = BindingsCollection.All,
             };
 
-            var reader = new AsyncApiStringReader(settings);
-
-            var cloned = reader.Read(jsonView, out var diagnostic);
+            var reader = new AsyncApiTextReader(settings);
+            var cloned = reader.Read(new StringReader(jsonView), out var diagnostic);
 
             if (diagnostic is not null)
             {
-                foreach (var item in diagnostic.Errors)
-                {
-                    var ignore = !item.Message.Contains("The field 'channels' in 'document' object is REQUIRED");
-
-                    if (ignore)
-                    {
-                        _logger.LogError("Error while clone protype: {Error}", item);
-                    }
-                }
-
-                foreach (var item in diagnostic.Warnings)
-                {
-                    _logger.LogWarning("Warning while clone protype: {Error}", item);
-                }
+                _logger.LogDebug("AsyncAPI document clone completed with diagnostics.");
             }
 
-            cloned.Components ??= new();
+            cloned.Components ??= new AsyncApiComponents();
+            cloned.Channels ??= new Dictionary<string, AsyncApiChannel>();
+            cloned.Operations ??= new Dictionary<string, AsyncApiOperation>();
+            cloned.Servers ??= new Dictionary<string, AsyncApiServer>();
 
             return cloned;
         }

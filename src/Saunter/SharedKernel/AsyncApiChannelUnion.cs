@@ -1,8 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using LEGO.AsyncAPI.Models;
-using LEGO.AsyncAPI.Models.Interfaces;
+using ByteBard.AsyncAPI.Models;
 using Saunter.SharedKernel.Interfaces;
 
 namespace Saunter.SharedKernel
@@ -11,62 +10,48 @@ namespace Saunter.SharedKernel
     {
         public AsyncApiChannel Union(AsyncApiChannel source, AsyncApiChannel additionaly)
         {
-            if (source.Publish is not null && additionaly.Publish is not null)
+            if (!string.IsNullOrWhiteSpace(source.Address)
+                && !string.IsNullOrWhiteSpace(additionaly.Address)
+                && !string.Equals(source.Address, additionaly.Address, StringComparison.Ordinal))
             {
-                throw new InvalidOperationException("Publish operation conflict");
+                throw new InvalidOperationException("Channel address conflict");
             }
 
-            if (source.Subscribe is not null && additionaly.Subscribe is not null)
+            var mergedMessages = new Dictionary<string, AsyncApiMessage>();
+            foreach (var pair in source.Messages)
             {
-                throw new InvalidOperationException("Subscribe operation conflict");
+                mergedMessages[pair.Key] = pair.Value;
             }
 
-            if (source.Reference is not null && additionaly.Reference is not null)
+            foreach (var pair in additionaly.Messages)
             {
-                throw new InvalidOperationException("Reference operation conflict");
+                mergedMessages[pair.Key] = pair.Value;
             }
 
-            var publishOperation = source.Publish ?? additionaly.Publish;
-            var subscribeOperation = source.Subscribe ?? additionaly.Subscribe;
-            var reference = source.Reference ?? additionaly.Reference;
-
-            if (reference is not null && (publishOperation is not null || subscribeOperation is not null))
+            var mergedParameters = new Dictionary<string, AsyncApiParameter>();
+            foreach (var pair in source.Parameters)
             {
-                throw new InvalidOperationException("Reference operation conflict");
+                mergedParameters[pair.Key] = pair.Value;
             }
 
-            var servers = source.Servers?.Any() == true
-                ? source.Servers
-                : additionaly.Servers
-                ?? new List<string>();
-
-            var bindings = source.Bindings?.Any() == true
-                ? source.Bindings
-                : additionaly.Bindings
-                ?? new();
-
-            var parameters = source.Parameters?.Any() == true
-                ? source.Parameters
-                : additionaly.Parameters
-                ?? new Dictionary<string, AsyncApiParameter>();
-
-            var extensions = source.Extensions?.Any() == true
-                ? source.Extensions
-                : additionaly.Extensions
-                ?? new Dictionary<string, IAsyncApiExtension>();
-
-            return new()
+            foreach (var pair in additionaly.Parameters)
             {
-                Publish = publishOperation,
-                Subscribe = subscribeOperation,
+                mergedParameters[pair.Key] = pair.Value;
+            }
 
-                Servers = servers,
-                Bindings = bindings,
-                Parameters = parameters,
-                Extensions = extensions,
-
-                Reference = reference,
+            return new AsyncApiChannel
+            {
+                Address = source.Address ?? additionaly.Address,
+                Title = source.Title ?? additionaly.Title,
+                Summary = source.Summary ?? additionaly.Summary,
                 Description = source.Description ?? additionaly.Description,
+                Messages = mergedMessages,
+                Parameters = mergedParameters,
+                Servers = source.Servers.Any() ? source.Servers : additionaly.Servers,
+                Tags = source.Tags.Any() ? source.Tags : additionaly.Tags,
+                Bindings = source.Bindings.Count > 0 ? source.Bindings : additionaly.Bindings,
+                ExternalDocs = source.ExternalDocs ?? additionaly.ExternalDocs,
+                Extensions = source.Extensions.Any() ? source.Extensions : additionaly.Extensions,
             };
         }
     }

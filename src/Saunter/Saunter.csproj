@@ -28,6 +28,7 @@
   <PropertyGroup>
     <DocumentationFile>bin\$(Configuration)\Saunter.xml</DocumentationFile>
     <NoWarn>1701;1702;1591</NoWarn>
+    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
   </PropertyGroup>
 
   <ItemGroup>
@@ -44,7 +45,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AsyncAPI.NET.Bindings" Version="5.2.1" />
+    <PackageReference Include="ByteBard.AsyncAPI.NET" Version="2.1.2" />
+    <PackageReference Include="ByteBard.AsyncAPI.NET.Readers" Version="2.1.2" />
+    <PackageReference Include="ByteBard.AsyncAPI.NET.Bindings" Version="2.1.2" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
     <PackageReference Include="Namotion.Reflection" Version="3.1.1" />
   </ItemGroup>

@@ -1,8 +1,9 @@
-﻿using System;
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using LEGO.AsyncAPI.Models;
+using ByteBard.AsyncAPI.Models;
 using Saunter.SharedKernel.Interfaces;
 
 namespace Saunter.SharedKernel
@@ -11,7 +12,26 @@ namespace Saunter.SharedKernel
     {
         public GeneratedSchemas? Generate(Type? type)
         {
-            return GenerateBranch(type, new());
+            var generatedSchemas = GenerateBranch(type, new HashSet<Type>());
+            if (generatedSchemas is null)
+            {
+                return null;
+            }
+
+            var allSchemas = new List<AsyncApiJsonSchema>();
+            if (!string.IsNullOrWhiteSpace(generatedSchemas.Value.Root.Title))
+            {
+                allSchemas.Add(generatedSchemas.Value.Root);
+            }
+
+            allSchemas.AddRange(generatedSchemas.Value.All);
+
+            return new(
+                generatedSchemas.Value.Root,
+                allSchemas
+                    .Where(schema => !string.IsNullOrWhiteSpace(schema.Title))
+                    .DistinctBy(schema => schema.Title)
+                    .ToArray());
         }
 
         private static GeneratedSchemas? GenerateBranch(Type? type, HashSet<Type> parents)
@@ -22,27 +42,19 @@ namespace Saunter.SharedKernel
             }
 
             var typeInfo = type.GetTypeInfo();
+            var isNullable = !typeInfo.IsValueType;
 
-            var schema = new AsyncApiSchema
+            if (Nullable.GetUnderlyingType(type) is Type underlyingType)
             {
-                Nullable = !typeInfo.IsValueType,
-            };
-
-            var nestedShemas = new List<AsyncApiSchema>()
-            {
-                schema
-            };
-
-            if (typeInfo.IsGenericType)
-            {
-                var nullableType = typeof(Nullable<>).MakeGenericType(typeInfo.GenericTypeArguments);
-
-                if (typeInfo == nullableType)
-                {
-                    schema.Nullable = true;
-                    typeInfo = typeInfo.GenericTypeArguments[0].GetTypeInfo();
-                }
+                type = underlyingType;
+                typeInfo = type.GetTypeInfo();
+                isNullable = true;
             }
+
+            var schema = new AsyncApiJsonSchema
+            {
+                Nullable = isNullable,
+            };
 
             var name = ToNameCase(typeInfo.Name);
 
@@ -56,7 +68,7 @@ namespace Saunter.SharedKernel
                     schema.Format = "enum";
                     schema.Enum = typeInfo
                         .GetEnumNames()
-                        .Select(e => new AsyncApiAny(e))
+                        .Select(value => new AsyncApiAny(value))
                         .ToList();
                 }
                 else
@@ -64,45 +76,71 @@ namespace Saunter.SharedKernel
                     schema.Format = schema.Title;
                 }
 
-                return new(schema, nestedShemas);
+                return new(schema, Array.Empty<AsyncApiJsonSchema>());
+            }
+
+            if (schema.Type == SchemaType.Array)
+            {
+                var itemSchemas = new List<AsyncApiJsonSchema>();
+                var itemType = GetEnumerableItemType(typeInfo);
+                var generatedItemSchema = GenerateBranch(itemType, parents);
+                if (generatedItemSchema is not null)
+                {
+                    schema.Items = generatedItemSchema.Value.Root;
+                    itemSchemas.AddRange(generatedItemSchema.Value.All);
+                }
+
+                return new(schema, itemSchemas.DistinctBy(n => n.Title).ToArray());
             }
 
             if (!parents.Add(type))
             {
-                schema = new()
-                {
-                    Title = name,
-                    Reference = new()
-                    {
-                        Id = name,
-                        Type = ReferenceType.Schema,
-                    }
-                };
-
-                // No new types have been created, so empty
-                return new(schema, Array.Empty<AsyncApiSchema>());
+                return new(
+                    new AsyncApiJsonSchemaReference($"#/components/schemas/{name}"),
+                    Array.Empty<AsyncApiJsonSchema>());
             }
 
+            var nestedSchemas = new List<AsyncApiJsonSchema> { schema };
             var properties = typeInfo
                 .DeclaredProperties
                 .Where(p => p.GetMethod is not null && !p.GetMethod.IsStatic);
 
             foreach (var prop in properties)
             {
-                var generatedSchemas = GenerateBranch(prop.PropertyType.GetTypeInfo(), parents);
+                var generatedSchemas = GenerateBranch(prop.PropertyType, parents);
                 if (generatedSchemas is null)
                 {
                     continue;
                 }
 
-                var key = ToNameCase(prop.Name);
-
-                schema.Properties[key] = generatedSchemas.Value.Root;
-
-                nestedShemas.AddRange(generatedSchemas.Value.All);
+                schema.Properties[ToNameCase(prop.Name)] = generatedSchemas.Value.Root;
+                nestedSchemas.AddRange(generatedSchemas.Value.All);
             }
 
-            return new(schema, nestedShemas.DistinctBy(n => n.Title).ToArray());
+            return new(schema, nestedSchemas.DistinctBy(n => n.Title).ToArray());
+        }
+
+        private static Type? GetEnumerableItemType(TypeInfo typeInfo)
+        {
+            if (typeInfo.IsArray)
+            {
+                return typeInfo.GetElementType();
+            }
+
+            if (typeInfo.IsGenericType && typeInfo.GenericTypeArguments.Length == 1)
+            {
+                var genericType = typeInfo.GetGenericTypeDefinition();
+                if (genericType == typeof(IEnumerable<>) || typeof(IEnumerable).IsAssignableFrom(typeInfo.AsType()))
+                {
+                    return typeInfo.GenericTypeArguments[0];
+                }
+            }
+
+            var enumerableInterface = typeInfo
+                .ImplementedInterfaces
+                .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+
+            return enumerableInterface?.GenericTypeArguments[0];
         }
 
         private static string ToNameCase(string name)
@@ -112,7 +150,7 @@ namespace Saunter.SharedKernel
 
         private static readonly TypeInfo s_boolTypeInfo = typeof(bool).GetTypeInfo();
 
-        private static readonly TypeInfo[] s_stringTypeInfos = new TypeInfo[]
+        private static readonly TypeInfo[] s_stringTypeInfos =
         {
             typeof(string).GetTypeInfo(),
             typeof(DateTime).GetTypeInfo(),
@@ -124,7 +162,7 @@ namespace Saunter.SharedKernel
             typeof(TimeOnly).GetTypeInfo(),
         };
 
-        private static readonly TypeInfo[] s_intergerTypeInfos = new TypeInfo[]
+        private static readonly TypeInfo[] s_integerTypeInfos =
         {
             typeof(byte).GetTypeInfo(),
             typeof(short).GetTypeInfo(),
@@ -135,7 +173,7 @@ namespace Saunter.SharedKernel
             typeof(ulong).GetTypeInfo(),
         };
 
-        private static readonly TypeInfo[] s_floatTypeInfos = new TypeInfo[]
+        private static readonly TypeInfo[] s_floatTypeInfos =
         {
             typeof(float).GetTypeInfo(),
             typeof(decimal).GetTypeInfo(),
@@ -159,7 +197,7 @@ namespace Saunter.SharedKernel
                 return SchemaType.String;
             }
 
-            if (s_intergerTypeInfos.Contains(typeInfo))
+            if (s_integerTypeInfos.Contains(typeInfo))
             {
                 return SchemaType.Integer;
             }
@@ -169,7 +207,7 @@ namespace Saunter.SharedKernel
                 return SchemaType.Number;
             }
 
-            if (typeInfo.IsArray || (typeInfo.IsGenericType && typeInfo.GetGenericTypeDefinition() == typeof(IEnumerable<>)))
+            if (typeInfo.IsArray || GetEnumerableItemType(typeInfo) is not null && typeInfo.AsType() != typeof(string))
             {
                 return SchemaType.Array;
             }

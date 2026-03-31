@@ -89,8 +89,8 @@ namespace StreetlightsAPI
         /// <summary>
         /// Inform about environmental lighting conditions for a particular streetlight.
         /// </summary>
-        [Channel(PublishLightMeasuredTopic, Servers = new[] { "webapi" })]
-        [PublishOperation(typeof(LightMeasuredEvent), "Light", BindingsRef = "postBind")]
+        [Channel("streetlights.measurement.send", PublishLightMeasuredTopic, Servers = new[] { "webapi" })]
+        [SendOperation(typeof(LightMeasuredEvent), "Light")]
         [HttpPost]
         [Route(PublishLightMeasuredTopic)]
         public void MeasureLight([FromBody] LightMeasuredEvent lightMeasuredEvent)

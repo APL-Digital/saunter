@@ -1,6 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using LEGO.AsyncAPI.Models;
+using ByteBard.AsyncAPI.Models;
 
 namespace Saunter.SharedKernel.Interfaces
 {
@@ -9,5 +9,5 @@ namespace Saunter.SharedKernel.Interfaces
         GeneratedSchemas? Generate(Type? type);
     }
 
-    public readonly record struct GeneratedSchemas(AsyncApiSchema Root, IReadOnlyCollection<AsyncApiSchema> All);
+    public readonly record struct GeneratedSchemas(AsyncApiJsonSchema Root, IReadOnlyCollection<AsyncApiJsonSchema> All);
 }
