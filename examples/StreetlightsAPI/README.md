@@ -22,7 +22,7 @@ Open:
 
 ## Example Request
 
-```bash
+```powershell
 Invoke-WebRequest -Method POST -Uri 'http://localhost:5000/publish/light/measured' -Body '{"id":1, "lumens":400}' -ContentType 'application/json'
 ```
 
@@ -60,10 +60,10 @@ The generated document is AsyncAPI v3 and uses root `operations`.
         "$ref": "#/channels/streetlights.measurement"
       }
     },
-    "StreetlightMessageBus.PublishLightMeasurement.receive": {
+    "ReceiveLightMeasurement": {
       "action": "receive",
       "channel": {
-        "$ref": "#/channels/streetlights.measurement"
+        "$ref": "#/channels/streetlights.measurement.receive"
       }
     }
   }

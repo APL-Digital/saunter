@@ -40,25 +40,7 @@ namespace Saunter.Tests.SharedKernel
                     },
                     TermsOfService = new("http://localhost:9202"),
                 },
-                Tags =
-                {
-                    new()
-                    {
-                        Name = "test",
-                        Description = "descriptions",
-                        ExternalDocs = new AsyncApiExternalDocumentation
-                        {
-                            Url = new("http://localhost:9203"),
-                            Description = "ExternalDocs",
-                        },
-                    }
-                },
                 DefaultContentType = "default/type",
-                ExternalDocs = new AsyncApiExternalDocumentation
-                {
-                    Url = new("http://localhost:9204"),
-                    Description = "tester",
-                },
                 Servers =
                 {
                     ["one"] = new AsyncApiServer
@@ -100,9 +82,6 @@ namespace Saunter.Tests.SharedKernel
                             Payload = new AsyncApiMultiFormatSchema
                             {
                                 Schema = new AsyncApiJsonSchemaReference("#/components/schemas/payload")
-                                {
-                                    Title = "payload"
-                                }
                             }
                         }
                     }

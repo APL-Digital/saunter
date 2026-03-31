@@ -37,6 +37,8 @@ namespace StreetlightsAPI
         /// Light intensity measured in lumens.
         /// </summary>
         public int Lumens { get; set; }
+        public int? Lumenss { get; set; }
+        public required int Lumensss { get; set; }
 
         /// <summary>
         /// Light intensity measured in lumens.
@@ -90,7 +92,7 @@ namespace StreetlightsAPI
         /// Inform about environmental lighting conditions for a particular streetlight.
         /// </summary>
         [Channel("streetlights.measurement.send", PublishLightMeasuredTopic, Servers = new[] { "webapi" })]
-        [SendOperation(typeof(LightMeasuredEvent), "Light")]
+        [SendOperation(typeof(LightMeasuredEvent), OperationId = "MeasureLight")]
         [HttpPost]
         [Route(PublishLightMeasuredTopic)]
         public void MeasureLight([FromBody] LightMeasuredEvent lightMeasuredEvent)
@@ -107,7 +109,7 @@ namespace StreetlightsAPI
                 streetlight.LightIntensity.Add(new(lightMeasuredEvent.SentAt, lightMeasuredEvent.Lumens));
 
                 // Re-publish messages we receive
-                _streetlightMessageBus.PublishLightMeasurement(lightMeasuredEvent);
+                _streetlightMessageBus.ReceiveLightMeasurement(lightMeasuredEvent);
             }
         }
     }

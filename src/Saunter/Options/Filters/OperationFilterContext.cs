@@ -5,13 +5,13 @@ namespace Saunter.Options.Filters
 {
     public class OperationFilterContext
     {
-        public OperationFilterContext(MethodInfo method, OperationAttribute operation)
+        public OperationFilterContext(MemberInfo member, OperationAttribute operation)
         {
-            Method = method;
+            Member = member;
             Operation = operation;
         }
 
-        public MethodInfo Method { get; }
+        public MemberInfo Member { get; }
 
         public OperationAttribute Operation { get; }
     }

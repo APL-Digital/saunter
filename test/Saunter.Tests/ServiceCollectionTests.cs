@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using ByteBard.AsyncAPI.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Saunter.Options;
@@ -37,18 +38,13 @@ namespace Saunter.Tests
                         },
                         TermsOfService = new("https://mwild.me/tos"),
                     },
-                    Tags =
-                    {
-                        new() { Name = "example" },
-                        new() { Name = "event" }
-                    },
                     Servers =
                     {
                         ["development"] = new AsyncApiServer
                         {
                             Protocol = "amqp",
                             Host = "rabbitmq.dev.mwild.me",
-                            Security = new()
+                            Security = new List<AsyncApiSecurityScheme>()
                         }
                     },
                     Components = new()

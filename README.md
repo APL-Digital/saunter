@@ -88,8 +88,8 @@ See [examples/StreetlightsAPI](https://github.com/asyncapi/saunter/tree/main/exa
    public class StreetlightMessageBus : IStreetlightMessageBus
    {
        [Channel("streetlights.measurement", "subscribe/light/measured", BindingsRef = "amqpDev")]
-       [ReceiveOperation(typeof(LightMeasuredEvent), "Light", Summary = "Subscribe to environmental lighting conditions for a particular streetlight.", BindingsRef = "postBind")]
-       public void PublishLightMeasurement(LightMeasuredEvent lightMeasuredEvent) { }
+       [ReceiveOperation(typeof(LightMeasuredEvent), OperationId = "Light", Summary = "Subscribe to environmental lighting conditions for a particular streetlight.", BindingsRef = "postBind")]
+       public void ReceiveLightMeasurement(LightMeasuredEvent lightMeasuredEvent) { }
    }
    ```
 
@@ -120,7 +120,7 @@ See [examples/StreetlightsAPI](https://github.com/asyncapi/saunter/tree/main/exa
        }
      },
      "operations": {
-       "PublishLightMeasurement.receive": {
+       "Light": {
          "action": "receive"
        }
      }

@@ -21,8 +21,11 @@ namespace Saunter.AttributeProvider.Attributes
 
         public ChannelAttribute(string channelId, string address)
         {
-            ChannelId = channelId ?? throw new ArgumentNullException(nameof(channelId));
-            Address = address ?? throw new ArgumentNullException(nameof(address));
+            ArgumentNullException.ThrowIfNull(channelId);
+            ArgumentNullException.ThrowIfNull(address);
+
+            ChannelId = channelId;
+            Address = address;
             Servers = Array.Empty<string>();
         }
 

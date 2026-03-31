@@ -82,21 +82,24 @@ namespace Saunter.AttributeProvider
             foreach (var item in methodsWithChannelAttribute)
             {
                 var channel = item.Channel!;
-                var messageRefs = GenerateMessagesFromMethod(components, item.Method);
-                var channelItem = CreateChannel(channel, messageRefs);
+                var operationMessages = GetOperationAttributes(item.Method)
+                    .ToDictionary(
+                        operationAttribute => operationAttribute,
+                        operationAttribute => ResolveMessagesForOperation(components, item.Method, operationAttribute));
+                var channelItem = CreateChannel(channel, UnionMessageReferences(operationMessages.Values));
                 PopulateChannelParameters(components, item.Method, channelItem);
 
                 ApplyChannelFilters(options, item.Method, channel, channelItem);
 
-                foreach (var operationAttribute in GetOperationAttributes(item.Method))
+                foreach (var pair in operationMessages)
                 {
-                    var operation = CreateOperation(item.Method, operationAttribute, channel.ChannelId, messageRefs);
-                    ApplyOperationFilters(item.Method, options, operationAttribute, operation);
+                    var operation = CreateOperation(item.Method, pair.Key, channel.ChannelId, pair.Value);
+                    ApplyOperationFilters(item.Method, options, pair.Key, operation);
 
                     yield return new GeneratedOperation(
                         channel.ChannelId,
                         channelItem,
-                        GetOperationId(operationAttribute, item.Method, operationAttribute.Action),
+                        GetOperationId(pair.Key, item.Method, pair.Key.Action),
                         operation);
                 }
             }
@@ -115,20 +118,24 @@ namespace Saunter.AttributeProvider
             foreach (var item in classesWithChannelAttribute)
             {
                 var channel = item.Channel!;
-                var messageRefs = GenerateMessagesFromType(components, item.Type);
-                var channelItem = CreateChannel(channel, messageRefs);
+                var operationMessages = GetOperationAttributes(item.Type)
+                    .ToDictionary(
+                        operationAttribute => operationAttribute,
+                        operationAttribute => ResolveMessagesForOperation(components, item.Type, operationAttribute));
+                var channelItem = CreateChannel(channel, UnionMessageReferences(operationMessages.Values));
                 PopulateChannelParameters(components, item.Type, channelItem);
 
                 ApplyChannelFilters(options, item.Type, channel, channelItem);
 
-                foreach (var operationAttribute in GetOperationAttributes(item.Type))
+                foreach (var pair in operationMessages)
                 {
-                    var operation = CreateOperation(item.Type, operationAttribute, channel.ChannelId, messageRefs);
+                    var operation = CreateOperation(item.Type, pair.Key, channel.ChannelId, pair.Value);
+                    ApplyOperationFilters(item.Type, options, pair.Key, operation);
 
                     yield return new GeneratedOperation(
                         channel.ChannelId,
                         channelItem,
-                        GetOperationId(operationAttribute, item.Type, operationAttribute.Action),
+                        GetOperationId(pair.Key, item.Type, pair.Key.Action),
                         operation);
                 }
             }
@@ -197,9 +204,9 @@ namespace Saunter.AttributeProvider
             };
         }
 
-        private void ApplyOperationFilters(MethodInfo method, AsyncApiOptions options, OperationAttribute operationAttribute, AsyncApiOperation operation)
+        private void ApplyOperationFilters(MemberInfo member, AsyncApiOptions options, OperationAttribute operationAttribute, AsyncApiOperation operation)
         {
-            var filterContext = new OperationFilterContext(method, operationAttribute);
+            var filterContext = new OperationFilterContext(member, operationAttribute);
 
             foreach (var filterType in options.OperationFilters)
             {
@@ -208,20 +215,15 @@ namespace Saunter.AttributeProvider
             }
         }
 
-        private IReadOnlyList<AsyncApiMessageReference> GenerateMessagesFromMethod(AsyncApiComponents components, MethodInfo method)
+        private IReadOnlyList<AsyncApiMessageReference> ResolveMessagesForOperation(AsyncApiComponents components, MethodInfo method, OperationAttribute operationAttribute)
         {
             var messageAttributes = method.GetCustomAttributes<MessageAttribute>().ToArray();
             if (messageAttributes.Any())
             {
-                return messageAttributes
-                    .Select(attribute => GenerateMessageFromAttribute(components, attribute))
-                    .Where(message => message != null)
-                    .Cast<AsyncApiMessageReference>()
-                    .ToList();
+                return GenerateMessagesFromAttributes(components, messageAttributes);
             }
 
-            var operationAttribute = GetOperationAttributes(method).FirstOrDefault();
-            if (operationAttribute?.MessagePayloadType is not null)
+            if (operationAttribute.MessagePayloadType is not null)
             {
                 return GenerateMessageFromType(components, operationAttribute.MessagePayloadType.GetTypeInfo());
             }
@@ -229,7 +231,7 @@ namespace Saunter.AttributeProvider
             return Array.Empty<AsyncApiMessageReference>();
         }
 
-        private IReadOnlyList<AsyncApiMessageReference> GenerateMessagesFromType(AsyncApiComponents components, TypeInfo type)
+        private IReadOnlyList<AsyncApiMessageReference> ResolveMessagesForOperation(AsyncApiComponents components, TypeInfo type, OperationAttribute operationAttribute)
         {
             var messageAttributes = type
                 .DeclaredMethods
@@ -238,20 +240,24 @@ namespace Saunter.AttributeProvider
 
             if (messageAttributes.Any())
             {
-                return messageAttributes
-                    .Select(attribute => GenerateMessageFromAttribute(components, attribute))
-                    .Where(message => message != null)
-                    .Cast<AsyncApiMessageReference>()
-                    .ToList();
+                return GenerateMessagesFromAttributes(components, messageAttributes);
             }
 
-            var operationAttribute = GetOperationAttributes(type).FirstOrDefault();
-            if (operationAttribute?.MessagePayloadType is not null)
+            if (operationAttribute.MessagePayloadType is not null)
             {
                 return GenerateMessageFromType(components, operationAttribute.MessagePayloadType.GetTypeInfo());
             }
 
             return Array.Empty<AsyncApiMessageReference>();
+        }
+
+        private IReadOnlyList<AsyncApiMessageReference> GenerateMessagesFromAttributes(AsyncApiComponents components, IEnumerable<MessageAttribute> messageAttributes)
+        {
+            return messageAttributes
+                .Select(attribute => GenerateMessageFromAttribute(components, attribute))
+                .Where(message => message != null)
+                .Cast<AsyncApiMessageReference>()
+                .ToList();
         }
 
         private List<AsyncApiMessageReference> GenerateMessageFromType(AsyncApiComponents components, TypeInfo payloadType)
@@ -338,6 +344,14 @@ namespace Saunter.AttributeProvider
             return messageReferences
                 .Select(messageReference => new AsyncApiMessageReference(
                     $"#/channels/{channelId}/messages/{GetReferenceKey(messageReference.Reference.Reference)}"))
+                .ToList();
+        }
+
+        private static IReadOnlyList<AsyncApiMessageReference> UnionMessageReferences(IEnumerable<IReadOnlyList<AsyncApiMessageReference>> messageSets)
+        {
+            return messageSets
+                .SelectMany(messages => messages)
+                .DistinctBy(message => message.Reference.Reference)
                 .ToList();
         }
 

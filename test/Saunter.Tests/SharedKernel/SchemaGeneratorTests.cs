@@ -1,4 +1,5 @@
 ﻿using System;
+#nullable enable
 using System.Linq;
 using ByteBard.AsyncAPI.Models;
 using Saunter.SharedKernel;
@@ -10,46 +11,46 @@ namespace Saunter.Tests.SharedKernel
     public class SchemaGeneratorTests
     {
         [Theory]
-        [InlineData(typeof(bool), "boolean", SchemaType.Boolean, false)]
-        [InlineData(typeof(byte), "byte", SchemaType.Integer, false)]
-        [InlineData(typeof(short), "int16", SchemaType.Integer, false)]
-        [InlineData(typeof(ushort), "uInt16", SchemaType.Integer, false)]
-        [InlineData(typeof(int), "int32", SchemaType.Integer, false)]
-        [InlineData(typeof(uint), "uInt32", SchemaType.Integer, false)]
-        [InlineData(typeof(long), "int64", SchemaType.Integer, false)]
-        [InlineData(typeof(ulong), "uInt64", SchemaType.Integer, false)]
-        [InlineData(typeof(decimal), "decimal", SchemaType.Number, false)]
-        [InlineData(typeof(float), "single", SchemaType.Number, false)]
-        [InlineData(typeof(double), "double", SchemaType.Number, false)]
-        [InlineData(typeof(bool?), "boolean", SchemaType.Boolean, true)]
-        [InlineData(typeof(byte?), "byte", SchemaType.Integer, true)]
-        [InlineData(typeof(short?), "int16", SchemaType.Integer, true)]
-        [InlineData(typeof(ushort?), "uInt16", SchemaType.Integer, true)]
-        [InlineData(typeof(int?), "int32", SchemaType.Integer, true)]
-        [InlineData(typeof(uint?), "uInt32", SchemaType.Integer, true)]
-        [InlineData(typeof(long?), "int64", SchemaType.Integer, true)]
-        [InlineData(typeof(ulong?), "uInt64", SchemaType.Integer, true)]
-        [InlineData(typeof(decimal?), "decimal", SchemaType.Number, true)]
-        [InlineData(typeof(float?), "single", SchemaType.Number, true)]
-        [InlineData(typeof(double?), "double", SchemaType.Number, true)]
-        [InlineData(typeof(string), "string", SchemaType.String, true)]
-        [InlineData(typeof(DateTime), "dateTime", SchemaType.String, false)]
-        [InlineData(typeof(DateTimeOffset), "dateTimeOffset", SchemaType.String, false)]
-        [InlineData(typeof(DateOnly), "dateOnly", SchemaType.String, false)]
-        [InlineData(typeof(TimeOnly), "timeOnly", SchemaType.String, false)]
-        [InlineData(typeof(TimeSpan), "timeSpan", SchemaType.String, false)]
-        [InlineData(typeof(Guid), "guid", SchemaType.String, false)]
-        [InlineData(typeof(DateTime?), "dateTime", SchemaType.String, true)]
-        [InlineData(typeof(DateTimeOffset?), "dateTimeOffset", SchemaType.String, true)]
-        [InlineData(typeof(DateOnly?), "dateOnly", SchemaType.String, true)]
-        [InlineData(typeof(TimeOnly?), "timeOnly", SchemaType.String, true)]
-        [InlineData(typeof(TimeSpan?), "timeSpan", SchemaType.String, true)]
-        [InlineData(typeof(Guid?), "guid", SchemaType.String, true)]
-        [InlineData(typeof(Uri), "uri", SchemaType.String, true)]
-        [InlineData(typeof(object), null, SchemaType.Object, true)]
-        [InlineData(typeof(int[]), null, SchemaType.Array, true)]
-        [InlineData(typeof(object[]), null, SchemaType.Array, true)]
-        public void AsyncApiSchemaGenerator_OnGeneratePrimitive_SchemaTypeAndNameIsMatch(Type type, string format, SchemaType schemaType, bool nullable)
+        [InlineData(typeof(bool), "boolean", SchemaType.Boolean, false, 1)]
+        [InlineData(typeof(byte), "byte", SchemaType.Integer, false, 1)]
+        [InlineData(typeof(short), "int16", SchemaType.Integer, false, 1)]
+        [InlineData(typeof(ushort), "uInt16", SchemaType.Integer, false, 1)]
+        [InlineData(typeof(int), "int32", SchemaType.Integer, false, 1)]
+        [InlineData(typeof(uint), "uInt32", SchemaType.Integer, false, 1)]
+        [InlineData(typeof(long), "int64", SchemaType.Integer, false, 1)]
+        [InlineData(typeof(ulong), "uInt64", SchemaType.Integer, false, 1)]
+        [InlineData(typeof(decimal), "decimal", SchemaType.Number, false, 1)]
+        [InlineData(typeof(float), "single", SchemaType.Number, false, 1)]
+        [InlineData(typeof(double), "double", SchemaType.Number, false, 1)]
+        [InlineData(typeof(bool?), "boolean", SchemaType.Boolean, true, 1)]
+        [InlineData(typeof(byte?), "byte", SchemaType.Integer, true, 1)]
+        [InlineData(typeof(short?), "int16", SchemaType.Integer, true, 1)]
+        [InlineData(typeof(ushort?), "uInt16", SchemaType.Integer, true, 1)]
+        [InlineData(typeof(int?), "int32", SchemaType.Integer, true, 1)]
+        [InlineData(typeof(uint?), "uInt32", SchemaType.Integer, true, 1)]
+        [InlineData(typeof(long?), "int64", SchemaType.Integer, true, 1)]
+        [InlineData(typeof(ulong?), "uInt64", SchemaType.Integer, true, 1)]
+        [InlineData(typeof(decimal?), "decimal", SchemaType.Number, true, 1)]
+        [InlineData(typeof(float?), "single", SchemaType.Number, true, 1)]
+        [InlineData(typeof(double?), "double", SchemaType.Number, true, 1)]
+        [InlineData(typeof(string), "string", SchemaType.String, true, 1)]
+        [InlineData(typeof(DateTime), "dateTime", SchemaType.String, false, 1)]
+        [InlineData(typeof(DateTimeOffset), "dateTimeOffset", SchemaType.String, false, 1)]
+        [InlineData(typeof(DateOnly), "dateOnly", SchemaType.String, false, 1)]
+        [InlineData(typeof(TimeOnly), "timeOnly", SchemaType.String, false, 1)]
+        [InlineData(typeof(TimeSpan), "timeSpan", SchemaType.String, false, 1)]
+        [InlineData(typeof(Guid), "guid", SchemaType.String, false, 1)]
+        [InlineData(typeof(DateTime?), "dateTime", SchemaType.String, true, 1)]
+        [InlineData(typeof(DateTimeOffset?), "dateTimeOffset", SchemaType.String, true, 1)]
+        [InlineData(typeof(DateOnly?), "dateOnly", SchemaType.String, true, 1)]
+        [InlineData(typeof(TimeOnly?), "timeOnly", SchemaType.String, true, 1)]
+        [InlineData(typeof(TimeSpan?), "timeSpan", SchemaType.String, true, 1)]
+        [InlineData(typeof(Guid?), "guid", SchemaType.String, true, 1)]
+        [InlineData(typeof(Uri), "uri", SchemaType.String, true, 1)]
+        [InlineData(typeof(object), null, SchemaType.Object, true, 1)]
+        [InlineData(typeof(int[]), null, SchemaType.Array, true, 1)]
+        [InlineData(typeof(object[]), null, SchemaType.Array, true, 2)]
+        public void AsyncApiSchemaGenerator_OnGeneratePrimitive_SchemaTypeAndNameIsMatch(Type type, string format, SchemaType schemaType, bool nullable, int schemaCount)
         {
             // Arrange
             AsyncApiSchemaGenerator generator = new();
@@ -59,7 +60,7 @@ namespace Saunter.Tests.SharedKernel
 
             // Assert
             schema.ShouldNotBeNull();
-            schema.Value.All.Count.ShouldBe(1);
+            schema.Value.All.Count.ShouldBe(schemaCount);
             schema.Value.Root.Properties.ShouldBeEmpty();
             schema.Value.Root.Format.ShouldBe(format);
             schema.Value.Root.Type.ShouldBe(schemaType);
@@ -81,6 +82,7 @@ namespace Saunter.Tests.SharedKernel
             schema.Value.All.Count.ShouldBe(2);
             schema.Value.All.Select(x => x.Title).ShouldBe(new[] { "foo", "bar" }, ignoreOrder: true);
             schema.Value.Root.Properties.Count.ShouldBe(7);
+            schema.Value.Root.Required.ShouldBe(new[] { "id", "myUri", "bar", "helloWorld", "timestamp", "fooType" }, ignoreOrder: true);
 
             schema.Value.Root.Properties.ShouldContainKey("id");
             var id = schema.Value.Root.Properties["id"];
@@ -94,20 +96,22 @@ namespace Saunter.Tests.SharedKernel
             myUri.Type.ShouldBe(SchemaType.String);
             myUri.Format.ShouldBe("uri");
             myUri.Title.ShouldBe("uri");
-            myUri.Nullable.ShouldBeTrue();
+            myUri.Nullable.ShouldBeFalse();
 
             schema.Value.Root.Properties.ShouldContainKey("bar");
             var bar = schema.Value.Root.Properties["bar"];
             bar.Type.ShouldBe(SchemaType.Object);
             bar.Title.ShouldBe("bar");
             bar.Format.ShouldBeNull();
+            bar.Nullable.ShouldBeFalse();
+            bar.Required.ShouldBe(new[] { "name" });
 
             bar.Properties.ShouldContainKey("name");
             var barName = bar.Properties["name"];
             barName.Type.ShouldBe(SchemaType.String);
             barName.Title.ShouldBe("string");
             barName.Format.ShouldBe("string");
-            barName.Nullable.ShouldBeTrue();
+            barName.Nullable.ShouldBeFalse();
 
             bar.Properties.ShouldContainKey("cost");
             var barCost = bar.Properties["cost"];
@@ -121,7 +125,7 @@ namespace Saunter.Tests.SharedKernel
             helloWorld.Type.ShouldBe(SchemaType.String);
             helloWorld.Title.ShouldBe("string");
             helloWorld.Format.ShouldBe("string");
-            helloWorld.Nullable.ShouldBeTrue();
+            helloWorld.Nullable.ShouldBeFalse();
 
             schema.Value.Root.Properties.ShouldContainKey("helloWorld2");
             var helloWorld2 = schema.Value.Root.Properties["helloWorld2"];
@@ -170,24 +174,24 @@ namespace Saunter.Tests.SharedKernel
             schema.Value.Root.Properties.ShouldContainKey("ultraLoop2");
 
             var loop = schema.Value.Root.Properties["ultraLoop"];
-            loop.Reference.ShouldNotBeNull();
-            loop.Reference.Id.ShouldBe("loop");
-            loop.Reference.Type.ShouldBe(ReferenceType.Schema);
+            var loopReference = loop.ShouldBeOfType<AsyncApiJsonSchemaReference>();
+            loopReference.Reference.Reference.ShouldBe("#/components/schemas/loop");
 
             var loop2 = schema.Value.Root.Properties["ultraLoop2"];
-            loop2.Reference.ShouldNotBeNull();
-            loop2.Reference.Id.ShouldBe("loop");
-            loop2.Reference.Type.ShouldBe(ReferenceType.Schema);
+            loop2.Nullable.ShouldBeTrue();
+            loop2.AllOf.Count.ShouldBe(1);
+            var loop2Reference = loop2.AllOf.Single().ShouldBeOfType<AsyncApiJsonSchemaReference>();
+            loop2Reference.Reference.Reference.ShouldBe("#/components/schemas/loop");
         }
     }
 
     public class Foo
     {
         public Guid Id { get; set; }
-        public Uri MyUri { get; set; }
-        public Bar Bar { get; set; }
-        public string HelloWorld { get; set; }
-        public string HelloWorld2 { get; set; }
+        public Uri MyUri { get; set; } = null!;
+        public Bar Bar { get; set; } = null!;
+        public string HelloWorld { get; set; } = null!;
+        public string? HelloWorld2 { get; set; }
         public DateTimeOffset Timestamp { get; set; }
         public FooType FooType { get; set; }
     }
@@ -196,13 +200,13 @@ namespace Saunter.Tests.SharedKernel
 
     public class Bar
     {
-        public string Name { get; set; }
+        public string Name { get; set; } = null!;
         public decimal? Cost { get; set; }
     }
 
     public class Loop
     {
-        public Loop UltraLoop { get; set; }
-        public Loop UltraLoop2 { get; set; }
+        public Loop UltraLoop { get; set; } = null!;
+        public Loop? UltraLoop2 { get; set; }
     }
 }

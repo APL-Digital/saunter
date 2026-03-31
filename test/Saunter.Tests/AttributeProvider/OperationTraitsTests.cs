@@ -1,21 +1,26 @@
 using ByteBard.AsyncAPI.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Saunter.AttributeProvider.Attributes;
 using Saunter.Options;
 using Saunter.Options.Filters;
 using Shouldly;
+using System.Linq;
 using Xunit;
 
 namespace Saunter.Tests.AttributeProvider
 {
     public class OperationTraitsTests
     {
+        private const string DocumentName = "operation-traits";
+
         [Fact]
         public void Example_OperationTraits()
         {
             var services = new ServiceCollection();
 
             services.AddFakeLogging();
+            services.AddTransient<TestOperationTraitsFilter>();
             services.AddAsyncApiSchemaGeneration(o =>
             {
                 o.AsyncApi = new AsyncApiDocument
@@ -43,10 +48,13 @@ namespace Saunter.Tests.AttributeProvider
 
             var documentProvider = serviceprovider.GetRequiredService<IAsyncApiDocumentProvider>();
             var options = serviceprovider.GetRequiredService<IOptions<AsyncApiOptions>>().Value;
-            var document = documentProvider.GetDocument(null, options);
+            var document = documentProvider.GetDocument(DocumentName, options);
 
             document.Components.OperationTraits.ShouldContainKey("exampleTrait");
             document.Operations.ShouldContainKey("AnnotatedOperation");
+            document.Operations["AnnotatedOperation"].Traits.Any(trait =>
+                trait is AsyncApiOperationTraitReference reference
+                && reference.Reference.Reference == "#/components/operationTraits/exampleTrait").ShouldBeTrue();
         }
 
         private class TestOperationTraitsFilter : IOperationFilter
@@ -57,7 +65,7 @@ namespace Saunter.Tests.AttributeProvider
             }
         }
 
-        [AsyncApi]
+        [AsyncApi("operation-traits")]
         [Channel("trait.example", "trait.example")]
         [SendOperation(OperationId = "AnnotatedOperation")]
         private class AnnotatedOperation

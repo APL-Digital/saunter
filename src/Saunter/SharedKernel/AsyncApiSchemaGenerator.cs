@@ -10,6 +10,8 @@ namespace Saunter.SharedKernel
 {
     internal class AsyncApiSchemaGenerator : IAsyncApiSchemaGenerator
     {
+        private static readonly NullabilityInfoContext s_nullabilityInfoContext = new();
+
         public GeneratedSchemas? Generate(Type? type)
         {
             var generatedSchemas = GenerateBranch(type, new HashSet<Type>());
@@ -34,7 +36,7 @@ namespace Saunter.SharedKernel
                     .ToArray());
         }
 
-        private static GeneratedSchemas? GenerateBranch(Type? type, HashSet<Type> parents)
+        private static GeneratedSchemas? GenerateBranch(Type? type, HashSet<Type> parents, NullabilityInfo? nullabilityInfo = null)
         {
             if (type is null)
             {
@@ -42,7 +44,7 @@ namespace Saunter.SharedKernel
             }
 
             var typeInfo = type.GetTypeInfo();
-            var isNullable = !typeInfo.IsValueType;
+            var isNullable = IsNullable(typeInfo, nullabilityInfo);
 
             if (Nullable.GetUnderlyingType(type) is Type underlyingType)
             {
@@ -83,7 +85,7 @@ namespace Saunter.SharedKernel
             {
                 var itemSchemas = new List<AsyncApiJsonSchema>();
                 var itemType = GetEnumerableItemType(typeInfo);
-                var generatedItemSchema = GenerateBranch(itemType, parents);
+                var generatedItemSchema = GenerateBranch(itemType, parents, GetItemNullabilityInfo(nullabilityInfo));
                 if (generatedItemSchema is not null)
                 {
                     schema.Items = generatedItemSchema.Value.Root;
@@ -95,9 +97,19 @@ namespace Saunter.SharedKernel
 
             if (!parents.Add(type))
             {
-                return new(
-                    new AsyncApiJsonSchemaReference($"#/components/schemas/{name}"),
-                    Array.Empty<AsyncApiJsonSchema>());
+                var referenceSchema = new AsyncApiJsonSchemaReference($"#/components/schemas/{name}");
+                if (!isNullable)
+                {
+                    return new(referenceSchema, Array.Empty<AsyncApiJsonSchema>());
+                }
+
+                var nullableReferenceSchema = new AsyncApiJsonSchema
+                {
+                    Nullable = true,
+                };
+                nullableReferenceSchema.AllOf.Add(referenceSchema);
+
+                return new(nullableReferenceSchema, Array.Empty<AsyncApiJsonSchema>());
             }
 
             var nestedSchemas = new List<AsyncApiJsonSchema> { schema };
@@ -107,13 +119,20 @@ namespace Saunter.SharedKernel
 
             foreach (var prop in properties)
             {
-                var generatedSchemas = GenerateBranch(prop.PropertyType, parents);
+                var propertyNullability = s_nullabilityInfoContext.Create(prop);
+                var generatedSchemas = GenerateBranch(prop.PropertyType, parents, propertyNullability);
                 if (generatedSchemas is null)
                 {
                     continue;
                 }
 
-                schema.Properties[ToNameCase(prop.Name)] = generatedSchemas.Value.Root;
+                var propertyName = ToNameCase(prop.Name);
+                schema.Properties[propertyName] = generatedSchemas.Value.Root;
+                if (IsRequiredProperty(prop, propertyNullability))
+                {
+                    schema.Required.Add(propertyName);
+                }
+
                 nestedSchemas.AddRange(generatedSchemas.Value.All);
             }
 
@@ -146,6 +165,62 @@ namespace Saunter.SharedKernel
         private static string ToNameCase(string name)
         {
             return char.ToLowerInvariant(name[0]) + name[1..];
+        }
+
+        private static bool IsNullable(TypeInfo typeInfo, NullabilityInfo? nullabilityInfo)
+        {
+            if (Nullable.GetUnderlyingType(typeInfo.AsType()) is not null)
+            {
+                return true;
+            }
+
+            if (typeInfo.IsValueType)
+            {
+                return false;
+            }
+
+            return nullabilityInfo?.ReadState switch
+            {
+                NullabilityState.Nullable => true,
+                NullabilityState.NotNull => false,
+                _ => true,
+            };
+        }
+
+        private static bool IsRequiredProperty(PropertyInfo propertyInfo, NullabilityInfo nullabilityInfo)
+        {
+            if (!propertyInfo.CanRead)
+            {
+                return false;
+            }
+
+            if (Nullable.GetUnderlyingType(propertyInfo.PropertyType) is not null)
+            {
+                return false;
+            }
+
+            var propertyTypeInfo = propertyInfo.PropertyType.GetTypeInfo();
+            if (propertyTypeInfo.IsValueType)
+            {
+                return true;
+            }
+
+            return nullabilityInfo.ReadState == NullabilityState.NotNull;
+        }
+
+        private static NullabilityInfo? GetItemNullabilityInfo(NullabilityInfo? nullabilityInfo)
+        {
+            if (nullabilityInfo is null)
+            {
+                return null;
+            }
+
+            if (nullabilityInfo.ElementType is not null)
+            {
+                return nullabilityInfo.ElementType;
+            }
+
+            return nullabilityInfo.GenericTypeArguments.FirstOrDefault();
         }
 
         private static readonly TypeInfo s_boolTypeInfo = typeof(bool).GetTypeInfo();

@@ -36,10 +36,10 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
 
             document.ShouldNotBeNull();
             var channel = document.AssertAndGetChannel("asw.tenant_service.tenants_history", "asw.tenant_service.tenants_history");
-            document.AssertChannelMessages(channel, "anyTenantCreated", "anyTenantUpdated", "anyTenantRemoved");
+            document.AssertChannelMessages(channel, "tenantCreated", "tenantUpdated", "tenantRemoved");
 
             var send = document.AssertAndGetOperation("TenantMessagePublisher", AsyncApiAction.Send);
-            document.AssertByMessage(send, "anyTenantCreated", "anyTenantUpdated", "anyTenantRemoved");
+            document.AssertByMessage(send, "tenantCreated", "tenantUpdated", "tenantRemoved");
         }
 
         [Theory]
@@ -77,6 +77,24 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
 
             var receive = document.AssertAndGetOperation("OneTenantMessageConsumer", AsyncApiAction.Receive);
             document.AssertByMessage(receive, "tenantCreated", "tenantUpdated", "tenantRemoved");
+        }
+
+        [Fact]
+        public void GenerateDocument_ResolvesMessagesPerOperationOnType()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(MixedOperationTypePublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            document.ShouldNotBeNull();
+            var channel = document.AssertAndGetChannel("mixed.operation.type", "mixed.operation.type");
+            document.AssertChannelMessages(channel, "anyTenantCreated", "anyTenantUpdated");
+
+            var send = document.AssertAndGetOperation("TypeSend", AsyncApiAction.Send);
+            document.AssertByMessage(send, "anyTenantCreated");
+
+            var receive = document.AssertAndGetOperation("TypeReceive", AsyncApiAction.Receive);
+            document.AssertByMessage(receive, "anyTenantUpdated");
         }
 
         [AsyncApi]
@@ -209,6 +227,17 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
 
             [Message(typeof(TenantRemoved))]
             void ReceiveTenantRemovedEvent(Guid _, TenantRemoved __);
+        }
+
+        [AsyncApi]
+        [Channel("mixed.operation.type", "mixed.operation.type")]
+        [SendOperation(typeof(AnyTenantCreated), OperationId = "TypeSend")]
+        [ReceiveOperation(typeof(AnyTenantUpdated), OperationId = "TypeReceive")]
+        public class MixedOperationTypePublisher
+        {
+            public void PublishOrReceive()
+            {
+            }
         }
     }
 

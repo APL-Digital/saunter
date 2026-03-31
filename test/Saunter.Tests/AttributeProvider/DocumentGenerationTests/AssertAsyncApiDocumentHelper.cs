@@ -36,8 +36,9 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
 
             foreach (var messageId in messageIds)
             {
-                operation.Messages.ShouldContain(message => message.Reference.Reference.EndsWith($"/{messageId}"));
-                operation.Messages.ShouldContain(message => message.Reference.Reference.Contains("/channels/"));
+                operation.Messages.ShouldContain(message =>
+                    message.Reference.Reference.Contains("/channels/")
+                    && message.Reference.Reference.EndsWith($"/{messageId}"));
                 document.Components.Messages.ShouldContainKey(messageId);
                 document.Components.Schemas.ShouldContainKey(messageId);
             }

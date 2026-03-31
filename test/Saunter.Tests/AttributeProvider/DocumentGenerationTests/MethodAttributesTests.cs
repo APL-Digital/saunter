@@ -1,6 +1,7 @@
 using System;
 using ByteBard.AsyncAPI.Bindings.Kafka;
 using ByteBard.AsyncAPI.Models;
+using ByteBard.AsyncAPI.Models.Interfaces;
 using Saunter.AttributeProvider.Attributes;
 using Shouldly;
 using Xunit;
@@ -52,10 +53,29 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             var channel = document.AssertAndGetChannel("asw.tenant_service.tenants_history.with_bind", "asw.tenant_service.tenants_history.with_bind");
             var send = document.AssertAndGetOperation("TenantMessagePublisher", AsyncApiAction.Send);
 
-            send.Bindings.Reference.Reference.ShouldBe("#/components/operationBindings/sample_kaffka");
+            var bindingsReference = send.Bindings.ShouldBeOfType<AsyncApiBindingsReference<IOperationBinding>>();
+            bindingsReference.Reference.Reference.ShouldBe("#/components/operationBindings/sample_kaffka");
             document.AssertByMessage(send, "anyTenantCreated");
             document.Components.OperationBindings.ShouldContainKey("sample_kaffka");
             document.Components.OperationBindings["sample_kaffka"]["kafka"].ShouldBeOfType<KafkaOperationBinding>();
+        }
+
+        [Fact]
+        public void GenerateDocument_ResolvesMessagesPerOperationOnMethod()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(MixedOperationMethodPublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            document.ShouldNotBeNull();
+            var channel = document.AssertAndGetChannel("mixed.operation.method", "mixed.operation.method");
+            document.AssertChannelMessages(channel, "anyTenantCreated", "anyTenantUpdated");
+
+            var send = document.AssertAndGetOperation("MethodSend", AsyncApiAction.Send);
+            document.AssertByMessage(send, "anyTenantCreated");
+
+            var receive = document.AssertAndGetOperation("MethodReceive", AsyncApiAction.Receive);
+            document.AssertByMessage(receive, "anyTenantUpdated");
         }
 
         [AsyncApi]
@@ -80,6 +100,17 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             [Message(typeof(AnyTenantCreated))]
             public void PublishTenantEvent<TEvent>(Guid tenantId, TEvent @event)
                 where TEvent : IEvent
+            {
+            }
+        }
+
+        [AsyncApi]
+        public class MixedOperationMethodPublisher
+        {
+            [Channel("mixed.operation.method", "mixed.operation.method")]
+            [SendOperation(typeof(AnyTenantCreated), OperationId = "MethodSend")]
+            [ReceiveOperation(typeof(AnyTenantUpdated), OperationId = "MethodReceive")]
+            public void PublishOrReceive()
             {
             }
         }

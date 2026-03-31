@@ -6,7 +6,7 @@ namespace StreetlightsAPI
 {
     public interface IStreetlightMessageBus
     {
-        void PublishLightMeasurement(LightMeasuredEvent lightMeasuredEvent);
+        void ReceiveLightMeasurement(LightMeasuredEvent lightMeasuredEvent);
     }
 
     [AsyncApi]
@@ -22,8 +22,8 @@ namespace StreetlightsAPI
         }
 
         [Channel("streetlights.measurement.receive", SubscribeLightMeasuredTopic, Servers = new[] { "mosquitto" })]
-        [ReceiveOperation(typeof(LightMeasuredEvent), "Light", Summary = "Subscribe to environmental lighting conditions for a particular streetlight.")]
-        public void PublishLightMeasurement(LightMeasuredEvent lightMeasuredEvent)
+        [ReceiveOperation(typeof(LightMeasuredEvent), OperationId = "ReceiveLightMeasurement", Summary = "Subscribe to environmental lighting conditions for a particular streetlight.")]
+        public void ReceiveLightMeasurement(LightMeasuredEvent lightMeasuredEvent)
         {
             var payload = JsonSerializer.Serialize(lightMeasuredEvent);
 
