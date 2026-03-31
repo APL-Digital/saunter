@@ -1,6 +1,7 @@
 ﻿using System;
 #nullable enable
 using System.Linq;
+using System.Runtime.Serialization;
 using Saunter.SharedKernel;
 using Saunter.SharedKernel.Descriptors;
 using Shouldly;
@@ -165,6 +166,22 @@ namespace Saunter.Tests.SharedKernel
         }
 
         [Fact]
+        public void AsyncApiSchemaGenerator_OnGenerateEnumWithEnumMember_UsesConfiguredValues()
+        {
+            AsyncApiSchemaGenerator generator = new();
+
+            var schema = generator.Generate(typeof(CommandEnvelope));
+
+            schema.ShouldNotBeNull();
+            schema.Value.Root.Properties.ShouldContainKey("command");
+
+            var command = schema.Value.Root.Properties["command"];
+            command.Type.ShouldBe(AsyncApiSchemaValueType.String);
+            command.Format.ShouldBe("enum");
+            command.EnumValues.ShouldBe(new[] { "on", "off" });
+        }
+
+        [Fact]
         public void AsyncApiSchemaGenerator_OnLoopGenerate_NotFailed()
         {
             // Arrange
@@ -205,6 +222,19 @@ namespace Saunter.Tests.SharedKernel
     }
 
     public enum FooType { Foo, Bar }
+
+    public class CommandEnvelope
+    {
+        public CommandType Command { get; set; }
+    }
+
+    public enum CommandType
+    {
+        [EnumMember(Value = "on")]
+        On,
+        [EnumMember(Value = "off")]
+        Off
+    }
 
     public class Bar
     {

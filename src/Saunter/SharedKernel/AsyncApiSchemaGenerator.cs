@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Serialization;
 using Saunter.SharedKernel.Descriptors;
 using Saunter.SharedKernel.Interfaces;
 
@@ -66,7 +67,7 @@ namespace Saunter.SharedKernel
                 if (typeInfo.IsEnum)
                 {
                     schema.Format = "enum";
-                    foreach (var value in typeInfo.GetEnumNames())
+                    foreach (var value in GetEnumValues(typeInfo))
                     {
                         schema.EnumValues.Add(value);
                     }
@@ -161,6 +162,16 @@ namespace Saunter.SharedKernel
                 .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
 
             return enumerableInterface?.GenericTypeArguments[0];
+        }
+
+        private static IEnumerable<string> GetEnumValues(TypeInfo typeInfo)
+        {
+            foreach (var name in typeInfo.GetEnumNames())
+            {
+                var field = typeInfo.GetField(name);
+                var enumMember = field?.GetCustomAttribute<EnumMemberAttribute>();
+                yield return string.IsNullOrWhiteSpace(enumMember?.Value) ? name : enumMember.Value!;
+            }
         }
 
         private static string ToSchemaName(TypeInfo typeInfo)
