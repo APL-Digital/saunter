@@ -1,6 +1,7 @@
 using ByteBard.AsyncAPI.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Saunter.AttributeProvider.Descriptors;
 using Saunter.AttributeProvider.Attributes;
 using Saunter.Options;
 using Saunter.Options.Filters;
@@ -23,15 +24,15 @@ namespace Saunter.Tests.AttributeProvider
             services.AddTransient<TestOperationTraitsFilter>();
             services.AddAsyncApiSchemaGeneration(o =>
             {
-                o.AsyncApi = new AsyncApiDocument
+                o.AsyncApi = new AsyncApiDocumentDescriptor
                 {
                     Asyncapi = "3.0.0",
-                    Info = new AsyncApiInfo
+                    Info = new AsyncApiInfoDescriptor
                     {
                         Title = GetType().FullName,
                         Version = "1.0.0"
                     },
-                    Components = new()
+                    Components = new AsyncApiComponentsDescriptor
                     {
                         OperationTraits =
                         {
@@ -52,16 +53,14 @@ namespace Saunter.Tests.AttributeProvider
 
             document.Components.OperationTraits.ShouldContainKey("exampleTrait");
             document.Operations.ShouldContainKey("AnnotatedOperation");
-            document.Operations["AnnotatedOperation"].Traits.Any(trait =>
-                trait is AsyncApiOperationTraitReference reference
-                && reference.Reference.Reference == "#/components/operationTraits/exampleTrait").ShouldBeTrue();
+            document.Operations["AnnotatedOperation"].TraitReferences.ShouldContain("exampleTrait");
         }
 
         private class TestOperationTraitsFilter : IOperationFilter
         {
-            public void Apply(AsyncApiOperation operation, OperationFilterContext context)
+            public void Apply(AsyncApiOperationDescriptor operation, OperationFilterContext context)
             {
-                operation.Traits.Add(new AsyncApiOperationTraitReference("#/components/operationTraits/exampleTrait"));
+                operation.TraitReferences.Add("exampleTrait");
             }
         }
 

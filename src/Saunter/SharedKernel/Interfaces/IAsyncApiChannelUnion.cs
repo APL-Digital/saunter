@@ -1,9 +1,9 @@
-using ByteBard.AsyncAPI.Models;
+using Saunter.AttributeProvider.Descriptors;
 
 namespace Saunter.SharedKernel.Interfaces
 {
-    public interface IAsyncApiChannelUnion
+    internal interface IAsyncApiChannelUnion
     {
-        AsyncApiChannel Union(AsyncApiChannel source, AsyncApiChannel additionaly);
+        AsyncApiChannelDescriptor Union(AsyncApiChannelDescriptor source, AsyncApiChannelDescriptor additional);
     }
 }

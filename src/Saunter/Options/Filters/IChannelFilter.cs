@@ -1,6 +1,6 @@
-using ByteBard.AsyncAPI.Models;
+using Saunter.AttributeProvider.Descriptors;
 
 public interface IChannelFilter
 {
-    void Apply(AsyncApiChannel channel, ChannelFilterContext context);
+    void Apply(AsyncApiChannelDescriptor channel, ChannelFilterContext context);
 }

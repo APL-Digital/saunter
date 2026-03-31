@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using ByteBard.AsyncAPI.Models;
+using Saunter.SharedKernel.Descriptors;
 using Saunter.SharedKernel.Interfaces;
 
 namespace Saunter.SharedKernel
@@ -12,16 +12,16 @@ namespace Saunter.SharedKernel
     {
         private static readonly NullabilityInfoContext s_nullabilityInfoContext = new();
 
-        public GeneratedSchemas? Generate(Type? type)
+        public GeneratedSchemaDescriptors? Generate(Type? type)
         {
-            var generatedSchemas = GenerateBranch(type, new HashSet<Type>());
+            var generatedSchemas = GenerateBranch(type, new HashSet<Type>(), isRoot: true);
             if (generatedSchemas is null)
             {
                 return null;
             }
 
-            var allSchemas = new List<AsyncApiJsonSchema>();
-            if (!string.IsNullOrWhiteSpace(generatedSchemas.Value.Root.Title))
+            var allSchemas = new List<AsyncApiSchemaDescriptor>();
+            if (!string.IsNullOrWhiteSpace(generatedSchemas.Value.Root.Id))
             {
                 allSchemas.Add(generatedSchemas.Value.Root);
             }
@@ -31,12 +31,12 @@ namespace Saunter.SharedKernel
             return new(
                 generatedSchemas.Value.Root,
                 allSchemas
-                    .Where(schema => !string.IsNullOrWhiteSpace(schema.Title))
-                    .DistinctBy(schema => schema.Title)
+                    .Where(schema => !string.IsNullOrWhiteSpace(schema.Id))
+                    .DistinctBy(schema => schema.Id)
                     .ToArray());
         }
 
-        private static GeneratedSchemas? GenerateBranch(Type? type, HashSet<Type> parents, NullabilityInfo? nullabilityInfo = null)
+        private static GeneratedSchemaDescriptors? GenerateBranch(Type? type, HashSet<Type> parents, NullabilityInfo? nullabilityInfo = null, bool isRoot = false)
         {
             if (type is null)
             {
@@ -44,7 +44,7 @@ namespace Saunter.SharedKernel
             }
 
             var typeInfo = type.GetTypeInfo();
-            var isNullable = IsNullable(typeInfo, nullabilityInfo);
+            var isNullable = IsNullable(typeInfo, nullabilityInfo, isRoot);
 
             if (Nullable.GetUnderlyingType(type) is Type underlyingType)
             {
@@ -53,37 +53,35 @@ namespace Saunter.SharedKernel
                 isNullable = true;
             }
 
-            var schema = new AsyncApiJsonSchema
+            var name = ToSchemaName(typeInfo);
+            var schema = new AsyncApiSchemaDescriptor
             {
                 Nullable = isNullable,
+                Id = name,
+                Type = MapJsonTypeToSchemaType(typeInfo),
             };
 
-            var name = ToNameCase(typeInfo.Name);
-
-            schema.Title = name;
-            schema.Type = MapJsonTypeToSchemaType(typeInfo);
-
-            if (schema.Type is not SchemaType.Object and not SchemaType.Array)
+            if (schema.Type is not AsyncApiSchemaValueType.Object and not AsyncApiSchemaValueType.Array)
             {
                 if (typeInfo.IsEnum)
                 {
                     schema.Format = "enum";
-                    schema.Enum = typeInfo
-                        .GetEnumNames()
-                        .Select(value => new AsyncApiAny(value))
-                        .ToList();
+                    foreach (var value in typeInfo.GetEnumNames())
+                    {
+                        schema.EnumValues.Add(value);
+                    }
                 }
                 else
                 {
-                    schema.Format = schema.Title;
+                    schema.Format = name;
                 }
 
-                return new(schema, Array.Empty<AsyncApiJsonSchema>());
+                return new(schema, Array.Empty<AsyncApiSchemaDescriptor>());
             }
 
-            if (schema.Type == SchemaType.Array)
+            if (schema.Type == AsyncApiSchemaValueType.Array)
             {
-                var itemSchemas = new List<AsyncApiJsonSchema>();
+                var itemSchemas = new List<AsyncApiSchemaDescriptor>();
                 var itemType = GetEnumerableItemType(typeInfo);
                 var generatedItemSchema = GenerateBranch(itemType, parents, GetItemNullabilityInfo(nullabilityInfo));
                 if (generatedItemSchema is not null)
@@ -92,27 +90,30 @@ namespace Saunter.SharedKernel
                     itemSchemas.AddRange(generatedItemSchema.Value.All);
                 }
 
-                return new(schema, itemSchemas.DistinctBy(n => n.Title).ToArray());
+                return new(schema, itemSchemas.DistinctBy(n => n.Id).ToArray());
             }
 
             if (!parents.Add(type))
             {
-                var referenceSchema = new AsyncApiJsonSchemaReference($"#/components/schemas/{name}");
+                var referenceSchema = new AsyncApiSchemaDescriptor
+                {
+                    Reference = $"#/components/schemas/{name}",
+                };
                 if (!isNullable)
                 {
-                    return new(referenceSchema, Array.Empty<AsyncApiJsonSchema>());
+                    return new(referenceSchema, Array.Empty<AsyncApiSchemaDescriptor>());
                 }
 
-                var nullableReferenceSchema = new AsyncApiJsonSchema
+                var nullableReferenceSchema = new AsyncApiSchemaDescriptor
                 {
                     Nullable = true,
                 };
                 nullableReferenceSchema.AllOf.Add(referenceSchema);
 
-                return new(nullableReferenceSchema, Array.Empty<AsyncApiJsonSchema>());
+                return new(nullableReferenceSchema, Array.Empty<AsyncApiSchemaDescriptor>());
             }
 
-            var nestedSchemas = new List<AsyncApiJsonSchema> { schema };
+            var nestedSchemas = new List<AsyncApiSchemaDescriptor> { schema };
             var properties = typeInfo
                 .DeclaredProperties
                 .Where(p => p.GetMethod is not null && !p.GetMethod.IsStatic);
@@ -126,7 +127,7 @@ namespace Saunter.SharedKernel
                     continue;
                 }
 
-                var propertyName = ToNameCase(prop.Name);
+                var propertyName = ToSchemaName(prop.Name, true);
                 schema.Properties[propertyName] = generatedSchemas.Value.Root;
                 if (IsRequiredProperty(prop, propertyNullability))
                 {
@@ -136,7 +137,7 @@ namespace Saunter.SharedKernel
                 nestedSchemas.AddRange(generatedSchemas.Value.All);
             }
 
-            return new(schema, nestedSchemas.DistinctBy(n => n.Title).ToArray());
+            return new(schema, nestedSchemas.DistinctBy(n => n.Id).ToArray());
         }
 
         private static Type? GetEnumerableItemType(TypeInfo typeInfo)
@@ -162,12 +163,40 @@ namespace Saunter.SharedKernel
             return enumerableInterface?.GenericTypeArguments[0];
         }
 
-        private static string ToNameCase(string name)
+        private static string ToSchemaName(TypeInfo typeInfo)
         {
-            return char.ToLowerInvariant(name[0]) + name[1..];
+            var name = typeInfo.Name;
+            if (typeInfo.IsGenericType)
+            {
+                var tickIndex = name.IndexOf('`');
+                var baseName = tickIndex >= 0 ? name[..tickIndex] : name;
+                var genericSuffix = string.Concat(typeInfo.GenericTypeArguments.Select(argument => ToSchemaName(argument.GetTypeInfo())));
+                name = baseName + genericSuffix;
+            }
+
+            return ToSchemaName(name, true);
         }
 
-        private static bool IsNullable(TypeInfo typeInfo, NullabilityInfo? nullabilityInfo)
+        private static string ToSchemaName(string name, bool camelCase)
+        {
+            var sanitized = new string(name
+                .Select(ch => char.IsLetterOrDigit(ch) || ch is '.' or '-' or '_' ? ch : '_')
+                .ToArray());
+
+            if (string.IsNullOrWhiteSpace(sanitized))
+            {
+                sanitized = "schema";
+            }
+
+            if (!camelCase || sanitized.Length == 0)
+            {
+                return sanitized;
+            }
+
+            return char.ToLowerInvariant(sanitized[0]) + sanitized[1..];
+        }
+
+        private static bool IsNullable(TypeInfo typeInfo, NullabilityInfo? nullabilityInfo, bool isRoot)
         {
             if (Nullable.GetUnderlyingType(typeInfo.AsType()) is not null)
             {
@@ -175,6 +204,11 @@ namespace Saunter.SharedKernel
             }
 
             if (typeInfo.IsValueType)
+            {
+                return false;
+            }
+
+            if (isRoot && nullabilityInfo is null)
             {
                 return false;
             }
@@ -255,39 +289,39 @@ namespace Saunter.SharedKernel
             typeof(double).GetTypeInfo(),
         };
 
-        private static SchemaType? MapJsonTypeToSchemaType(TypeInfo typeInfo)
+        private static AsyncApiSchemaValueType? MapJsonTypeToSchemaType(TypeInfo typeInfo)
         {
             if (typeInfo == s_boolTypeInfo)
             {
-                return SchemaType.Boolean;
+                return AsyncApiSchemaValueType.Boolean;
             }
 
             if (typeInfo.IsEnum)
             {
-                return SchemaType.String;
+                return AsyncApiSchemaValueType.String;
             }
 
             if (s_stringTypeInfos.Contains(typeInfo))
             {
-                return SchemaType.String;
+                return AsyncApiSchemaValueType.String;
             }
 
             if (s_integerTypeInfos.Contains(typeInfo))
             {
-                return SchemaType.Integer;
+                return AsyncApiSchemaValueType.Integer;
             }
 
             if (s_floatTypeInfos.Contains(typeInfo))
             {
-                return SchemaType.Number;
+                return AsyncApiSchemaValueType.Number;
             }
 
             if (typeInfo.IsArray || GetEnumerableItemType(typeInfo) is not null && typeInfo.AsType() != typeof(string))
             {
-                return SchemaType.Array;
+                return AsyncApiSchemaValueType.Array;
             }
 
-            return SchemaType.Object;
+            return AsyncApiSchemaValueType.Object;
         }
     }
 }

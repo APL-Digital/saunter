@@ -1,10 +1,9 @@
-using ByteBard.AsyncAPI.Models;
 using Saunter.Options;
 
 namespace Saunter
 {
     public interface IAsyncApiDocumentProvider
     {
-        AsyncApiDocument GetDocument(string? documentName, AsyncApiOptions options);
+        AsyncApiDocumentDescriptor GetDocument(string? documentName, AsyncApiOptions options);
     }
 }

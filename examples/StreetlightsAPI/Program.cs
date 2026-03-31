@@ -1,5 +1,4 @@
 ﻿using System.Linq;
-using ByteBard.AsyncAPI.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -49,15 +48,15 @@ namespace StreetlightsAPI
 
                 options.Middleware.UiTitle = "Streetlights API";
 
-                options.AsyncApi = new AsyncApiDocument
+                options.AsyncApi = new AsyncApiDocumentDescriptor
                 {
                     Asyncapi = "3.0.0",
-                    Info = new AsyncApiInfo
+                    Info = new AsyncApiInfoDescriptor
                     {
                         Title = "Streetlights API",
                         Version = "1.0.0",
                         Description = "The Smartylighting Streetlights API allows you to remotely manage the city lights.",
-                        License = new AsyncApiLicense
+                        License = new AsyncApiLicenseDescriptor
                         {
                             Name = "Apache 2.0",
                             Url = new("https://www.apache.org/licenses/LICENSE-2.0"),
@@ -65,10 +64,10 @@ namespace StreetlightsAPI
                     },
                     Servers =
                     {
-                        ["mosquitto"] = new AsyncApiServer { Host = "test.mosquitto.org", Protocol = "mqtt" },
-                        ["webapi"] = new AsyncApiServer { Host = "localhost:5000", Protocol = "http" },
+                        ["mosquitto"] = new AsyncApiServerDescriptor { Host = "test.mosquitto.org", Protocol = "mqtt" },
+                        ["webapi"] = new AsyncApiServerDescriptor { Host = "localhost:5000", Protocol = "http" },
                     },
-                    Components = new()
+                    Components = new AsyncApiComponentsDescriptor
                     {
                     }
                 };

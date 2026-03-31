@@ -1,13 +1,10 @@
 using System;
-using System.Collections.Generic;
-using ByteBard.AsyncAPI.Models;
+using Saunter.SharedKernel.Descriptors;
 
 namespace Saunter.SharedKernel.Interfaces
 {
-    public interface IAsyncApiSchemaGenerator
+    internal interface IAsyncApiSchemaGenerator
     {
-        GeneratedSchemas? Generate(Type? type);
+        GeneratedSchemaDescriptors? Generate(Type? type);
     }
-
-    public readonly record struct GeneratedSchemas(AsyncApiJsonSchema Root, IReadOnlyCollection<AsyncApiJsonSchema> All);
 }

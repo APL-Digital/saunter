@@ -1,4 +1,3 @@
-using ByteBard.AsyncAPI.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Saunter.Options;
@@ -18,10 +17,10 @@ namespace Saunter.Tests.AttributeProvider.DocumentProviderTests
             services.AddFakeLogging();
             services.AddAsyncApiSchemaGeneration(o =>
             {
-                o.AsyncApi = new AsyncApiDocument
+                o.AsyncApi = new AsyncApiDocumentDescriptor
                 {
                     Asyncapi = "3.0.0",
-                    Info = new AsyncApiInfo
+                    Info = new AsyncApiInfoDescriptor
                     {
                         Title = GetType().FullName,
                         Version = "1.0.0"

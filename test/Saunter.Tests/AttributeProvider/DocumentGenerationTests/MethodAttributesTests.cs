@@ -34,7 +34,7 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             {
                 OperationBindings =
                 {
-                    ["sample_kaffka"] = new()
+                    ["sample_kafka"] = new()
                     {
                         new KafkaOperationBinding
                         {
@@ -54,10 +54,10 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             var send = document.AssertAndGetOperation("TenantMessagePublisher", AsyncApiAction.Send);
 
             var bindingsReference = send.Bindings.ShouldBeOfType<AsyncApiBindingsReference<IOperationBinding>>();
-            bindingsReference.Reference.Reference.ShouldBe("#/components/operationBindings/sample_kaffka");
+            bindingsReference.Reference.Reference.ShouldBe("#/components/operationBindings/sample_kafka");
             document.AssertByMessage(send, "anyTenantCreated");
-            document.Components.OperationBindings.ShouldContainKey("sample_kaffka");
-            document.Components.OperationBindings["sample_kaffka"]["kafka"].ShouldBeOfType<KafkaOperationBinding>();
+            document.Components.OperationBindings.ShouldContainKey("sample_kafka");
+            document.Components.OperationBindings["sample_kafka"]["kafka"].ShouldBeOfType<KafkaOperationBinding>();
         }
 
         [Fact]
@@ -78,6 +78,19 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             document.AssertByMessage(receive, "anyTenantUpdated");
         }
 
+        [Fact]
+        public void GenerateDocument_AssertByMessage_DoesNotAssumeSchemaKeyMatchesMessageId()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(CustomMessageIdPublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            document.ShouldNotBeNull();
+            var send = document.AssertAndGetOperation("CustomMessageIdPublisher", AsyncApiAction.Send);
+
+            Should.NotThrow(() => document.AssertByMessage(send, "tenant-created-event"));
+        }
+
         [AsyncApi]
         [Channel("asw.tenant_service.tenants_history", "asw.tenant_service.tenants_history", Description = "Tenant events.")]
         [SendOperation(OperationId = "TenantMessagePublisher", Summary = "Send domains events about tenants.")]
@@ -94,7 +107,7 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
 
         [AsyncApi]
         [Channel("asw.tenant_service.tenants_history.with_bind", "asw.tenant_service.tenants_history.with_bind", Description = "Tenant events.")]
-        [SendOperation(OperationId = "TenantMessagePublisher", Summary = "Send domains events about tenants.", BindingsRef = "sample_kaffka")]
+        [SendOperation(OperationId = "TenantMessagePublisher", Summary = "Send domains events about tenants.", BindingsRef = "sample_kafka")]
         public class TenantMessagePublisherWithBind : ITenantMessagePublisher
         {
             [Message(typeof(AnyTenantCreated))]
@@ -111,6 +124,17 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             [SendOperation(typeof(AnyTenantCreated), OperationId = "MethodSend")]
             [ReceiveOperation(typeof(AnyTenantUpdated), OperationId = "MethodReceive")]
             public void PublishOrReceive()
+            {
+            }
+        }
+
+        [AsyncApi]
+        [Channel("custom.message.id", "custom.message.id")]
+        [SendOperation(OperationId = "CustomMessageIdPublisher")]
+        public class CustomMessageIdPublisher
+        {
+            [Message(typeof(AnyTenantCreated), MessageId = "tenant-created-event")]
+            public void Publish()
             {
             }
         }

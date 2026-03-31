@@ -1,12 +1,13 @@
 using System.Linq;
 using ByteBard.AsyncAPI.Models;
+using Saunter.AttributeProvider.Descriptors;
 using Shouldly;
 
 namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
 {
     internal static class AssertAsyncApiDocumentHelper
     {
-        public static AsyncApiChannel AssertAndGetChannel(this AsyncApiDocument document, string key, string address)
+        public static AsyncApiChannelDescriptor AssertAndGetChannel(this AsyncApiDocumentDescriptor document, string key, string address)
         {
             document.Channels.Count.ShouldBeGreaterThanOrEqualTo(1);
             document.Channels.ShouldContainKey(key);
@@ -18,7 +19,7 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             return channel;
         }
 
-        public static AsyncApiOperation AssertAndGetOperation(this AsyncApiDocument document, string key, AsyncApiAction action)
+        public static AsyncApiOperationDescriptor AssertAndGetOperation(this AsyncApiDocumentDescriptor document, string key, AsyncApiAction action)
         {
             document.Operations.ShouldContainKey(key);
 
@@ -29,29 +30,26 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             return operation;
         }
 
-        public static void AssertByMessage(this AsyncApiDocument document, AsyncApiOperation operation, params string[] messageIds)
+        public static void AssertByMessage(this AsyncApiDocumentDescriptor document, AsyncApiOperationDescriptor operation, params string[] messageIds)
         {
-            operation.Messages.Count.ShouldBe(messageIds.Length);
-            operation.Messages.ShouldAllBe(message => message.Reference != null);
+            operation.MessageIds.Count.ShouldBe(messageIds.Length);
 
             foreach (var messageId in messageIds)
             {
-                operation.Messages.ShouldContain(message =>
-                    message.Reference.Reference.Contains("/channels/")
-                    && message.Reference.Reference.EndsWith($"/{messageId}"));
+                operation.MessageIds.ShouldContain(messageId);
                 document.Components.Messages.ShouldContainKey(messageId);
-                document.Components.Schemas.ShouldContainKey(messageId);
+                document.Components.Messages[messageId].PayloadSchemaId.ShouldNotBeNull();
+                document.Components.Schemas.ShouldContainKey(document.Components.Messages[messageId].PayloadSchemaId!);
             }
         }
 
-        public static void AssertChannelMessages(this AsyncApiDocument document, AsyncApiChannel channel, params string[] messageIds)
+        public static void AssertChannelMessages(this AsyncApiDocumentDescriptor document, AsyncApiChannelDescriptor channel, params string[] messageIds)
         {
-            channel.Messages.Count.ShouldBe(messageIds.Length);
+            channel.MessageIds.Count.ShouldBe(messageIds.Length);
 
             foreach (var messageId in messageIds)
             {
-                channel.Messages.ShouldContainKey(messageId);
-                channel.Messages[messageId].ShouldBeOfType<AsyncApiMessageReference>();
+                channel.MessageIds.ShouldContain(messageId);
             }
         }
     }

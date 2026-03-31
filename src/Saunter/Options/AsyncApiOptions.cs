@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
-using ByteBard.AsyncAPI.Models;
 using Saunter.Options.Filters;
 
 namespace Saunter.Options
@@ -15,7 +14,7 @@ namespace Saunter.Options
         private readonly List<Type> _channelFilters = new();
         private readonly List<Type> _operationFilters = new();
 
-        public AsyncApiDocument AsyncApi { get; set; } = new AsyncApiDocument();
+        public AsyncApiDocumentDescriptor AsyncApi { get; set; } = new AsyncApiDocumentDescriptor();
 
         public IList<Type> AssemblyMarkerTypes { get; set; } = new List<Type>();
 
@@ -48,6 +47,6 @@ namespace Saunter.Options
 
         public AsyncApiMiddlewareOptions Middleware { get; } = new AsyncApiMiddlewareOptions();
 
-        public ConcurrentDictionary<string, AsyncApiDocument> NamedApis { get; set; } = new();
+        public ConcurrentDictionary<string, AsyncApiDocumentDescriptor> NamedApis { get; set; } = new();
     }
 }

@@ -1,5 +1,4 @@
 using System;
-using ByteBard.AsyncAPI.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Saunter.AttributeProvider;
@@ -15,9 +14,17 @@ namespace Saunter
         {
             services.AddOptions();
 
+            services.TryAddSingleton<IAsyncApiDocumentWriter, AsyncApiDocumentWriter>();
             services.TryAddSingleton<IAsyncApiDocumentCloner, AsyncApiDocumentSerializeCloner>();
+            services.TryAddSingleton<IAsyncApiDocumentMapper, AsyncApiDocumentMapper>();
             services.TryAddSingleton<IAsyncApiSchemaGenerator, AsyncApiSchemaGenerator>();
+            services.TryAddSingleton<IAsyncApiSchemaMapper, AsyncApiSchemaMapper>();
             services.TryAddSingleton<IAsyncApiChannelUnion, AsyncApiChannelUnion>();
+            services.TryAddSingleton<IAsyncApiDescriptorMapper, AsyncApiDescriptorMapper>();
+            services.TryAddSingleton<IAttributeMessageResolver, AttributeMessageResolver>();
+            services.TryAddSingleton<IAttributeChannelBuilder, AttributeChannelBuilder>();
+            services.TryAddSingleton<IAttributeOperationBuilder, AttributeOperationBuilder>();
+            services.TryAddSingleton<IAsyncApiDocumentValidator, AsyncApiDocumentValidator>();
             services.TryAddTransient<IAsyncApiDocumentProvider, AttributeDocumentProvider>();
 
             if (setupAction != null)
@@ -28,7 +35,7 @@ namespace Saunter
             return services;
         }
 
-        public static IServiceCollection ConfigureNamedAsyncApi(this IServiceCollection services, string documentName, Action<AsyncApiDocument> setupAction)
+        public static IServiceCollection ConfigureNamedAsyncApi(this IServiceCollection services, string documentName, Action<AsyncApiDocumentDescriptor> setupAction)
         {
             services.Configure<AsyncApiOptions>(options =>
             {
@@ -41,7 +48,7 @@ namespace Saunter
                     options.Middleware.UiBaseRoute = "/asyncapi/{document}/ui/";
                 }
 
-                var document = options.NamedApis.GetOrAdd(documentName, _ => new AsyncApiDocument());
+                var document = options.NamedApis.GetOrAdd(documentName, _ => new AsyncApiDocumentDescriptor());
                 setupAction(document);
             });
 

@@ -1,11 +1,9 @@
-using System.IO;
 using System.Net;
 using System.Threading.Tasks;
-using ByteBard.AsyncAPI;
-using ByteBard.AsyncAPI.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Saunter.Options;
+using Saunter.SharedKernel.Interfaces;
 
 namespace Saunter.DocumentMiddleware
 {
@@ -13,12 +11,14 @@ namespace Saunter.DocumentMiddleware
     {
         private readonly RequestDelegate _next;
         private readonly IAsyncApiDocumentProvider _asyncApiDocumentProvider;
+        private readonly IAsyncApiDocumentWriter _documentWriter;
         private readonly AsyncApiOptions _options;
 
-        public AsyncApiMiddleware(RequestDelegate next, IOptions<AsyncApiOptions> options, IAsyncApiDocumentProvider asyncApiDocumentProvider)
+        public AsyncApiMiddleware(RequestDelegate next, IOptions<AsyncApiOptions> options, IAsyncApiDocumentProvider asyncApiDocumentProvider, IAsyncApiDocumentWriter documentWriter)
         {
             _next = next;
             _asyncApiDocumentProvider = asyncApiDocumentProvider;
+            _documentWriter = documentWriter;
             _options = options.Value;
         }
 
@@ -37,12 +37,12 @@ namespace Saunter.DocumentMiddleware
             }
 
             var asyncApiSchema = _asyncApiDocumentProvider.GetDocument(documentName, _options);
-            await RespondWithAsyncApiSchemaJson(context.Response, asyncApiSchema);
+            await RespondWithAsyncApiSchemaJson(context.Response, asyncApiSchema, _documentWriter);
         }
 
-        private static async Task RespondWithAsyncApiSchemaJson(HttpResponse response, AsyncApiDocument asyncApiSchema)
+        private static async Task RespondWithAsyncApiSchemaJson(HttpResponse response, AsyncApiDocumentDescriptor asyncApiSchema, IAsyncApiDocumentWriter documentWriter)
         {
-            var asyncApiSchemaJson = asyncApiSchema.SerializeAsJson(AsyncApiVersion.AsyncApi3_0);
+            var asyncApiSchemaJson = documentWriter.WriteJson(asyncApiSchema);
             response.StatusCode = (int)HttpStatusCode.OK;
             response.ContentType = "application/json";
 

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq;
-using ByteBard.AsyncAPI.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -48,10 +47,10 @@ namespace Saunter.IntegrationTests.ReverseProxy
             {
                 options.AssemblyMarkerTypes = new[] { typeof(StreetlightsController) };
 
-                options.AsyncApi = new AsyncApiDocument
+                options.AsyncApi = new AsyncApiDocumentDescriptor
                 {
                     Asyncapi = "3.0.0",
-                    Info = new AsyncApiInfo
+                    Info = new AsyncApiInfoDescriptor
                     {
                         Title = Environment.GetEnvironmentVariable("PATH_BASE"),
                         Version = "1.0.0",

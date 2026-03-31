@@ -1,12 +1,14 @@
+#nullable enable
 using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using ByteBard.AsyncAPI.Models;
+using Saunter.AttributeProvider.Descriptors;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Saunter.DocumentMiddleware;
 using Saunter.Options;
+using Saunter.SharedKernel;
 using Shouldly;
 using Xunit;
 
@@ -23,7 +25,8 @@ namespace Saunter.Tests.DocumentMiddleware
             var middleware = new AsyncApiMiddleware(
                 _ => Task.CompletedTask,
                 options,
-                new TestDocumentProvider());
+                new TestDocumentProvider(),
+                new AsyncApiDocumentWriter());
 
             var context = new DefaultHttpContext();
             context.Request.Method = HttpMethods.Get;
@@ -46,30 +49,23 @@ namespace Saunter.Tests.DocumentMiddleware
 
         private class TestDocumentProvider : IAsyncApiDocumentProvider
         {
-            public AsyncApiDocument GetDocument(string documentName, AsyncApiOptions options)
+            public AsyncApiDocumentDescriptor GetDocument(string? documentName, AsyncApiOptions options)
             {
-                return new AsyncApiDocument
+                return new AsyncApiDocumentDescriptor
                 {
                     Asyncapi = "3.0.0",
-                    Info = new AsyncApiInfo
+                    Info = new AsyncApiInfoDescriptor
                     {
                         Title = "test",
                         Version = "1.0.0"
                     },
                     Channels =
                     {
-                        ["channel"] = new AsyncApiChannel
-                        {
-                            Address = "channel"
-                        }
+                        ["channel"] = new AsyncApiChannelDescriptor("channel", "channel", null, null, null, null, [], [], [])
                     },
                     Operations =
                     {
-                        ["operation"] = new AsyncApiOperation
-                        {
-                            Action = AsyncApiAction.Send,
-                            Channel = new AsyncApiChannelReference("#/channels/channel")
-                        }
+                        ["operation"] = new AsyncApiOperationDescriptor(ByteBard.AsyncAPI.Models.AsyncApiAction.Send, "channel", null, null, null, null, [], [], null)
                     }
                 };
             }

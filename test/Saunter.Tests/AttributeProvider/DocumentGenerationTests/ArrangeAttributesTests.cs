@@ -29,9 +29,12 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
 
             documentProvider = new AttributeDocumentProvider(
                 ActivatorServiceProvider.Instance,
-                new AsyncApiSchemaGenerator(),
+                new AttributeMessageResolver(new AsyncApiSchemaGenerator()),
+                new AttributeChannelBuilder(),
+                new AttributeOperationBuilder(),
                 new AsyncApiChannelUnion(),
-                new AsyncApiDocumentSerializeCloner(new FakeLogger<AsyncApiDocumentSerializeCloner>()));
+                new AsyncApiDocumentSerializeCloner(),
+                new AsyncApiDocumentValidator());
         }
     }
 }

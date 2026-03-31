@@ -17,22 +17,22 @@ namespace Saunter.Tests
             services.AddFakeLogging();
             services.AddAsyncApiSchemaGeneration(options =>
             {
-                options.AsyncApi = new AsyncApiDocument
+                options.AsyncApi = new AsyncApiDocumentDescriptor
                 {
                     Id = "urn:com:example:example-events",
                     Asyncapi = "3.0.0",
-                    Info = new AsyncApiInfo
+                    Info = new AsyncApiInfoDescriptor
                     {
                         Title = "Example API",
                         Version = "2019.01.12345",
                         Description = "An example API with events",
-                        Contact = new AsyncApiContact
+                        Contact = new AsyncApiContactDescriptor
                         {
                             Email = "michael@mwild.me",
                             Name = "Michael Wildman",
                             Url = new("https://mwild.me/"),
                         },
-                        License = new AsyncApiLicense
+                        License = new AsyncApiLicenseDescriptor
                         {
                             Name = "MIT",
                         },
@@ -40,14 +40,14 @@ namespace Saunter.Tests
                     },
                     Servers =
                     {
-                        ["development"] = new AsyncApiServer
+                        ["development"] = new AsyncApiServerDescriptor
                         {
                             Protocol = "amqp",
                             Host = "rabbitmq.dev.mwild.me",
                             Security = new List<AsyncApiSecurityScheme>()
                         }
                     },
-                    Components = new()
+                    Components = new AsyncApiComponentsDescriptor
                     {
                         SecuritySchemes =
                         {

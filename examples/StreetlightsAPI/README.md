@@ -49,15 +49,18 @@ The generated document is AsyncAPI v3 and uses root `operations`.
     }
   },
   "channels": {
-    "streetlights.measurement": {
+    "streetlights.measurement.send": {
       "address": "publish/light/measured"
+    },
+    "streetlights.measurement.receive": {
+      "address": "subscribe/light/measured"
     }
   },
   "operations": {
-    "StreetlightsController.MeasureLight.send": {
+    "MeasureLight": {
       "action": "send",
       "channel": {
-        "$ref": "#/channels/streetlights.measurement"
+        "$ref": "#/channels/streetlights.measurement.send"
       }
     },
     "ReceiveLightMeasurement": {

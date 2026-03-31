@@ -1,4 +1,5 @@
 using ByteBard.AsyncAPI.Models;
+using Saunter.AttributeProvider.Descriptors;
 using Saunter.Options.Filters;
 using Saunter.Tests.AttributeProvider.DocumentGenerationTests;
 using Shouldly;
@@ -39,19 +40,29 @@ namespace Saunter.Tests.AttributeProvider.Filters
 
         private class ExampleDocumentFilter : IDocumentFilter
         {
-            public void Apply(AsyncApiDocument document, DocumentFilterContext context)
+            public void Apply(AsyncApiDocumentDescriptor document, DocumentFilterContext context)
             {
-                document.Channels["foo"] = new AsyncApiChannel
-                {
-                    Address = "foo",
-                    Description = "an example channel for testing",
-                };
+                document.Channels["foo"] = new AsyncApiChannelDescriptor(
+                    "foo",
+                    "foo",
+                    null,
+                    null,
+                    "an example channel for testing",
+                    null,
+                    [],
+                    [],
+                    []);
 
-                document.Operations["foo.operation"] = new AsyncApiOperation
-                {
-                    Action = AsyncApiAction.Send,
-                    Channel = new AsyncApiChannelReference("#/channels/foo"),
-                };
+                document.Operations["foo.operation"] = new AsyncApiOperationDescriptor(
+                    AsyncApiAction.Send,
+                    "foo",
+                    null,
+                    null,
+                    null,
+                    null,
+                    [],
+                    [],
+                    null);
             }
         }
     }

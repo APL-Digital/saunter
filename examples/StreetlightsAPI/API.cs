@@ -37,8 +37,6 @@ namespace StreetlightsAPI
         /// Light intensity measured in lumens.
         /// </summary>
         public int Lumens { get; set; }
-        public int? Lumenss { get; set; }
-        public required int Lumensss { get; set; }
 
         /// <summary>
         /// Light intensity measured in lumens.

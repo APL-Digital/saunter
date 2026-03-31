@@ -1,7 +1,8 @@
 using System.Collections.Generic;
-using ByteBard.AsyncAPI.Models;
 using Microsoft.Extensions.Logging.Testing;
+using Saunter.AttributeProvider.Descriptors;
 using Saunter.SharedKernel;
+using Saunter.SharedKernel.Descriptors;
 using Xunit;
 
 namespace Saunter.Tests.SharedKernel
@@ -12,27 +13,29 @@ namespace Saunter.Tests.SharedKernel
 
         public DocumentSerializeClonerTests()
         {
-            _cloner = new AsyncApiDocumentSerializeCloner(new FakeLogger<AsyncApiDocumentSerializeCloner>());
+            _cloner = new AsyncApiDocumentSerializeCloner(
+                new FakeLogger<AsyncApiDocumentSerializeCloner>(),
+                new AsyncApiDocumentWriter());
         }
 
         [Fact]
-        public void CloneProtype_ShouldCloneDocumentSuccessfully()
+        public void ClonePrototype_ShouldCloneDocumentSuccessfully()
         {
-            var prototype = new AsyncApiDocument
+            var prototype = new AsyncApiDocumentDescriptor
             {
                 Id = "id document",
                 Asyncapi = "3.0.0",
-                Info = new AsyncApiInfo
+                Info = new AsyncApiInfoDescriptor
                 {
                     Version = "1.0.0",
                     Title = "title",
                     Description = "description",
-                    License = new AsyncApiLicense
+                    License = new AsyncApiLicenseDescriptor
                     {
                         Url = new("http://localhost:9200"),
                         Name = "test",
                     },
-                    Contact = new AsyncApiContact
+                    Contact = new AsyncApiContactDescriptor
                     {
                         Url = new("http://localhost:9201"),
                         Name = "contact",
@@ -43,16 +46,16 @@ namespace Saunter.Tests.SharedKernel
                 DefaultContentType = "default/type",
                 Servers =
                 {
-                    ["one"] = new AsyncApiServer
+                    ["one"] = new AsyncApiServerDescriptor
                     {
                         Host = "hellowa",
                         Description = "server desc",
-                        Protocol = "kaffka",
+                        Protocol = "kafka",
                         ProtocolVersion = "0.0.1",
-                        Tags = { new() { Name = "kaffka tag" } },
+                        Tags = { new() { Name = "kafka tag" } },
                         Variables =
                         {
-                            ["var"] = new AsyncApiServerVariable
+                            ["var"] = new AsyncApiServerVariableDescriptor
                             {
                                 Default = "default",
                                 Description = "default var",
@@ -62,59 +65,32 @@ namespace Saunter.Tests.SharedKernel
                         }
                     }
                 },
-                Components = new()
+                Components = new AsyncApiComponentsDescriptor
                 {
                     Schemas =
                     {
-                        ["payload"] = new AsyncApiJsonSchema
+                        ["payload"] = new AsyncApiSchemaDescriptor
                         {
-                            Title = "payload",
-                            Type = SchemaType.String,
-                            Description = "payload",
+                            Id = "payload",
+                            Type = AsyncApiSchemaValueType.String,
                         }
                     },
                     Messages =
                     {
-                        ["message"] = new AsyncApiMessage
-                        {
-                            Name = "message",
-                            Title = "message",
-                            Payload = new AsyncApiMultiFormatSchema
-                            {
-                                Schema = new AsyncApiJsonSchemaReference("#/components/schemas/payload")
-                            }
-                        }
+                        ["message"] = new AsyncApiMessageDescriptor("message", "message", "message", null, null, "payload", null, null, null, null, null, null, [])
                     }
                 },
                 Channels =
                 {
-                    ["channel"] = new AsyncApiChannel
-                    {
-                        Address = "channel",
-                        Description = "description channel",
-                        Servers = { new AsyncApiServerReference("#/servers/one") },
-                        Messages =
-                        {
-                            ["message"] = new AsyncApiMessageReference("#/components/messages/message")
-                        }
-                    }
+                    ["channel"] = new AsyncApiChannelDescriptor("channel", "channel", null, null, "description channel", null, ["one"], ["message"], [])
                 },
                 Operations =
                 {
-                    ["operation"] = new AsyncApiOperation
-                    {
-                        Action = AsyncApiAction.Send,
-                        Channel = new AsyncApiChannelReference("#/channels/channel"),
-                        Summary = "my summary",
-                        Messages =
-                        {
-                            new AsyncApiMessageReference("#/components/messages/message")
-                        }
-                    }
+                    ["operation"] = new AsyncApiOperationDescriptor(ByteBard.AsyncAPI.Models.AsyncApiAction.Send, "channel", null, "my summary", null, null, ["message"], [], null)
                 }
             };
 
-            var result = _cloner.CloneProtype(prototype);
+            var result = _cloner.ClonePrototype(prototype);
 
             Assert.NotNull(result);
             Assert.Equal(prototype.Id, result.Id);

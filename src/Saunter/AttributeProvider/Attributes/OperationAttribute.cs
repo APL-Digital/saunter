@@ -23,6 +23,12 @@ namespace Saunter.AttributeProvider.Attributes
 
         public string? BindingsRef { get; set; }
 
+        public string? Reply { get; set; }
+
+        public string? ReplyAddressLocation { get; set; }
+
+        public string? ReplyAddressDescription { get; set; }
+
         public string[] Tags { get; protected set; } = Array.Empty<string>();
     }
 

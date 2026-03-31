@@ -1,128 +1,72 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using ByteBard.AsyncAPI.Models;
-using ByteBard.AsyncAPI.Models.Interfaces;
+using Saunter.AttributeProvider.Descriptors;
 using Saunter.SharedKernel.Interfaces;
 
 namespace Saunter.SharedKernel
 {
     internal class AsyncApiChannelUnion : IAsyncApiChannelUnion
     {
-        public AsyncApiChannel Union(AsyncApiChannel source, AsyncApiChannel additionaly)
+        public AsyncApiChannelDescriptor Union(AsyncApiChannelDescriptor source, AsyncApiChannelDescriptor additional)
         {
             if (!string.IsNullOrWhiteSpace(source.Address)
-                && !string.IsNullOrWhiteSpace(additionaly.Address)
-                && !string.Equals(source.Address, additionaly.Address, StringComparison.Ordinal))
+                && !string.IsNullOrWhiteSpace(additional.Address)
+                && !string.Equals(source.Address, additional.Address, StringComparison.Ordinal))
             {
                 throw new InvalidOperationException("Channel address conflict");
             }
 
-            var mergedMessages = new Dictionary<string, AsyncApiMessage>();
-            foreach (var pair in source.Messages)
+            var merged = new AsyncApiChannelDescriptor(
+                source.Id,
+                FirstNonBlank(source.Address, additional.Address) ?? source.Address,
+                source.Title ?? additional.Title,
+                source.Summary ?? additional.Summary,
+                source.Description ?? additional.Description,
+                source.BindingsRef ?? additional.BindingsRef,
+                MergeStrings(source.ServerNames, additional.ServerNames),
+                MergeStrings(source.MessageIds, additional.MessageIds),
+                MergeParameters(source.Parameters, additional.Parameters));
+
+            foreach (var tag in MergeTags(source.Tags, additional.Tags))
             {
-                mergedMessages[pair.Key] = pair.Value;
+                merged.Tags.Add(tag);
             }
 
-            foreach (var pair in additionaly.Messages)
-            {
-                mergedMessages[pair.Key] = pair.Value;
-            }
-
-            var mergedParameters = new Dictionary<string, AsyncApiParameter>();
-            foreach (var pair in source.Parameters)
-            {
-                mergedParameters[pair.Key] = pair.Value;
-            }
-
-            foreach (var pair in additionaly.Parameters)
-            {
-                mergedParameters[pair.Key] = pair.Value;
-            }
-
-            return new AsyncApiChannel
-            {
-                Address = FirstNonBlank(source.Address, additionaly.Address),
-                Title = source.Title ?? additionaly.Title,
-                Summary = source.Summary ?? additionaly.Summary,
-                Description = source.Description ?? additionaly.Description,
-                Messages = mergedMessages,
-                Parameters = mergedParameters,
-                Servers = MergeServers(source.Servers, additionaly.Servers),
-                Tags = MergeTags(source.Tags, additionaly.Tags),
-                Bindings = MergeBindings(source.Bindings, additionaly.Bindings),
-                ExternalDocs = source.ExternalDocs ?? additionaly.ExternalDocs,
-                Extensions = MergeExtensions(source.Extensions, additionaly.Extensions),
-            };
+            return merged;
         }
 
-        private static string? FirstNonBlank(string? source, string? additionaly)
+        private static string? FirstNonBlank(string? source, string? additional)
         {
             return !string.IsNullOrWhiteSpace(source)
                 ? source
-                : !string.IsNullOrWhiteSpace(additionaly) ? additionaly : null;
+                : !string.IsNullOrWhiteSpace(additional) ? additional : null;
         }
 
-        private static List<AsyncApiServerReference> MergeServers(IList<AsyncApiServerReference> source, IList<AsyncApiServerReference> additionaly)
+        private static IReadOnlyList<string> MergeStrings(IReadOnlyList<string> source, IReadOnlyList<string> additional)
         {
-            return additionaly
-                .Concat(source)
-                .DistinctBy(server => server.Reference.Reference)
+            return source
+                .Concat(additional)
+                .Distinct(StringComparer.Ordinal)
                 .ToList();
         }
 
-        private static List<AsyncApiTag> MergeTags(IList<AsyncApiTag> source, IList<AsyncApiTag> additionaly)
+        private static IReadOnlyList<AsyncApiParameterDescriptor> MergeParameters(IReadOnlyList<AsyncApiParameterDescriptor> source, IReadOnlyList<AsyncApiParameterDescriptor> additional)
         {
-            return additionaly
-                .Concat(source)
+            return source
+                .Concat(additional)
+                .DistinctBy(parameter => parameter.Name)
+                .ToList();
+        }
+
+        private static IReadOnlyList<ByteBard.AsyncAPI.Models.AsyncApiTag> MergeTags(
+            IList<ByteBard.AsyncAPI.Models.AsyncApiTag> source,
+            IList<ByteBard.AsyncAPI.Models.AsyncApiTag> additional)
+        {
+            return source
+                .Concat(additional)
                 .DistinctBy(tag => tag.Name)
                 .ToList();
-        }
-
-        private static AsyncApiBindings<IChannelBinding> MergeBindings(AsyncApiBindings<IChannelBinding> source, AsyncApiBindings<IChannelBinding> additionaly)
-        {
-            if (source.GetType() != typeof(AsyncApiBindings<IChannelBinding>))
-            {
-                return source;
-            }
-
-            if (additionaly.GetType() != typeof(AsyncApiBindings<IChannelBinding>))
-            {
-                return additionaly;
-            }
-
-            var mergedBindings = new AsyncApiBindings<IChannelBinding>();
-
-            foreach (var pair in additionaly)
-            {
-                mergedBindings[pair.Key] = pair.Value;
-            }
-
-            foreach (var pair in source)
-            {
-                mergedBindings[pair.Key] = pair.Value;
-            }
-
-            return mergedBindings;
-        }
-
-        private static Dictionary<string, IAsyncApiExtension> MergeExtensions(
-            IDictionary<string, IAsyncApiExtension> source,
-            IDictionary<string, IAsyncApiExtension> additionaly)
-        {
-            var mergedExtensions = new Dictionary<string, IAsyncApiExtension>();
-
-            foreach (var pair in additionaly)
-            {
-                mergedExtensions[pair.Key] = pair.Value;
-            }
-
-            foreach (var pair in source)
-            {
-                mergedExtensions[pair.Key] = pair.Value;
-            }
-
-            return mergedExtensions;
         }
     }
 }
