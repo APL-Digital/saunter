@@ -17,7 +17,27 @@ namespace Saunter.AttributeProvider.Attributes
 
         public string? BindingsRef { get; set; }
 
+        public string[] Tags { get; set; }
+
         public string[] Servers { get; set; }
+
+        public ChannelAttribute()
+        {
+            ChannelId = string.Empty;
+            Address = string.Empty;
+            Tags = Array.Empty<string>();
+            Servers = Array.Empty<string>();
+        }
+
+        public ChannelAttribute(string address)
+        {
+            ArgumentNullException.ThrowIfNull(address);
+
+            ChannelId = string.Empty;
+            Address = address;
+            Tags = Array.Empty<string>();
+            Servers = Array.Empty<string>();
+        }
 
         public ChannelAttribute(string channelId, string address)
         {
@@ -26,6 +46,7 @@ namespace Saunter.AttributeProvider.Attributes
 
             ChannelId = channelId;
             Address = address;
+            Tags = Array.Empty<string>();
             Servers = Array.Empty<string>();
         }
 
@@ -40,6 +61,7 @@ namespace Saunter.AttributeProvider.Attributes
 
             ChannelId = channelId;
             Address = resolver.ResolveChannelName() ?? throw new ArgumentNullException(nameof(Address));
+            Tags = Array.Empty<string>();
             Servers = Array.Empty<string>();
         }
     }

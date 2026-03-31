@@ -62,7 +62,7 @@ namespace Saunter.SharedKernel
             {
                 Schemas = components.Schemas.ToDictionary(pair => pair.Key, pair => CloneSchema(pair.Value)),
                 Messages = components.Messages.ToDictionary(pair => pair.Key, pair => pair.Value with { Tags = pair.Value.Tags.ToArray() }),
-                Parameters = components.Parameters.ToDictionary(pair => pair.Key, pair => pair.Value with { EnumValues = pair.Value.EnumValues.ToArray() }),
+                Parameters = components.Parameters.ToDictionary(pair => pair.Key, pair => pair.Value with { EnumValues = pair.Value.EnumValues.ToArray(), Examples = pair.Value.Examples.ToArray() }),
                 OperationBindings = components.OperationBindings.ToDictionary(pair => pair.Key, pair => CloneBindings(pair.Value)),
                 MessageBindings = components.MessageBindings.ToDictionary(pair => pair.Key, pair => CloneBindings(pair.Value)),
                 ChannelBindings = components.ChannelBindings.ToDictionary(pair => pair.Key, pair => CloneBindings(pair.Value)),
@@ -100,7 +100,7 @@ namespace Saunter.SharedKernel
             {
                 ServerNames = channel.ServerNames.ToArray(),
                 MessageIds = channel.MessageIds.ToArray(),
-                Parameters = channel.Parameters.Select(parameter => parameter with { EnumValues = parameter.EnumValues.ToArray() }).ToArray(),
+                Parameters = channel.Parameters.Select(parameter => parameter with { EnumValues = parameter.EnumValues.ToArray(), Examples = parameter.Examples.ToArray() }).ToArray(),
             };
         }
 

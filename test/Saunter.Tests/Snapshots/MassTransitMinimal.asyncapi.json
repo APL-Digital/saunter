@@ -1,0 +1,90 @@
+{
+  "asyncapi": "3.0.0",
+  "channels": {
+    "ordersSubmitted": {
+      "address": "orders.submitted",
+      "messages": {
+        "orderSubmitted": {
+          "$ref": "#/components/messages/orderSubmitted"
+        }
+      },
+      "servers": [
+        {
+          "$ref": "#/servers/inmemory"
+        }
+      ]
+    }
+  },
+  "components": {
+    "messages": {
+      "orderSubmitted": {
+        "name": "orderSubmitted",
+        "payload": {
+          "$ref": "#/components/schemas/orderSubmitted"
+        },
+        "title": "Order Submitted"
+      }
+    },
+    "schemas": {
+      "orderSubmitted": {
+        "properties": {
+          "orderId": {
+            "format": "guid",
+            "title": "guid",
+            "type": "string"
+          },
+          "submittedAt": {
+            "format": "dateTimeOffset",
+            "title": "dateTimeOffset",
+            "type": "string"
+          }
+        },
+        "required": [
+          "orderId",
+          "submittedAt"
+        ],
+        "title": "orderSubmitted",
+        "type": "object"
+      }
+    }
+  },
+  "defaultContentType": "application/json",
+  "info": {
+    "description": "Minimal MassTransit + Saunter example that relies on annotation defaults and inference.",
+    "title": "MassTransit Minimal",
+    "version": "1.0.0"
+  },
+  "operations": {
+    "Consume": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/ordersSubmitted"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/ordersSubmitted/messages/orderSubmitted"
+        }
+      ],
+      "summary": ""
+    },
+    "Publish": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/ordersSubmitted"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/ordersSubmitted/messages/orderSubmitted"
+        }
+      ],
+      "summary": ""
+    }
+  },
+  "servers": {
+    "inmemory": {
+      "description": "MassTransit in-memory transport used by this sample.",
+      "host": "localhost",
+      "protocol": "in-memory"
+    }
+  }
+}

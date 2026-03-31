@@ -10,6 +10,7 @@ namespace Saunter.AttributeProvider
     {
         public static string GetReferenceKey(string reference)
         {
+            ArgumentNullException.ThrowIfNull(reference);
             var segments = reference.Split('/');
             return segments[^1];
         }

@@ -48,7 +48,7 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
                 null,
                 ["primary"],
                 ["orderCreated"],
-                [new AsyncApiParameterDescriptor("tenantId", null, null, [])]);
+                [new AsyncApiParameterDescriptor("tenantId", null, null, [], null, [])]);
             var operationDescriptor = new AsyncApiOperationDescriptor(
                 AsyncApiAction.Send,
                 "orders",
@@ -70,6 +70,29 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             channel.Parameters.ShouldContainKey("tenantId");
             operation.Messages.Single().Reference.Reference.ShouldBe("#/channels/orders/messages/orderCreated");
             operation.Reply!.Channel!.Reference.Reference.ShouldBe("#/channels/orders.reply");
+        }
+
+        [Fact]
+        public void MapChannel_ProjectsChannelParameterDefaultsAndExamples()
+        {
+            var mapper = new AsyncApiDescriptorMapper(new AsyncApiSchemaMapper());
+            var components = new AsyncApiComponents();
+            var channelDescriptor = new AsyncApiChannelDescriptor(
+                "orders",
+                "orders.{tenantId}",
+                null,
+                null,
+                null,
+                null,
+                [],
+                [],
+                [new AsyncApiParameterDescriptor("tenantId", "desc", "path", [], "tenant-default", ["tenant-a", "tenant-b"])]);
+
+            _ = mapper.MapChannel(components, channelDescriptor);
+
+            components.Parameters.ShouldContainKey("tenantId");
+            components.Parameters["tenantId"].Default.ShouldBe("tenant-default");
+            components.Parameters["tenantId"].Examples.ShouldBe(["tenant-a", "tenant-b"]);
         }
 
         [Fact]

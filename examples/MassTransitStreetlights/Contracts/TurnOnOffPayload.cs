@@ -5,6 +5,8 @@ namespace MassTransitStreetlights.Contracts;
 
 public class TurnOnOffPayload
 {
+    public string StreetlightId { get; set; } = string.Empty;
+
     public TurnOnOffCommand Command { get; set; }
 
     public DateTime SentAt { get; set; }

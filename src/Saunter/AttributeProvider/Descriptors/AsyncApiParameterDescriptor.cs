@@ -6,5 +6,7 @@ namespace Saunter.AttributeProvider.Descriptors
         string Name,
         string? Description,
         string? Location,
-        IReadOnlyList<string> EnumValues);
+        IReadOnlyList<string> EnumValues,
+        string? DefaultValue,
+        IReadOnlyList<string> Examples);
 }

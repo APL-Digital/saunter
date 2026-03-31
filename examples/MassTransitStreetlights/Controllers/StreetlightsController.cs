@@ -8,6 +8,8 @@ namespace MassTransitStreetlights.Controllers;
 [Route("api/streetlights")]
 public class StreetlightsController : ControllerBase
 {
+    // The controller stays unannotated on purpose. It is only an HTTP adapter
+    // that forwards commands to the message publisher.
     private readonly IStreetlightCommandPublisher _publisher;
 
     public StreetlightsController(IStreetlightCommandPublisher publisher)

@@ -1,7 +1,10 @@
 using System;
+using System.Linq;
 using ByteBard.AsyncAPI.Bindings.Kafka;
 using ByteBard.AsyncAPI.Models;
 using ByteBard.AsyncAPI.Models.Interfaces;
+using MassTransit;
+using Microsoft.AspNetCore.Mvc;
 using Saunter.AttributeProvider.Attributes;
 using Shouldly;
 using Xunit;
@@ -91,6 +94,94 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             Should.NotThrow(() => document.AssertByMessage(send, "tenant-created-event"));
         }
 
+        [Fact]
+        public void GenerateDocument_InfersOperationIdFromMemberName()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(OperationIdInferencePublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            document.ShouldNotBeNull();
+            document.AssertAndGetOperation("PublishTenantCreated", AsyncApiAction.Send);
+        }
+
+        [Fact]
+        public void GenerateDocument_InfersChannelIdFromAddress()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(ChannelIdInferencePublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            document.ShouldNotBeNull();
+            var channel = document.AssertAndGetChannel("tenantCreated", "tenant.created");
+            document.AssertAndGetOperation("Publish", AsyncApiAction.Send).ChannelId.ShouldBe(channel.Id);
+        }
+
+        [Fact]
+        public void GenerateDocument_InfersPayloadFromMethodSignature()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(SignatureInferencePublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            document.ShouldNotBeNull();
+            var send = document.AssertAndGetOperation("Publish", AsyncApiAction.Send);
+            document.AssertByMessage(send, "signatureInferredPayload");
+
+            document.Components.Messages["signatureInferredPayload"].Title.ShouldBe("Signature Inferred Payload");
+        }
+
+        [Fact]
+        public void GenerateDocument_InfersPayloadFromConsumeContext()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(ConsumeContextInferenceConsumer));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            document.ShouldNotBeNull();
+            var receive = document.AssertAndGetOperation("Consume", AsyncApiAction.Receive);
+            document.AssertByMessage(receive, "consumeContextPayload");
+        }
+
+        [Fact]
+        public void GenerateDocument_InfersAddressFromAspNetRouteWhenMissing()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(RouteInferredPublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            document.ShouldNotBeNull();
+            document.AssertAndGetChannel("tenantsCreated", "api/tenants/{tenantId}/created");
+        }
+
+        [Fact]
+        public void GenerateDocument_ExplicitValuesWinOverInference()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(ExplicitOverridesInferencePublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            document.ShouldNotBeNull();
+            var channel = document.AssertAndGetChannel("customChannel", "tenant.created");
+            var send = document.AssertAndGetOperation("customOperation", AsyncApiAction.Send);
+            document.AssertByMessage(send, "customMessage");
+
+            send.ChannelId.ShouldBe(channel.Id);
+            document.Components.Messages["customMessage"].Title.ShouldBe("Custom title");
+        }
+
+        [Fact]
+        public void GenerateDocument_MapsChannelTagsFromAttribute()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(ChannelTagsPublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            document.ShouldNotBeNull();
+            var channel = document.AssertAndGetChannel("tenant.tags", "tenant.tags");
+            channel.Tags.Select(tag => tag.Name).ShouldBe(new[] { "billing", "events" }, ignoreOrder: true);
+        }
+
         [AsyncApi]
         [Channel("asw.tenant_service.tenants_history", "asw.tenant_service.tenants_history", Description = "Tenant events.")]
         [SendOperation(OperationId = "TenantMessagePublisher", Summary = "Send domains events about tenants.")]
@@ -138,6 +229,78 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             {
             }
         }
+
+        [AsyncApi]
+        public class OperationIdInferencePublisher
+        {
+            [Channel("tenant.created")]
+            [SendOperation(typeof(AnyTenantCreated))]
+            public void PublishTenantCreated()
+            {
+            }
+        }
+
+        [AsyncApi]
+        public class ChannelIdInferencePublisher
+        {
+            [Channel("tenant.created")]
+            [SendOperation(typeof(AnyTenantCreated))]
+            public void Publish()
+            {
+            }
+        }
+
+        [AsyncApi]
+        public class SignatureInferencePublisher
+        {
+            [Channel("tenant.signature.inferred")]
+            [SendOperation]
+            public void Publish(SignatureInferredPayload payload)
+            {
+            }
+        }
+
+        [AsyncApi]
+        public class ConsumeContextInferenceConsumer
+        {
+            [Channel("tenant.consume.context")]
+            [ReceiveOperation]
+            public void Consume(ConsumeContext<ConsumeContextPayload> context)
+            {
+            }
+        }
+
+        [AsyncApi]
+        public class RouteInferredPublisher
+        {
+            [Channel]
+            [SendOperation(typeof(AnyTenantCreated))]
+            [HttpPost("api/tenants/{tenantId}/created")]
+            public void Publish([FromRoute] Guid tenantId, [FromBody] AnyTenantCreated payload)
+            {
+            }
+        }
+
+        [AsyncApi]
+        public class ExplicitOverridesInferencePublisher
+        {
+            [Channel("customChannel", "tenant.created")]
+            [SendOperation(typeof(AnyTenantCreated), OperationId = "customOperation")]
+            [Message(typeof(AnyTenantCreated), MessageId = "customMessage", Title = "Custom title")]
+            public void Publish(AnyTenantCreated payload)
+            {
+            }
+        }
+
+        [AsyncApi]
+        public class ChannelTagsPublisher
+        {
+            [Channel("tenant.tags", "tenant.tags", Tags = new[] { "billing", "events" })]
+            [SendOperation(typeof(AnyTenantCreated))]
+            public void Publish()
+            {
+            }
+        }
     }
 
     public class AnyTenantCreated : IEvent { }
@@ -145,6 +308,16 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
     public class AnyTenantUpdated : IEvent { }
 
     public class AnyTenantRemoved : IEvent { }
+
+    public class SignatureInferredPayload
+    {
+        public string Id { get; set; } = string.Empty;
+    }
+
+    public class ConsumeContextPayload
+    {
+        public Guid Id { get; set; }
+    }
 
     public interface IEvent { }
 

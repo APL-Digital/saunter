@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using Saunter.AttributeProvider.Attributes;
 using Saunter.AttributeProvider.Descriptors;
+using Saunter.Options;
 using Saunter.SharedKernel.Descriptors;
 using Saunter.SharedKernel.Interfaces;
 
@@ -18,23 +19,28 @@ namespace Saunter.AttributeProvider
             _schemaGenerator = schemaGenerator;
         }
 
-        public AsyncApiMessageResolutionDescriptor ResolveForOperation(MethodInfo method, OperationAttribute operationAttribute)
+        public AsyncApiMessageResolutionDescriptor ResolveForOperation(MethodInfo method, OperationAttribute operationAttribute, AsyncApiInferenceOptions inferenceOptions)
         {
             var messageAttributes = method.GetCustomAttributes<MessageAttribute>().ToArray();
             if (messageAttributes.Any())
             {
-                return GenerateMessagesFromAttributes(messageAttributes);
+                return GenerateMessagesFromAttributes(messageAttributes, inferenceOptions);
             }
 
             if (operationAttribute.MessagePayloadType is not null)
             {
-                return GenerateMessageFromType(operationAttribute.MessagePayloadType.GetTypeInfo());
+                return GenerateMessageFromType(operationAttribute.MessagePayloadType.GetTypeInfo(), inferenceOptions);
+            }
+
+            if (inferenceOptions.InferPayloadTypeFromMethodSignature && TryInferPayloadTypes(method).Any())
+            {
+                return GenerateMessagesFromTypes(TryInferPayloadTypes(method), inferenceOptions);
             }
 
             return new AsyncApiMessageResolutionDescriptor(Array.Empty<string>(), Array.Empty<AsyncApiMessageDescriptor>(), Array.Empty<AsyncApiSchemaComponentDescriptor>());
         }
 
-        public AsyncApiMessageResolutionDescriptor ResolveForOperation(TypeInfo type, OperationAttribute operationAttribute)
+        public AsyncApiMessageResolutionDescriptor ResolveForOperation(TypeInfo type, OperationAttribute operationAttribute, AsyncApiInferenceOptions inferenceOptions)
         {
             var messageAttributes = type
                 .DeclaredMethods
@@ -43,25 +49,37 @@ namespace Saunter.AttributeProvider
 
             if (messageAttributes.Any())
             {
-                return GenerateMessagesFromAttributes(messageAttributes);
+                return GenerateMessagesFromAttributes(messageAttributes, inferenceOptions);
             }
 
             if (operationAttribute.MessagePayloadType is not null)
             {
-                return GenerateMessageFromType(operationAttribute.MessagePayloadType.GetTypeInfo());
+                return GenerateMessageFromType(operationAttribute.MessagePayloadType.GetTypeInfo(), inferenceOptions);
+            }
+
+            if (inferenceOptions.InferPayloadTypeFromMethodSignature)
+            {
+                var inferredTypes = type.DeclaredMethods
+                    .SelectMany(TryInferPayloadTypes)
+                    .Distinct()
+                    .ToArray();
+                if (inferredTypes.Any())
+                {
+                    return GenerateMessagesFromTypes(inferredTypes, inferenceOptions);
+                }
             }
 
             return new AsyncApiMessageResolutionDescriptor(Array.Empty<string>(), Array.Empty<AsyncApiMessageDescriptor>(), Array.Empty<AsyncApiSchemaComponentDescriptor>());
         }
 
-        private AsyncApiMessageResolutionDescriptor GenerateMessagesFromAttributes(IEnumerable<MessageAttribute> messageAttributes)
+        private AsyncApiMessageResolutionDescriptor GenerateMessagesFromAttributes(IEnumerable<MessageAttribute> messageAttributes, AsyncApiInferenceOptions inferenceOptions)
         {
             var messageDescriptors = new List<AsyncApiMessageDescriptor>();
             var schemaDescriptors = new List<AsyncApiSchemaComponentDescriptor>();
 
             foreach (var attribute in messageAttributes)
             {
-                var result = GenerateMessageFromAttribute(attribute);
+                var result = GenerateMessageFromAttribute(attribute, inferenceOptions);
                 if (result is not MessageDescriptorResult resolved)
                 {
                     continue;
@@ -81,10 +99,22 @@ namespace Saunter.AttributeProvider
                     .ToArray());
         }
 
-        private AsyncApiMessageResolutionDescriptor GenerateMessageFromType(TypeInfo payloadType)
+        private AsyncApiMessageResolutionDescriptor GenerateMessagesFromTypes(IEnumerable<Type> payloadTypes, AsyncApiInferenceOptions inferenceOptions)
+        {
+            var resolutions = payloadTypes
+                .Select(type => GenerateMessageFromType(type.GetTypeInfo(), inferenceOptions))
+                .ToArray();
+
+            return new AsyncApiMessageResolutionDescriptor(
+                resolutions.SelectMany(resolution => resolution.MessageIds).Distinct(StringComparer.Ordinal).ToArray(),
+                resolutions.SelectMany(resolution => resolution.Messages).DistinctBy(message => message.Id).ToArray(),
+                resolutions.SelectMany(resolution => resolution.Schemas).DistinctBy(schema => schema.Id).ToArray());
+        }
+
+        private AsyncApiMessageResolutionDescriptor GenerateMessageFromType(TypeInfo payloadType, AsyncApiInferenceOptions inferenceOptions)
         {
             var payloadSchema = GetAsyncApiSchemaReference(payloadType);
-            var messageId = payloadSchema?.Id;
+            var messageId = payloadSchema?.Id ?? AttributeProviderModelFactory.SanitizeComponentKey(inferenceOptions.MessageNameGenerator(payloadType.AsType()));
 
             if (string.IsNullOrWhiteSpace(messageId))
             {
@@ -93,8 +123,8 @@ namespace Saunter.AttributeProvider
 
             var message = new AsyncApiMessageDescriptor(
                 messageId,
-                messageId,
-                messageId,
+                inferenceOptions.MessageNameGenerator(payloadType.AsType()),
+                inferenceOptions.MessageTitleGenerator(payloadType.AsType()),
                 null,
                 null,
                 payloadSchema?.Id,
@@ -112,7 +142,7 @@ namespace Saunter.AttributeProvider
                 payloadSchema?.Schemas ?? Array.Empty<AsyncApiSchemaComponentDescriptor>());
         }
 
-        private MessageDescriptorResult? GenerateMessageFromAttribute(MessageAttribute messageAttribute)
+        private MessageDescriptorResult? GenerateMessageFromAttribute(MessageAttribute messageAttribute, AsyncApiInferenceOptions inferenceOptions)
         {
             if (messageAttribute.PayloadType == null)
             {
@@ -125,8 +155,8 @@ namespace Saunter.AttributeProvider
             var headersSchema = GetHeadersSchemaReference(messageAttribute.HeadersType?.GetTypeInfo());
             var message = new AsyncApiMessageDescriptor(
                 messageId,
-                messageAttribute.Name ?? payloadSchema?.Id ?? messageAttribute.PayloadType.Name,
-                messageAttribute.Title ?? payloadSchema?.Id ?? messageAttribute.PayloadType.Name,
+                messageAttribute.Name ?? inferenceOptions.MessageNameGenerator(messageAttribute.PayloadType),
+                messageAttribute.Title ?? inferenceOptions.MessageTitleGenerator(messageAttribute.PayloadType),
                 messageAttribute.Summary,
                 messageAttribute.Description,
                 payloadSchema?.Id,
@@ -193,6 +223,48 @@ namespace Saunter.AttributeProvider
             }
 
             return schema.OneOf.Any(item => item.Type == AsyncApiSchemaValueType.Object);
+        }
+
+        private static IEnumerable<Type> TryInferPayloadTypes(MethodInfo method)
+        {
+            var consumeContextParameter = method.GetParameters()
+                .FirstOrDefault(parameter =>
+                    parameter.ParameterType.IsGenericType
+                    && parameter.ParameterType.GetGenericTypeDefinition().FullName == "MassTransit.ConsumeContext`1");
+            if (consumeContextParameter is not null)
+            {
+                yield return consumeContextParameter.ParameterType.GenericTypeArguments[0];
+                yield break;
+            }
+
+            var parameters = method.GetParameters()
+                .Where(parameter => !IsIgnorableParameter(parameter.ParameterType))
+                .ToArray();
+            if (parameters.Length == 1)
+            {
+                yield return parameters[0].ParameterType;
+            }
+        }
+
+        private static bool IsIgnorableParameter(Type type)
+        {
+            var typeInfo = type.GetTypeInfo();
+            if (type == typeof(string) || type == typeof(Guid) || type == typeof(DateTime) || type == typeof(DateTimeOffset))
+            {
+                return true;
+            }
+
+            if (type == typeof(System.Threading.CancellationToken))
+            {
+                return true;
+            }
+
+            if (typeInfo.IsPrimitive || typeInfo.IsEnum)
+            {
+                return true;
+            }
+
+            return Nullable.GetUnderlyingType(type) is { } underlying && IsIgnorableParameter(underlying);
         }
 
         private readonly record struct SchemaReferenceInfo(string Id, IReadOnlyList<AsyncApiSchemaComponentDescriptor> Schemas);

@@ -11,11 +11,10 @@ namespace Saunter.SharedKernel
 {
     internal class AsyncApiSchemaGenerator : IAsyncApiSchemaGenerator
     {
-        private static readonly NullabilityInfoContext s_nullabilityInfoContext = new();
-
         public GeneratedSchemaDescriptors? Generate(Type? type)
         {
-            var generatedSchemas = GenerateBranch(type, new HashSet<Type>(), isRoot: true);
+            var nullabilityInfoContext = new NullabilityInfoContext();
+            var generatedSchemas = GenerateBranch(type, new HashSet<Type>(), nullabilityInfoContext, isRoot: true);
             if (generatedSchemas is null)
             {
                 return null;
@@ -37,7 +36,7 @@ namespace Saunter.SharedKernel
                     .ToArray());
         }
 
-        private static GeneratedSchemaDescriptors? GenerateBranch(Type? type, HashSet<Type> parents, NullabilityInfo? nullabilityInfo = null, bool isRoot = false)
+        private static GeneratedSchemaDescriptors? GenerateBranch(Type? type, HashSet<Type> parents, NullabilityInfoContext nullabilityInfoContext, NullabilityInfo? nullabilityInfo = null, bool isRoot = false)
         {
             if (type is null)
             {
@@ -84,7 +83,7 @@ namespace Saunter.SharedKernel
             {
                 var itemSchemas = new List<AsyncApiSchemaDescriptor>();
                 var itemType = GetEnumerableItemType(typeInfo);
-                var generatedItemSchema = GenerateBranch(itemType, parents, GetItemNullabilityInfo(nullabilityInfo));
+                var generatedItemSchema = GenerateBranch(itemType, parents, nullabilityInfoContext, GetItemNullabilityInfo(nullabilityInfo));
                 if (generatedItemSchema is not null)
                 {
                     schema.Items = generatedItemSchema.Value.Root;
@@ -121,8 +120,8 @@ namespace Saunter.SharedKernel
 
             foreach (var prop in properties)
             {
-                var propertyNullability = s_nullabilityInfoContext.Create(prop);
-                var generatedSchemas = GenerateBranch(prop.PropertyType, parents, propertyNullability);
+                var propertyNullability = nullabilityInfoContext.Create(prop);
+                var generatedSchemas = GenerateBranch(prop.PropertyType, parents, nullabilityInfoContext, propertyNullability);
                 if (generatedSchemas is null)
                 {
                     continue;

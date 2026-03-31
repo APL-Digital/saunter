@@ -1,6 +1,7 @@
 ﻿using System;
 #nullable enable
 using System.Linq;
+using System.Reflection;
 using System.Runtime.Serialization;
 using Saunter.SharedKernel;
 using Saunter.SharedKernel.Descriptors;
@@ -179,6 +180,15 @@ namespace Saunter.Tests.SharedKernel
             command.Type.ShouldBe(AsyncApiSchemaValueType.String);
             command.Format.ShouldBe("enum");
             command.EnumValues.ShouldBe(new[] { "on", "off" });
+        }
+
+        [Fact]
+        public void AsyncApiSchemaGenerator_DoesNotKeepStaticNullabilityState()
+        {
+            typeof(AsyncApiSchemaGenerator)
+                .GetFields(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public)
+                .Any(field => field.FieldType == typeof(NullabilityInfoContext))
+                .ShouldBeFalse();
         }
 
         [Fact]

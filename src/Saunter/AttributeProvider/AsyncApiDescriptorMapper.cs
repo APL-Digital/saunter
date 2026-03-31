@@ -63,7 +63,8 @@ namespace Saunter.AttributeProvider
                     {
                         Description = parameter.Description,
                         Location = parameter.Location,
-                        Examples = new List<string>(),
+                        Default = parameter.DefaultValue,
+                        Examples = parameter.Examples.ToList(),
                         Enum = parameter.EnumValues.ToList(),
                         Extensions = new Dictionary<string, IAsyncApiExtension>(),
                     };

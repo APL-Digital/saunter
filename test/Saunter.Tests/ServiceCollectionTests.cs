@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using ByteBard.AsyncAPI.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Saunter.Options;
@@ -64,6 +66,16 @@ namespace Saunter.Tests
 
             document.ShouldNotBeNull();
             document.Asyncapi.ShouldStartWith("3");
+        }
+
+        [Fact]
+        public void ConfigureNamedAsyncApi_UsesOrdinalIgnoreCaseDocumentTokenMatching()
+        {
+            var sourcePath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../src/Saunter/AsyncApiServiceCollectionExtensions.cs"));
+            var source = File.ReadAllText(sourcePath);
+
+            source.ShouldContain("Contains(\"{document}\", StringComparison.OrdinalIgnoreCase)");
+            source.ShouldNotContain(".ToLower().Contains(\"{document}\")");
         }
     }
 }

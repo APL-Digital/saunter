@@ -52,7 +52,10 @@ namespace Saunter.AttributeProvider
             clone.Asyncapi = sourceDocument.Asyncapi?.StartsWith("2.") == true
                 ? sourceDocument.Asyncapi
                 : "3.0.0";
-            clone.DefaultContentType ??= "application/json";
+            if (options.Inference.AutoSetDefaultContentType)
+            {
+                clone.DefaultContentType ??= "application/json";
+            }
             clone.Components ??= new AsyncApiComponentsDescriptor();
             clone.Channels ??= new Dictionary<string, AsyncApiChannelDescriptor>();
             clone.Operations ??= new Dictionary<string, AsyncApiOperationDescriptor>();
@@ -102,23 +105,23 @@ namespace Saunter.AttributeProvider
                 var operationMessages = GetOperationAttributes(item.Method)
                     .ToDictionary(
                         operationAttribute => operationAttribute,
-                        operationAttribute => _messageResolver.ResolveForOperation(item.Method, operationAttribute));
+                        operationAttribute => _messageResolver.ResolveForOperation(item.Method, operationAttribute, options.Inference));
 
                 RegisterMessageResolutions(components, operationMessages.Values);
-                var channelItem = _channelBuilder.Build(item.Method, channel, UnionMessageIds(operationMessages.Values));
+                var channelItem = _channelBuilder.Build(item.Method, channel, UnionMessageIds(operationMessages.Values), options.Inference);
                 RegisterChannelParameters(components, channelItem);
 
                 ApplyChannelFilters(options, item.Method, channel, channelItem);
 
                 foreach (var pair in operationMessages)
                 {
-                    var operation = _operationBuilder.Build(item.Method, pair.Key, channel.ChannelId, pair.Value.MessageIds);
+                    var operation = _operationBuilder.Build(item.Method, pair.Key, channelItem.Id, pair.Value.MessageIds);
                     ApplyOperationFilters(item.Method, options, pair.Key, operation);
 
                     yield return new GeneratedOperation(
-                        channel.ChannelId,
+                        channelItem.Id,
                         channelItem,
-                        GetOperationId(pair.Key, item.Method, pair.Key.Action),
+                        GetOperationId(pair.Key, item.Method, pair.Key.Action, options),
                         operation);
                 }
             }
@@ -140,23 +143,23 @@ namespace Saunter.AttributeProvider
                 var operationMessages = GetOperationAttributes(item.Type)
                     .ToDictionary(
                         operationAttribute => operationAttribute,
-                        operationAttribute => _messageResolver.ResolveForOperation(item.Type, operationAttribute));
+                        operationAttribute => _messageResolver.ResolveForOperation(item.Type, operationAttribute, options.Inference));
 
                 RegisterMessageResolutions(components, operationMessages.Values);
-                var channelItem = _channelBuilder.Build(item.Type, channel, UnionMessageIds(operationMessages.Values));
+                var channelItem = _channelBuilder.Build(item.Type, channel, UnionMessageIds(operationMessages.Values), options.Inference);
                 RegisterChannelParameters(components, channelItem);
 
                 ApplyChannelFilters(options, item.Type, channel, channelItem);
 
                 foreach (var pair in operationMessages)
                 {
-                    var operation = _operationBuilder.Build(item.Type, pair.Key, channel.ChannelId, pair.Value.MessageIds);
+                    var operation = _operationBuilder.Build(item.Type, pair.Key, channelItem.Id, pair.Value.MessageIds);
                     ApplyOperationFilters(item.Type, options, pair.Key, operation);
 
                     yield return new GeneratedOperation(
-                        channel.ChannelId,
+                        channelItem.Id,
                         channelItem,
-                        GetOperationId(pair.Key, item.Type, pair.Key.Action),
+                        GetOperationId(pair.Key, item.Type, pair.Key.Action, options),
                         operation);
                 }
             }
@@ -240,11 +243,16 @@ namespace Saunter.AttributeProvider
             }
         }
 
-        private static string GetOperationId(OperationAttribute attribute, MemberInfo member, AsyncApiAction action)
+        private static string GetOperationId(OperationAttribute attribute, MemberInfo member, AsyncApiAction action, AsyncApiOptions options)
         {
             if (!string.IsNullOrWhiteSpace(attribute.OperationId))
             {
                 return attribute.OperationId;
+            }
+
+            if (options.Inference.InferOperationIdFromMemberName)
+            {
+                return options.Inference.OperationIdGenerator(member, action);
             }
 
             return $"{member.DeclaringType?.Name ?? member.Name}.{member.Name}.{action.ToString().ToLowerInvariant()}";

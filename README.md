@@ -7,7 +7,11 @@ Saunter is a code-first [AsyncAPI](https://github.com/asyncapi/asyncapi) documen
 
 ## Getting Started
 
-See [examples/StreetlightsAPI](https://github.com/asyncapi/saunter/tree/main/examples/StreetlightsAPI).
+Start with one of these examples:
+
+- [examples/MassTransitMinimal](https://github.com/asyncapi/saunter/tree/main/examples/MassTransitMinimal) for the happy path and inferred defaults
+- [examples/MassTransitStreetlights](https://github.com/asyncapi/saunter/tree/main/examples/MassTransitStreetlights) for the advanced, spec-shaped MassTransit example
+- [examples/StreetlightsAPI](https://github.com/asyncapi/saunter/tree/main/examples/StreetlightsAPI) for the non-MassTransit Streetlights sample
 
 1. Install the Saunter package.
 
@@ -18,24 +22,22 @@ See [examples/StreetlightsAPI](https://github.com/asyncapi/saunter/tree/main/exa
 2. Configure Saunter in `ConfigureServices`.
 
    ```csharp
-   using ByteBard.AsyncAPI.Bindings.AMQP;
-   using ByteBard.AsyncAPI.Bindings.Http;
-   using ByteBard.AsyncAPI.Models;
+   using Saunter;
 
    services.AddAsyncApiSchemaGeneration(options =>
    {
        options.AssemblyMarkerTypes = new[] { typeof(StreetlightMessageBus) };
        options.Middleware.UiTitle = "Streetlights API";
 
-       options.AsyncApi = new AsyncApiDocument
+       options.AsyncApi = new AsyncApiDocumentDescriptor
        {
            Asyncapi = "3.0.0",
-           Info = new AsyncApiInfo
+           Info = new AsyncApiInfoDescriptor
            {
                Title = "Streetlights API",
                Version = "1.0.0",
-               Description = "The Smartylighting Streetlights API allows you to remotely manage the city lights.",
-               License = new AsyncApiLicense
+                Description = "The Smartylighting Streetlights API allows you to remotely manage the city lights.",
+               License = new AsyncApiLicenseDescriptor
                {
                    Name = "Apache 2.0",
                    Url = new("https://www.apache.org/licenses/LICENSE-2.0"),
@@ -43,43 +45,13 @@ See [examples/StreetlightsAPI](https://github.com/asyncapi/saunter/tree/main/exa
            },
            Servers =
            {
-               ["mosquitto"] = new AsyncApiServer { Host = "test.mosquitto.org", Protocol = "mqtt" },
-               ["webapi"] = new AsyncApiServer { Host = "localhost:5000", Protocol = "http" },
-           },
-           Components =
-           {
-               ChannelBindings =
-               {
-                   ["amqpDev"] = new()
-                   {
-                       new AMQPChannelBinding
-                       {
-                           Is = ChannelType.Queue,
-                           Exchange = new()
-                           {
-                               Name = "example-exchange",
-                               Vhost = "/development"
-                           }
-                       }
-                   }
-               },
-               OperationBindings =
-               {
-                   ["postBind"] = new()
-                   {
-                       new HttpOperationBinding
-                       {
-                           Method = "POST",
-                           Type = HttpOperationBinding.HttpOperationType.Response,
-                       }
-                   }
-               }
+               ["mqtt"] = new AsyncApiServerDescriptor { Host = "test.mosquitto.org", Protocol = "mqtt" },
            }
        };
    });
    ```
 
-3. Annotate classes or methods with the v3 attributes.
+3. Annotate the messaging boundary.
 
    ```csharp
    using Saunter.AttributeProvider.Attributes;
@@ -87,13 +59,24 @@ See [examples/StreetlightsAPI](https://github.com/asyncapi/saunter/tree/main/exa
    [AsyncApi]
    public class StreetlightMessageBus : IStreetlightMessageBus
    {
-       [Channel("streetlights.measurement", "subscribe/light/measured", BindingsRef = "amqpDev")]
-       [ReceiveOperation(typeof(LightMeasuredEvent), OperationId = "Light", Summary = "Subscribe to environmental lighting conditions for a particular streetlight.", BindingsRef = "postBind")]
+       [Channel("subscribe/light/measured")]
+       [ReceiveOperation]
        public void ReceiveLightMeasurement(LightMeasuredEvent lightMeasuredEvent) { }
    }
    ```
 
-4. Map the endpoints.
+   In the happy path, Saunter infers:
+
+   - `channelId` from the channel address
+   - `OperationId` from the member name
+   - payload type from the method signature
+   - message id, name, and title from the payload type
+
+4. Prefer method-level annotations by default.
+
+   Method-level annotations are the clearest path for most users. Class-level annotations are still supported when you want to declare shared channels or shared operation context across multiple members.
+
+5. Map the endpoints.
 
    ```csharp
    app.UseEndpoints(endpoints =>
@@ -104,7 +87,7 @@ See [examples/StreetlightsAPI](https://github.com/asyncapi/saunter/tree/main/exa
    });
    ```
 
-5. Open the JSON document.
+6. Open the JSON document.
 
    ```jsonc
    // GET /asyncapi/asyncapi.json
@@ -120,16 +103,27 @@ See [examples/StreetlightsAPI](https://github.com/asyncapi/saunter/tree/main/exa
        }
      },
      "operations": {
-       "Light": {
-         "action": "receive"
+       "ReceiveLightMeasurement": {
+         "action": "receive",
+         "channel": {
+           "$ref": "#/channels/subscribeLightMeasured"
+         }
        }
      }
    }
    ```
 
-6. Open the UI.
+7. Open the UI.
 
    ![AsyncAPI UI](https://raw.githubusercontent.com/asyncapi/saunter/main/assets/asyncapi-ui-screenshot.png)
+
+## Annotation Mental Model
+
+- Put Saunter annotations on the messaging boundary, not the HTTP boundary.
+- Annotate producer methods and consumer methods.
+- Keep controllers and adapters thin.
+- Use `[Message]` only when you need to override inferred message metadata.
+- Use class-level annotations only when shared declaration is genuinely clearer than method-level placement.
 
 ## Configuration
 
@@ -144,8 +138,21 @@ services.AddAsyncApiSchemaGeneration(options =>
     options.Middleware.Route = "/asyncapi/asyncapi.json";
     options.Middleware.UiBaseRoute = "/asyncapi/ui/";
     options.Middleware.UiTitle = "My AsyncAPI Documentation";
+   options.Inference.InferOperationIdFromMemberName = true;
+    options.Inference.InferChannelIdFromAddress = true;
+    options.Inference.InferPayloadTypeFromMethodSignature = true;
+    options.Inference.OperationIdGenerator = (member, action) => member.Name;
+    options.Inference.ChannelIdGenerator = address => "myCustomChannelId";
 });
 ```
+
+Default inference decisions:
+
+- inferred operation ids preserve the member name casing by default
+- inferred channel ids use the configured `ChannelIdGenerator`
+- richer channel tag metadata can be declared with `[ChannelTag(...)]`
+- channel parameters can now carry `DefaultValue` and `Examples`
+- Saunter packages ship the built-in analyzers automatically
 
 ## Bindings
 
@@ -158,7 +165,7 @@ using ByteBard.AsyncAPI.Models;
 
 services.AddAsyncApiSchemaGeneration(options =>
 {
-    options.AsyncApi = new AsyncApiDocument
+    options.AsyncApi = new AsyncApiDocumentDescriptor
     {
         Components =
         {
@@ -204,16 +211,16 @@ services.AddAsyncApiSchemaGeneration(options =>
 services.ConfigureNamedAsyncApi("Foo", asyncApi =>
 {
     asyncApi.Asyncapi = "3.0.0";
-    asyncApi.Info = new AsyncApiInfo { Title = "Foo API", Version = "1.0.0" };
+    asyncApi.Info = new AsyncApiInfoDescriptor { Title = "Foo API", Version = "1.0.0" };
 });
 ```
 
 ## Breaking Changes
 
 - LEGO AsyncAPI.NET was replaced with `ByteBard.AsyncAPI.NET`, `ByteBard.AsyncAPI.NET.Readers`, and `ByteBard.AsyncAPI.NET.Bindings`.
-- Public API types now use ByteBard models, including `AsyncApiOptions.AsyncApi`, `IAsyncApiDocumentProvider`, and the filter interfaces.
+- Public API types now use Saunter descriptors, including `AsyncApiOptions.AsyncApi`, `IAsyncApiDocumentProvider`, and the filter interfaces.
 - `PublishOperationAttribute` and `SubscribeOperationAttribute` were removed and replaced with `SendOperationAttribute` and `ReceiveOperationAttribute`.
-- `ChannelAttribute` now takes `(channelId, address)` instead of a single channel name.
+- `ChannelAttribute` still supports `(channelId, address)`, but now also supports inferred ids from a single address in the happy path.
 - Generated documents now use AsyncAPI v3 root `operations` and v3 channel `address` fields instead of v2 channel-local `publish` and `subscribe`.
 - Existing code that mutates or asserts v2 document shape must be updated to the v3 document model.
 

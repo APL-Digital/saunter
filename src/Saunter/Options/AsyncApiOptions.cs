@@ -47,6 +47,8 @@ namespace Saunter.Options
 
         public AsyncApiMiddlewareOptions Middleware { get; } = new AsyncApiMiddlewareOptions();
 
+        public AsyncApiInferenceOptions Inference { get; } = new AsyncApiInferenceOptions();
+
         public ConcurrentDictionary<string, AsyncApiDocumentDescriptor> NamedApis { get; set; } = new();
     }
 }

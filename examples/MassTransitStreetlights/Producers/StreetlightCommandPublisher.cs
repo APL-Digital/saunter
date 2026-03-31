@@ -9,6 +9,9 @@ namespace MassTransitStreetlights.Producers;
 [AsyncApi]
 public class StreetlightCommandPublisher : IStreetlightCommandPublisher
 {
+    // Saunter annotations live on the publish boundary in this example.
+    // That keeps the AsyncAPI description attached to the code that actually
+    // emits bus messages, instead of the HTTP controller that happens to call it.
     private readonly IPublishEndpoint _publishEndpoint;
 
     public StreetlightCommandPublisher(IPublishEndpoint publishEndpoint)
@@ -30,6 +33,7 @@ public class StreetlightCommandPublisher : IStreetlightCommandPublisher
     {
         return _publishEndpoint.Publish(new TurnOnOffPayload
         {
+            StreetlightId = streetlightId,
             Command = TurnOnOffCommand.On,
             SentAt = DateTime.UtcNow,
         });
@@ -48,6 +52,7 @@ public class StreetlightCommandPublisher : IStreetlightCommandPublisher
     {
         return _publishEndpoint.Publish(new TurnOnOffPayload
         {
+            StreetlightId = streetlightId,
             Command = TurnOnOffCommand.Off,
             SentAt = DateTime.UtcNow,
         });
@@ -64,6 +69,7 @@ public class StreetlightCommandPublisher : IStreetlightCommandPublisher
     {
         return _publishEndpoint.Publish(new DimLightPayload
         {
+            StreetlightId = streetlightId,
             Percentage = percentage,
             SentAt = DateTime.UtcNow,
         });

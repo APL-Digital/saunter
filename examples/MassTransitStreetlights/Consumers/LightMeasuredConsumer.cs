@@ -9,6 +9,8 @@ namespace MassTransitStreetlights.Consumers;
 [AsyncApi]
 public class LightMeasuredConsumer : IConsumer<LightMeasuredPayload>
 {
+    // Receive-side annotations live on the MassTransit consumer so the AsyncAPI
+    // document reflects the bus boundary directly.
     private readonly ILogger<LightMeasuredConsumer> _logger;
 
     public LightMeasuredConsumer(ILogger<LightMeasuredConsumer> logger)

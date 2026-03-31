@@ -40,9 +40,9 @@ namespace Saunter
             services.Configure<AsyncApiOptions>(options =>
             {
                 if (options.Middleware.Route == null
-                    || !options.Middleware.Route.ToLower().Contains("{document}")
+                    || !options.Middleware.Route.Contains("{document}", StringComparison.OrdinalIgnoreCase)
                     || options.Middleware.UiBaseRoute == null
-                    || !options.Middleware.UiBaseRoute.ToLower().Contains("{document}"))
+                    || !options.Middleware.UiBaseRoute.Contains("{document}", StringComparison.OrdinalIgnoreCase))
                 {
                     options.Middleware.Route = "/asyncapi/{document}/asyncapi.json";
                     options.Middleware.UiBaseRoute = "/asyncapi/{document}/ui/";

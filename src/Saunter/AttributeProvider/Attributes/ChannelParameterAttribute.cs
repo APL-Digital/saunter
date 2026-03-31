@@ -5,6 +5,12 @@ namespace Saunter.AttributeProvider.Attributes
     [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
     public class ChannelParameterAttribute : Attribute
     {
+        public ChannelParameterAttribute(string name)
+        {
+            Name = name ?? throw new ArgumentNullException(nameof(name));
+            Type = typeof(string);
+        }
+
         public ChannelParameterAttribute(string name, Type type)
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));
@@ -18,5 +24,9 @@ namespace Saunter.AttributeProvider.Attributes
         public string? Description { get; set; }
 
         public string? Location { get; set; }
+
+        public string? DefaultValue { get; set; }
+
+        public string[] Examples { get; set; } = Array.Empty<string>();
     }
 }

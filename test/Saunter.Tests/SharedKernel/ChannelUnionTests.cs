@@ -42,7 +42,7 @@ namespace Saunter.Tests.SharedKernel
                 null,
                 [],
                 ["one"],
-                [new AsyncApiParameterDescriptor("tenant_id", "description", "tenant_id", [])]);
+                [new AsyncApiParameterDescriptor("tenant_id", "description", "tenant_id", [], null, [])]);
 
             var additional = new AsyncApiChannelDescriptor(
                 "orders",
@@ -79,7 +79,7 @@ namespace Saunter.Tests.SharedKernel
                 null,
                 [],
                 ["one"],
-                [new AsyncApiParameterDescriptor("tenant_id", "source", null, [])]);
+                [new AsyncApiParameterDescriptor("tenant_id", "source", null, [], null, [])]);
 
             var additional = new AsyncApiChannelDescriptor(
                 "orders",
@@ -90,7 +90,7 @@ namespace Saunter.Tests.SharedKernel
                 null,
                 [],
                 ["one"],
-                [new AsyncApiParameterDescriptor("tenant_id", "additional", null, [])]);
+                [new AsyncApiParameterDescriptor("tenant_id", "additional", null, [], null, [])]);
 
             var channelUnion = new AsyncApiChannelUnion();
             var actual = channelUnion.Union(source, additional);

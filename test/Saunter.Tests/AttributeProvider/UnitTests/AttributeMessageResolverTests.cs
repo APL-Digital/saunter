@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using Saunter.AttributeProvider;
 using Saunter.AttributeProvider.Attributes;
+using Saunter.Options;
 using Saunter.SharedKernel;
 using Shouldly;
 using Xunit;
@@ -16,7 +17,7 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             var resolver = new AttributeMessageResolver(new AsyncApiSchemaGenerator());
             var method = typeof(MessageFixture).GetMethod(nameof(MessageFixture.Publish))!;
 
-            var resolution = resolver.ResolveForOperation(method, new SendOperationAttribute());
+            var resolution = resolver.ResolveForOperation(method, new SendOperationAttribute(), new AsyncApiInferenceOptions());
 
             resolution.MessageIds.Single().ShouldBe("order_created.v1");
             var message = resolution.Messages.Single();
@@ -34,7 +35,7 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             var resolver = new AttributeMessageResolver(new AsyncApiSchemaGenerator());
             var method = typeof(MessageFixture).GetMethod(nameof(MessageFixture.PublishWithPrimitiveHeaders))!;
 
-            var actual = () => resolver.ResolveForOperation(method, new SendOperationAttribute());
+            var actual = () => resolver.ResolveForOperation(method, new SendOperationAttribute(), new AsyncApiInferenceOptions());
 
             Should.Throw<InvalidOperationException>(actual)
                 .Message.ShouldContain("must generate an object schema");
