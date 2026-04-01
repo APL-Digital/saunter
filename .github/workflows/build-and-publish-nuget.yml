@@ -35,4 +35,4 @@ jobs:
       - name: Build solution and generate NuGet package
         run: dotnet pack ${{ inputs.PROJECT_ROOT_FOLDER }}${{ inputs.PROJECT_PATH }} --configuration Release --output ${{ inputs.NUGET_FOLDER }} --include-symbols -p:SymbolPackageFormat=snupkg
       - name: Push generated package to GitHub registry
-        run: dotnet nuget push ${{ inputs.NUGET_FOLDER }}/$(Split-Path '${{ inputs.PROJECT_PATH }}' -Leaf).*.nupkg --source ${{ vars.NUGET_REGISTRY_URL }} --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
+        run: dotnet nuget push ${{ inputs.NUGET_FOLDER }}/$(basename '${{ inputs.PROJECT_PATH }}').*.nupkg --source ${{ vars.NUGET_REGISTRY_URL }} --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
