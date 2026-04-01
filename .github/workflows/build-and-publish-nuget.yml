@@ -1,6 +1,6 @@
 name: WORKFLOW_Build_and_Publish_NuGet
 
-concurrency: nuget-${{ inputs.PROJECT_PATH }}
+concurrency: build-and-publish-nuget-${{ inputs.PROJECT_PATH }}
 
 on:
   workflow_call:
