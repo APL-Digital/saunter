@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Testing;
 using Saunter.AttributeProvider;
 using Saunter.Options;
-using Saunter.SharedKernel;
 
 namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
 {
@@ -27,14 +27,12 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         {
             options = new FakeAsyncApiOptions(targetTypes);
 
-            documentProvider = new AttributeDocumentProvider(
-                ActivatorServiceProvider.Instance,
-                new AttributeMessageResolver(new AsyncApiSchemaGenerator()),
-                new AttributeChannelBuilder(),
-                new AttributeOperationBuilder(),
-                new AsyncApiChannelUnion(),
-                new AsyncApiDocumentSerializeCloner(),
-                new AsyncApiDocumentValidator());
+            var services = new ServiceCollection();
+            services.AddFakeLogging();
+            services.AddAsyncApiSchemaGeneration();
+
+            var serviceProvider = services.BuildServiceProvider();
+            documentProvider = (AttributeDocumentProvider)serviceProvider.GetRequiredService<IAsyncApiDocumentProvider>();
         }
     }
 }

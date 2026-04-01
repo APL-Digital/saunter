@@ -10,7 +10,7 @@ namespace Saunter.Tests.SharedKernel
         [Fact]
         public void WriteJson_PreservesNullableKeyword()
         {
-            var writer = new AsyncApiDocumentWriter();
+            var writer = new AsyncApiDocumentWriter(new AsyncApiDocumentMapper(new global::Saunter.AttributeProvider.AsyncApiDescriptorMapper(new AsyncApiSchemaMapper())));
             var document = new AsyncApiDocumentDescriptor
             {
                 Asyncapi = "3.1.0",

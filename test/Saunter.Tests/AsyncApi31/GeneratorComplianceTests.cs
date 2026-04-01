@@ -1,7 +1,4 @@
 using System;
-using System.Linq;
-using System.Text.RegularExpressions;
-using ByteBard.AsyncAPI;
 using Saunter.AttributeProvider.Attributes;
 using Saunter.SharedKernel;
 using Saunter.Tests.AttributeProvider.DocumentGenerationTests;
@@ -105,7 +102,7 @@ namespace Saunter.Tests.AsyncApi31
             ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(NullablePayloadPublisher));
 
             var document = documentProvider.GetDocument(null, options);
-            var json = new AsyncApiDocumentWriter().WriteJson(document);
+            var json = new AsyncApiDocumentWriter(new AsyncApiDocumentMapper(new global::Saunter.AttributeProvider.AsyncApiDescriptorMapper(new AsyncApiSchemaMapper()))).WriteJson(document);
 
             json.ShouldContain("\"nullable\"");
         }

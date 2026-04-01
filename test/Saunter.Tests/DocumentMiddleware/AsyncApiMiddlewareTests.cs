@@ -5,10 +5,11 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Saunter.AttributeProvider.Descriptors;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Saunter.DocumentMiddleware;
 using Saunter.Options;
-using Saunter.SharedKernel;
+using Saunter.SharedKernel.Interfaces;
 using Shouldly;
 using Xunit;
 
@@ -26,7 +27,7 @@ namespace Saunter.Tests.DocumentMiddleware
                 _ => Task.CompletedTask,
                 options,
                 new TestDocumentProvider(),
-                new AsyncApiDocumentWriter());
+                CreateWriter());
 
             var context = new DefaultHttpContext();
             context.Request.Method = HttpMethods.Get;
@@ -45,6 +46,46 @@ namespace Saunter.Tests.DocumentMiddleware
             json.RootElement.GetProperty("asyncapi").GetString().ShouldBe("3.0.0");
             json.RootElement.TryGetProperty("channels", out _).ShouldBeTrue();
             json.RootElement.TryGetProperty("operations", out _).ShouldBeTrue();
+        }
+
+        [Fact]
+        public async Task Invoke_CachesRenderedDocumentJsonAcrossRequests()
+        {
+            var options = Microsoft.Extensions.Options.Options.Create(new AsyncApiOptions());
+            options.Value.Middleware.Route = "/asyncapi/asyncapi.json";
+
+            var provider = new CountingDocumentProvider();
+            var writer = new CountingDocumentWriter();
+            var middleware = new AsyncApiMiddleware(
+                _ => Task.CompletedTask,
+                options,
+                provider,
+                writer);
+
+            await InvokeDocumentRequest(middleware);
+            await InvokeDocumentRequest(middleware);
+
+            provider.CallCount.ShouldBe(1);
+            writer.CallCount.ShouldBe(1);
+        }
+
+        private static async Task InvokeDocumentRequest(AsyncApiMiddleware middleware)
+        {
+            var context = new DefaultHttpContext();
+            context.Request.Method = HttpMethods.Get;
+            context.Request.Path = "/asyncapi/asyncapi.json";
+            context.Response.Body = new MemoryStream();
+
+            await middleware.Invoke(context);
+        }
+
+        private static IAsyncApiDocumentWriter CreateWriter()
+        {
+            var services = new ServiceCollection();
+            services.AddFakeLogging();
+            services.AddAsyncApiSchemaGeneration();
+
+            return services.BuildServiceProvider().GetRequiredService<IAsyncApiDocumentWriter>();
         }
 
         private class TestDocumentProvider : IAsyncApiDocumentProvider
@@ -68,6 +109,28 @@ namespace Saunter.Tests.DocumentMiddleware
                         ["operation"] = new AsyncApiOperationDescriptor(ByteBard.AsyncAPI.Models.AsyncApiAction.Send, "channel", null, null, null, null, [], [], null)
                     }
                 };
+            }
+        }
+
+        private sealed class CountingDocumentProvider : IAsyncApiDocumentProvider
+        {
+            public int CallCount { get; private set; }
+
+            public AsyncApiDocumentDescriptor GetDocument(string? documentName, AsyncApiOptions options)
+            {
+                CallCount++;
+                return new TestDocumentProvider().GetDocument(documentName, options);
+            }
+        }
+
+        private sealed class CountingDocumentWriter : IAsyncApiDocumentWriter
+        {
+            public int CallCount { get; private set; }
+
+            public string WriteJson(AsyncApiDocumentDescriptor document)
+            {
+                CallCount++;
+                return "{\"asyncapi\":\"3.0.0\"}";
             }
         }
     }

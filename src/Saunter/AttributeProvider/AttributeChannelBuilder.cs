@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Mvc.Routing;
 using Saunter.AttributeProvider.Attributes;
 using Saunter.AttributeProvider.Descriptors;
 using Saunter.Options;
@@ -159,8 +160,9 @@ namespace Saunter.AttributeProvider
         {
             var routeAttribute = member
                 .GetCustomAttributes()
-                .FirstOrDefault(attribute => attribute.GetType().GetProperty("Template")?.PropertyType == typeof(string));
-            template = routeAttribute?.GetType().GetProperty("Template")?.GetValue(routeAttribute) as string ?? string.Empty;
+                .OfType<IRouteTemplateProvider>()
+                .FirstOrDefault(attribute => !string.IsNullOrWhiteSpace(attribute.Template));
+            template = routeAttribute?.Template ?? string.Empty;
             return !string.IsNullOrWhiteSpace(template);
         }
     }

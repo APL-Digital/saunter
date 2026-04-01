@@ -45,8 +45,9 @@ namespace Saunter.AttributeProvider
             ArgumentNullException.ThrowIfNull(options);
 
             var asyncApiTypes = GetAsyncApiTypes(options, documentName);
-            var apiNamePair = options.NamedApis.FirstOrDefault(c => c.Value.Id == documentName);
-            var sourceDocument = apiNamePair.Value ?? options.AsyncApi;
+            var sourceDocument = documentName is not null && options.NamedApis.TryGetValue(documentName, out var namedDocument)
+                ? namedDocument
+                : options.AsyncApi;
             var clone = _cloner.ClonePrototype(sourceDocument);
 
             clone.Asyncapi = sourceDocument.Asyncapi?.StartsWith("2.") == true
@@ -80,7 +81,7 @@ namespace Saunter.AttributeProvider
             var filterContext = new DocumentFilterContext(asyncApiTypes);
             foreach (var filterType in options.DocumentFilters)
             {
-                var filter = (IDocumentFilter)_serviceProvider.GetRequiredService(filterType);
+                var filter = ResolveFilter<IDocumentFilter>(filterType);
                 filter.Apply(clone, filterContext);
             }
 
@@ -171,7 +172,7 @@ namespace Saunter.AttributeProvider
 
             foreach (var filterType in options.ChannelFilters)
             {
-                var filter = (IChannelFilter)_serviceProvider.GetRequiredService(filterType);
+                var filter = ResolveFilter<IChannelFilter>(filterType);
                 filter.Apply(channelItem, context);
             }
         }
@@ -182,9 +183,16 @@ namespace Saunter.AttributeProvider
 
             foreach (var filterType in options.OperationFilters)
             {
-                var filter = (IOperationFilter)_serviceProvider.GetRequiredService(filterType);
+                var filter = ResolveFilter<IOperationFilter>(filterType);
                 filter.Apply(operation, filterContext);
             }
+        }
+
+        private TFilter ResolveFilter<TFilter>(Type filterType)
+            where TFilter : class
+        {
+            return _serviceProvider.GetService(filterType) as TFilter
+                ?? (TFilter)ActivatorUtilities.CreateInstance(_serviceProvider, filterType);
         }
 
         private void RegisterMessageResolutions(AsyncApiComponentsDescriptor components, IEnumerable<AsyncApiMessageResolutionDescriptor> resolutions)

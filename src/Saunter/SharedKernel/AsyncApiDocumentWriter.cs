@@ -8,11 +8,6 @@ namespace Saunter.SharedKernel
     {
         private readonly IAsyncApiDocumentMapper _documentMapper;
 
-        public AsyncApiDocumentWriter()
-            : this(new AsyncApiDocumentMapper(new AttributeProvider.AsyncApiDescriptorMapper(new AsyncApiSchemaMapper())))
-        {
-        }
-
         public AsyncApiDocumentWriter(IAsyncApiDocumentMapper documentMapper)
         {
             _documentMapper = documentMapper;

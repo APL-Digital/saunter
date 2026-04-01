@@ -15,7 +15,7 @@ namespace Saunter.Tests.SharedKernel
         {
             _cloner = new AsyncApiDocumentSerializeCloner(
                 new FakeLogger<AsyncApiDocumentSerializeCloner>(),
-                new AsyncApiDocumentWriter());
+                new AsyncApiDocumentWriter(new AsyncApiDocumentMapper(new global::Saunter.AttributeProvider.AsyncApiDescriptorMapper(new AsyncApiSchemaMapper()))));
         }
 
         [Fact]
