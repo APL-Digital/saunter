@@ -1,4 +1,4 @@
-using MassTransit;
+﻿using MassTransit;
 using MassTransitStreetlights.Consumers;
 using MassTransitStreetlights.Consumers.Definitions;
 using MassTransitStreetlights.Producers;

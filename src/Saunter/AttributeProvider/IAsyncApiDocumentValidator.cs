@@ -1,4 +1,4 @@
-namespace Saunter.AttributeProvider
+﻿namespace Saunter.AttributeProvider
 {
     internal interface IAsyncApiDocumentValidator
     {

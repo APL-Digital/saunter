@@ -1,4 +1,4 @@
-using Saunter.AttributeProvider.Descriptors;
+﻿using Saunter.AttributeProvider.Descriptors;
 
 namespace Saunter.SharedKernel.Interfaces
 {

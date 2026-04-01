@@ -1,4 +1,4 @@
-namespace MassTransitStreetlights.Controllers;
+﻿namespace MassTransitStreetlights.Controllers;
 
 public class DimLightRequest
 {

@@ -1,4 +1,4 @@
-using Saunter.AttributeProvider.Attributes;
+﻿using Saunter.AttributeProvider.Attributes;
 
 namespace Saunter.Tests.MarkerTypeTests
 {

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Microsoft.Extensions.Logging.Testing;
 using Saunter.AttributeProvider.Descriptors;
 using Saunter.SharedKernel;

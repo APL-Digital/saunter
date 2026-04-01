@@ -1,12 +1,12 @@
+﻿using System.Linq;
 using ByteBard.AsyncAPI.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Saunter.AttributeProvider.Descriptors;
 using Saunter.AttributeProvider.Attributes;
+using Saunter.AttributeProvider.Descriptors;
 using Saunter.Options;
 using Saunter.Options.Filters;
 using Shouldly;
-using System.Linq;
 using Xunit;
 
 namespace Saunter.Tests.AttributeProvider

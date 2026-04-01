@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using MassTransit;
 using MassTransitStreetlights.Contracts;
 using Microsoft.Extensions.Logging;

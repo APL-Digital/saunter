@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using MassTransit;
 using MassTransitMinimal.Consumers;
 using MassTransitMinimal.Contracts;

@@ -1,4 +1,4 @@
-using MassTransitStreetlights.AsyncApi;
+﻿using MassTransitStreetlights.AsyncApi;
 using MassTransitStreetlights.Consumers;
 using MassTransitStreetlights.Producers;
 using Microsoft.Extensions.DependencyInjection;

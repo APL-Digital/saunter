@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Saunter.AttributeProvider.Attributes;
@@ -126,7 +126,7 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         [SendOperation(OperationId = "ClassLevelExplicitOperation")]
         private class ClassLevelExplicitPublisher
         {
-            public void Publish(ClassPayload payload)
+            public void Publish(ClassPayload _)
             {
             }
         }
@@ -166,7 +166,7 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         {
             [Channel("tenant.payload")]
             [SendOperation]
-            public void Publish(ClassPayload payload)
+            public void Publish(ClassPayload _)
             {
             }
         }
@@ -177,8 +177,10 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             [Channel]
             [SendOperation(typeof(ClassPayload))]
             [HttpPost("api/tenants/{tenantId}/created")]
-            public void Publish([FromRoute] Guid tenantId, [FromBody] ClassPayload payload)
+            public void Publish([FromRoute] Guid _tenantId, [FromBody] ClassPayload _payload)
             {
+                _ = _tenantId;
+                _ = _payload;
             }
         }
 

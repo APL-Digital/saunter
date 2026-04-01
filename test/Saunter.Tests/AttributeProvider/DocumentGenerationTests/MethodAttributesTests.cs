@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using ByteBard.AsyncAPI.Bindings.Kafka;
 using ByteBard.AsyncAPI.Models;

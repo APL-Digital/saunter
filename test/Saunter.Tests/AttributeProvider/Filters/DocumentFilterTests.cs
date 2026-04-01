@@ -1,4 +1,4 @@
-using ByteBard.AsyncAPI.Models;
+﻿using ByteBard.AsyncAPI.Models;
 using Saunter.AttributeProvider.Descriptors;
 using Saunter.Options.Filters;
 using Saunter.Tests.AttributeProvider.DocumentGenerationTests;

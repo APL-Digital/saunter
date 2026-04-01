@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using ByteBard.AsyncAPI.Models;
 using Saunter.SharedKernel;
 using Saunter.SharedKernel.Descriptors;

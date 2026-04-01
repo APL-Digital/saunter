@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Saunter.SharedKernel;
 using Saunter.SharedKernel.Descriptors;
 using Shouldly;

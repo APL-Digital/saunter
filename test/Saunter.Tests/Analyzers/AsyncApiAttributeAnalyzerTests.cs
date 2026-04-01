@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 #nullable enable
 using System.Collections.Immutable;
 using System.IO;

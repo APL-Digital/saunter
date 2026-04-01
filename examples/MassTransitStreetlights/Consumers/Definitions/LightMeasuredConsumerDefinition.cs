@@ -1,4 +1,4 @@
-using MassTransit;
+﻿using MassTransit;
 using MassTransitStreetlights.Consumers;
 
 namespace MassTransitStreetlights.Consumers.Definitions;

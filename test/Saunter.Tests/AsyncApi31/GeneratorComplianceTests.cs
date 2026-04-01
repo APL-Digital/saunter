@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Saunter.AttributeProvider.Attributes;
 using Saunter.SharedKernel;
 using Saunter.Tests.AttributeProvider.DocumentGenerationTests;

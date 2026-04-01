@@ -1,4 +1,4 @@
-using MassTransitStreetlights.Configuration;
+﻿using MassTransitStreetlights.Configuration;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;

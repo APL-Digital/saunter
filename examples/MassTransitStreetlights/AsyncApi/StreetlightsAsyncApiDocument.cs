@@ -1,4 +1,4 @@
-using ByteBard.AsyncAPI.Bindings.AMQP;
+﻿using ByteBard.AsyncAPI.Bindings.AMQP;
 using ByteBard.AsyncAPI.Models;
 using Saunter;
 

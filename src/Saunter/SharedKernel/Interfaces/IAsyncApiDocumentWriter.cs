@@ -1,4 +1,4 @@
-namespace Saunter.SharedKernel.Interfaces
+﻿namespace Saunter.SharedKernel.Interfaces
 {
     public interface IAsyncApiDocumentWriter
     {

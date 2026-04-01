@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using ByteBard.AsyncAPI.Models;
 using Microsoft.Extensions.DependencyInjection;

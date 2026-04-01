@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using ByteBard.AsyncAPI.Models;
 using Saunter.AttributeProvider.Descriptors;
 using Shouldly;
@@ -43,7 +43,7 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             }
         }
 
-        public static void AssertChannelMessages(this AsyncApiDocumentDescriptor document, AsyncApiChannelDescriptor channel, params string[] messageIds)
+        public static void AssertChannelMessages(this AsyncApiDocumentDescriptor _, AsyncApiChannelDescriptor channel, params string[] messageIds)
         {
             channel.MessageIds.Count.ShouldBe(messageIds.Length);
 

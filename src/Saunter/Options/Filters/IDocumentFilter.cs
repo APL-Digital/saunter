@@ -1,4 +1,4 @@
-namespace Saunter.Options.Filters
+﻿namespace Saunter.Options.Filters
 {
     public interface IDocumentFilter
     {

@@ -1,4 +1,4 @@
-using Saunter.AttributeProvider.Descriptors;
+﻿using Saunter.AttributeProvider.Descriptors;
 using Saunter.Options.Filters;
 
 public interface IOperationFilter

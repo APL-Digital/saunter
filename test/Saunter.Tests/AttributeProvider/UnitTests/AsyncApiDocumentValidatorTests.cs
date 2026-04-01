@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using ByteBard.AsyncAPI.Models;
 using Saunter.AttributeProvider;
 using Saunter.AttributeProvider.Descriptors;

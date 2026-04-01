@@ -1,8 +1,8 @@
+﻿using System.Threading.Tasks;
 using MassTransit;
 using MassTransitMinimal.Contracts;
 using Microsoft.Extensions.Logging;
 using Saunter.AttributeProvider.Attributes;
-using System.Threading.Tasks;
 
 namespace MassTransitMinimal.Consumers;
 

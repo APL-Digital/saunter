@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Reflection;
 using Saunter.AttributeProvider;
@@ -128,18 +128,18 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
         {
             public string Name { get; set; } = string.Empty;
 
-            public void Publish(OrderCreated orderCreated)
+            public void Publish(OrderCreated _)
             {
             }
         }
 
         private class ConflictingTypeLevelFixture
         {
-            public void Publish(SharedPayloadOne payload)
+            public void Publish(SharedPayloadOne _)
             {
             }
 
-            public void PublishAgain(SharedPayloadTwo payload)
+            public void PublishAgain(SharedPayloadTwo _)
             {
             }
         }

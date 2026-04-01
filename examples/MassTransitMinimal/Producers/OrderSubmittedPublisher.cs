@@ -1,7 +1,7 @@
+﻿using System.Threading.Tasks;
 using MassTransit;
 using MassTransitMinimal.Contracts;
 using Saunter.AttributeProvider.Attributes;
-using System.Threading.Tasks;
 
 namespace MassTransitMinimal.Producers;
 

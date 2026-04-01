@@ -1,4 +1,4 @@
-namespace MassTransitStreetlights.Contracts;
+﻿namespace MassTransitStreetlights.Contracts;
 
 public class CommonHeaders
 {

@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using Saunter.AttributeProvider.Attributes;
 using Saunter.AttributeProvider.Descriptors;
 using Saunter.Options;

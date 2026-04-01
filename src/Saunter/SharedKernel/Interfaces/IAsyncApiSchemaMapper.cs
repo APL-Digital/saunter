@@ -1,4 +1,4 @@
-using ByteBard.AsyncAPI.Models;
+﻿using ByteBard.AsyncAPI.Models;
 using Saunter.SharedKernel.Descriptors;
 
 namespace Saunter.SharedKernel.Interfaces

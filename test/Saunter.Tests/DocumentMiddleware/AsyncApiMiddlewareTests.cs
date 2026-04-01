@@ -1,12 +1,12 @@
-#nullable enable
+﻿#nullable enable
 using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Saunter.AttributeProvider.Descriptors;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Saunter.AttributeProvider.Descriptors;
 using Saunter.DocumentMiddleware;
 using Saunter.Options;
 using Saunter.SharedKernel.Interfaces;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Saunter.AttributeProvider;
 using Shouldly;
 using Xunit;

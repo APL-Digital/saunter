@@ -1,4 +1,4 @@
-using Saunter;
+﻿using Saunter;
 
 namespace Saunter.SharedKernel.Interfaces
 {
