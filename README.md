@@ -36,7 +36,7 @@ Start with one of these examples:
            {
                Title = "Streetlights API",
                Version = "1.0.0",
-                Description = "The Smartylighting Streetlights API allows you to remotely manage the city lights.",
+               Description = "The Smartylighting Streetlights API allows you to remotely manage the city lights.",
                License = new AsyncApiLicenseDescriptor
                {
                    Name = "Apache 2.0",
@@ -106,7 +106,7 @@ Start with one of these examples:
        "ReceiveLightMeasurement": {
          "action": "receive",
          "channel": {
-           "$ref": "#/channels/subscribeLightMeasured"
+           "$ref": "#/channels/streetlights.measurement"
          }
        }
      }
@@ -138,7 +138,7 @@ services.AddAsyncApiSchemaGeneration(options =>
     options.Middleware.Route = "/asyncapi/asyncapi.json";
     options.Middleware.UiBaseRoute = "/asyncapi/ui/";
     options.Middleware.UiTitle = "My AsyncAPI Documentation";
-   options.Inference.InferOperationIdFromMemberName = true;
+    options.Inference.InferOperationIdFromMemberName = true;
     options.Inference.InferChannelIdFromAddress = true;
     options.Inference.InferPayloadTypeFromMethodSignature = true;
     options.Inference.OperationIdGenerator = (member, action) => member.Name;

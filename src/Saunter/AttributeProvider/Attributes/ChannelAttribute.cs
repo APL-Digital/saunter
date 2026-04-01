@@ -60,7 +60,8 @@ namespace Saunter.AttributeProvider.Attributes
                 ?? throw new ArgumentException("resolverType must implement IChannelResolver", nameof(resolverType));
 
             ChannelId = channelId;
-            Address = resolver.ResolveChannelName() ?? throw new ArgumentNullException(nameof(Address));
+            Address = resolver.ResolveChannelName()
+                ?? throw new InvalidOperationException($"IChannelResolver '{resolverType.Name}' returned null for channel address.");
             Tags = Array.Empty<string>();
             Servers = Array.Empty<string>();
         }

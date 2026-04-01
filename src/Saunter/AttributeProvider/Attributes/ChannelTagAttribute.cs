@@ -7,7 +7,9 @@ namespace Saunter.AttributeProvider.Attributes
     {
         public ChannelTagAttribute(string name)
         {
-            Name = name ?? throw new ArgumentNullException(nameof(name));
+            Name = string.IsNullOrWhiteSpace(name)
+                ? throw new ArgumentException("Value cannot be null or whitespace.", nameof(name))
+                : name;
         }
 
         public string Name { get; }

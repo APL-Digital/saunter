@@ -68,7 +68,39 @@ namespace Saunter.Tests.SharedKernel
         }
 
         [Fact]
-        public void AsyncApiChannelUnion_OnUnion_DuplicateMembers_SourceShouldWin()
+        public void AsyncApiChannelUnion_OnUnion_DuplicateMembers_WithMatchingDefinitions_SourceShouldWin()
+        {
+            var source = new AsyncApiChannelDescriptor(
+                "orders",
+                "foo",
+                null,
+                null,
+                null,
+                null,
+                [],
+                ["one"],
+                [new AsyncApiParameterDescriptor("tenant_id", "source", null, [], null, [])]);
+
+            var additional = new AsyncApiChannelDescriptor(
+                "orders",
+                "foo",
+                null,
+                null,
+                null,
+                null,
+                [],
+                ["one"],
+                [new AsyncApiParameterDescriptor("tenant_id", "source", null, [], null, [])]);
+
+            var channelUnion = new AsyncApiChannelUnion();
+            var actual = channelUnion.Union(source, additional);
+
+            actual.MessageIds.ShouldContain("one");
+            actual.Parameters.Single(parameter => parameter.Name == "tenant_id").Description.ShouldBe("source");
+        }
+
+        [Fact]
+        public void AsyncApiChannelUnion_OnUnion_ThrowsOnConflictingParameterDefinitions()
         {
             var source = new AsyncApiChannelDescriptor(
                 "orders",
@@ -93,10 +125,23 @@ namespace Saunter.Tests.SharedKernel
                 [new AsyncApiParameterDescriptor("tenant_id", "additional", null, [], null, [])]);
 
             var channelUnion = new AsyncApiChannelUnion();
-            var actual = channelUnion.Union(source, additional);
+            var actual = () => channelUnion.Union(source, additional);
 
-            actual.MessageIds.ShouldContain("one");
-            actual.Parameters.Single(parameter => parameter.Name == "tenant_id").Description.ShouldBe("source");
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("conflicting definitions");
+        }
+
+        [Fact]
+        public void AsyncApiChannelUnion_OnUnion_ThrowsOnConflictingBindingsReferences()
+        {
+            var source = new AsyncApiChannelDescriptor("orders", "foo", null, null, null, "sourceBinding", [], [], []);
+            var additional = new AsyncApiChannelDescriptor("orders", "foo", null, null, null, "additionalBinding", [], [], []);
+
+            var channelUnion = new AsyncApiChannelUnion();
+            var actual = () => channelUnion.Union(source, additional);
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("conflicting bindings references");
         }
 
         [Fact]

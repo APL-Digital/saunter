@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Saunter;
 
 const string baseAddress = "http://localhost:5001";
@@ -63,5 +64,16 @@ app.MapPost("/orders/{orderId:guid}", async (Guid orderId, OrderSubmittedPublish
 
 app.MapAsyncApiDocuments();
 app.MapAsyncApiUi();
+
+// Print the AsyncAPI doc location
+var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger<Program>();
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    foreach (var address in app.Urls)
+    {
+        logger.LogInformation("AsyncAPI doc available at: {URL}", $"{address}/asyncapi/asyncapi.json");
+        logger.LogInformation("AsyncAPI UI available at: {URL}", $"{address}/asyncapi/ui/");
+    }
+});
 
 app.Run();

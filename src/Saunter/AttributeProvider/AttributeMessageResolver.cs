@@ -42,8 +42,8 @@ namespace Saunter.AttributeProvider
 
         public AsyncApiMessageResolutionDescriptor ResolveForOperation(TypeInfo type, OperationAttribute operationAttribute, AsyncApiInferenceOptions inferenceOptions)
         {
-            var messageAttributes = type
-                .DeclaredMethods
+            var candidateMethods = GetCandidateOperationMethods(type).ToArray();
+            var messageAttributes = candidateMethods
                 .SelectMany(method => method.GetCustomAttributes<MessageAttribute>())
                 .ToArray();
 
@@ -59,7 +59,7 @@ namespace Saunter.AttributeProvider
 
             if (inferenceOptions.InferPayloadTypeFromMethodSignature)
             {
-                var inferredTypes = type.DeclaredMethods
+                var inferredTypes = candidateMethods
                     .SelectMany(TryInferPayloadTypes)
                     .Distinct()
                     .ToArray();
@@ -217,12 +217,20 @@ namespace Saunter.AttributeProvider
                 return true;
             }
 
-            if (schema.OneOf.Count == 0)
+            if (schema.OneOf.Any(IsObjectLikeSchema))
             {
-                return false;
+                return true;
             }
 
-            return schema.OneOf.Any(item => item.Type == AsyncApiSchemaValueType.Object);
+            return schema.AllOf.Any(IsObjectLikeSchema);
+        }
+
+        private static IEnumerable<MethodInfo> GetCandidateOperationMethods(TypeInfo type)
+        {
+            return type.DeclaredMethods.Where(method =>
+                !method.IsSpecialName
+                && !method.IsConstructor
+                && !method.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute), inherit: false));
         }
 
         private static IEnumerable<Type> TryInferPayloadTypes(MethodInfo method)

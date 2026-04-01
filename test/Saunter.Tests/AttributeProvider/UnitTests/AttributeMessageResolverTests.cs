@@ -1,9 +1,12 @@
 using System;
 using System.Linq;
+using System.Reflection;
 using Saunter.AttributeProvider;
 using Saunter.AttributeProvider.Attributes;
 using Saunter.Options;
 using Saunter.SharedKernel;
+using Saunter.SharedKernel.Descriptors;
+using Saunter.SharedKernel.Interfaces;
 using Shouldly;
 using Xunit;
 
@@ -41,6 +44,27 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
                 .Message.ShouldContain("must generate an object schema");
         }
 
+        [Fact]
+        public void ResolveForOperation_TypeLevelDiscovery_IgnoresSpecialNameMembers()
+        {
+            var resolver = new AttributeMessageResolver(new AsyncApiSchemaGenerator());
+
+            var resolution = resolver.ResolveForOperation(typeof(TypeLevelFixture).GetTypeInfo(), new SendOperationAttribute(), new AsyncApiInferenceOptions());
+
+            resolution.MessageIds.ShouldBe(["orderCreated"]);
+        }
+
+        [Fact]
+        public void ResolveForOperation_AcceptsAllOfHeaderSchemas()
+        {
+            var resolver = new AttributeMessageResolver(new AllOfSchemaGenerator());
+            var method = typeof(MessageFixture).GetMethod(nameof(MessageFixture.Publish))!;
+
+            var resolution = resolver.ResolveForOperation(method, new SendOperationAttribute(), new AsyncApiInferenceOptions());
+
+            resolution.Messages.Single().HeadersSchemaId.ShouldBe("messageHeaders");
+        }
+
         private class MessageFixture
         {
             [Message(typeof(OrderCreated), MessageId = "order/created.v1", HeadersType = typeof(MessageHeaders), CorrelationId = "orderCorrelation", ContentType = "application/cloudevents+json", ExternalDocs = "https://example.com/messages/order-created")]
@@ -62,6 +86,37 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
         private class MessageHeaders
         {
             public string CorrelationId { get; set; } = string.Empty;
+        }
+
+        private class TypeLevelFixture
+        {
+            public string Name { get; set; } = string.Empty;
+
+            public void Publish(OrderCreated orderCreated)
+            {
+            }
+        }
+
+        private sealed class AllOfSchemaGenerator : IAsyncApiSchemaGenerator
+        {
+            public GeneratedSchemaDescriptors? Generate(Type type)
+            {
+                if (type == typeof(MessageHeaders))
+                {
+                    var root = new AsyncApiSchemaDescriptor
+                    {
+                        Id = "messageHeaders",
+                    };
+                    root.AllOf.Add(new AsyncApiSchemaDescriptor
+                    {
+                        Type = AsyncApiSchemaValueType.Object,
+                    });
+
+                    return new GeneratedSchemaDescriptors(root, [root]);
+                }
+
+                return new AsyncApiSchemaGenerator().Generate(type);
+            }
         }
     }
 }

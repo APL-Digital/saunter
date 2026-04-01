@@ -8,6 +8,14 @@ namespace Saunter.AttributeProvider
         {
             foreach (var channel in document.Channels.Values)
             {
+                foreach (var messageId in channel.Messages.Values)
+                {
+                    if (!document.Components.Messages.ContainsKey(messageId))
+                    {
+                        throw new InvalidOperationException($"Channel '{channel.Id}' references unknown message '{messageId}'. Add it to components/messages or remove it from the channel messages list.");
+                    }
+                }
+
                 foreach (var serverName in channel.ServerNames)
                 {
                     if (!document.Servers.ContainsKey(serverName))
@@ -43,6 +51,15 @@ namespace Saunter.AttributeProvider
                 if (!document.Channels.ContainsKey(operation.ChannelId))
                 {
                     throw new InvalidOperationException($"Operation '{operationId}' references unknown channel '{operation.ChannelId}'. Add the channel or correct the inferred/explicit channel id.");
+                }
+
+                var channel = document.Channels[operation.ChannelId];
+                foreach (var messageId in operation.MessageIds)
+                {
+                    if (!channel.Messages.ContainsKey(messageId))
+                    {
+                        throw new InvalidOperationException($"Operation '{operationId}' references unknown channel message '{messageId}' on channel '{operation.ChannelId}'. Add it to the channel messages list or remove it from the operation.");
+                    }
                 }
 
                 if (!string.IsNullOrWhiteSpace(operation.BindingsRef) && !document.Components.OperationBindings.ContainsKey(operation.BindingsRef))

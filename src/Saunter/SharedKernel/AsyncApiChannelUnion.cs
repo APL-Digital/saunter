@@ -17,6 +17,13 @@ namespace Saunter.SharedKernel
                 throw new InvalidOperationException("Channel address conflict");
             }
 
+            if (!string.IsNullOrWhiteSpace(source.BindingsRef)
+                && !string.IsNullOrWhiteSpace(additional.BindingsRef)
+                && !string.Equals(source.BindingsRef, additional.BindingsRef, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"Channel '{source.Id}' has conflicting bindings references '{source.BindingsRef}' and '{additional.BindingsRef}'.");
+            }
+
             var merged = new AsyncApiChannelDescriptor(
                 source.Id,
                 FirstNonBlank(source.Address, additional.Address) ?? source.Address,
@@ -53,10 +60,32 @@ namespace Saunter.SharedKernel
 
         private static IReadOnlyList<AsyncApiParameterDescriptor> MergeParameters(IReadOnlyList<AsyncApiParameterDescriptor> source, IReadOnlyList<AsyncApiParameterDescriptor> additional)
         {
-            return source
-                .Concat(additional)
-                .DistinctBy(parameter => parameter.Name)
-                .ToList();
+            var parametersByName = new Dictionary<string, AsyncApiParameterDescriptor>(StringComparer.Ordinal);
+
+            foreach (var parameter in source.Concat(additional))
+            {
+                if (!parametersByName.TryGetValue(parameter.Name, out var existing))
+                {
+                    parametersByName[parameter.Name] = parameter;
+                    continue;
+                }
+
+                if (!ParametersMatch(existing, parameter))
+                {
+                    throw new InvalidOperationException($"Channel parameter '{parameter.Name}' has conflicting definitions.");
+                }
+            }
+
+            return parametersByName.Values.ToList();
+        }
+
+        private static bool ParametersMatch(AsyncApiParameterDescriptor source, AsyncApiParameterDescriptor additional)
+        {
+            return string.Equals(source.Description, additional.Description, StringComparison.Ordinal)
+                && string.Equals(source.Location, additional.Location, StringComparison.Ordinal)
+                && string.Equals(source.DefaultValue, additional.DefaultValue, StringComparison.Ordinal)
+                && source.EnumValues.SequenceEqual(additional.EnumValues, StringComparer.Ordinal)
+                && source.Examples.SequenceEqual(additional.Examples, StringComparer.Ordinal);
         }
 
         private static IReadOnlyList<ByteBard.AsyncAPI.Models.AsyncApiTag> MergeTags(

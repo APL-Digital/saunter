@@ -16,7 +16,7 @@ public class OrderSubmittedPublisher
     }
 
     // Minimal happy path:
-    // - channel id is inferred from the address
+    // - channel id is declared explicitly via [Channel("orders.submitted")]
     // - payload type is inferred from the method signature
     // - operation id is inferred from the method name
     // - message metadata is inferred from the payload type

@@ -91,5 +91,52 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             Should.Throw<InvalidOperationException>(actual)
                 .Message.ShouldContain("correlation id");
         }
+
+        [Fact]
+        public void Validate_ThrowsWhenChannelReferencesUnknownMessage()
+        {
+            var validator = new AsyncApiDocumentValidator();
+            var document = new AsyncApiDocumentDescriptor
+            {
+                Channels =
+                {
+                    ["orders"] = new AsyncApiChannelDescriptor("orders", "orders", null, null, null, null, [], ["missingMessage"], [])
+                }
+            };
+
+            var actual = () => validator.Validate(document);
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("components/messages");
+        }
+
+        [Fact]
+        public void Validate_ThrowsWhenOperationReferencesUnknownChannelMessage()
+        {
+            var validator = new AsyncApiDocumentValidator();
+            var document = new AsyncApiDocumentDescriptor
+            {
+                Components = new AsyncApiComponentsDescriptor
+                {
+                    Messages =
+                    {
+                        ["orderCreated"] = new AsyncApiMessageDescriptor("orderCreated", "orderCreated", "Order Created", null, null, null, null, null, null, null, null, null, [])
+                    }
+                },
+                Channels =
+                {
+                    ["orders"] = new AsyncApiChannelDescriptor("orders", "orders", null, null, null, null, [], ["orderCreated"], [])
+                },
+                Operations =
+                {
+                    ["publishOrder"] = new AsyncApiOperationDescriptor(AsyncApiAction.Send, "orders", null, null, null, null, ["missingMessage"], [], null)
+                }
+            };
+
+            var actual = () => validator.Validate(document);
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("unknown channel message");
+        }
     }
 }

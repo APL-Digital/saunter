@@ -1,3 +1,4 @@
+using System;
 using Saunter.SharedKernel;
 using Saunter.SharedKernel.Descriptors;
 using Shouldly;
@@ -38,6 +39,26 @@ namespace Saunter.Tests.SharedKernel
             json.ShouldContain("\"nullable\"");
             json.ShouldNotContain("\"oneOf\"");
             json.ShouldNotContain("\"type\": \"null\"");
+        }
+
+        [Fact]
+        public void WriteJson_ThrowsForUnsupportedAsyncApiVersion()
+        {
+            var writer = new AsyncApiDocumentWriter(new AsyncApiDocumentMapper(new global::Saunter.AttributeProvider.AsyncApiDescriptorMapper(new AsyncApiSchemaMapper())));
+            var document = new AsyncApiDocumentDescriptor
+            {
+                Asyncapi = "4.0.0",
+                Info = new AsyncApiInfoDescriptor
+                {
+                    Title = "test",
+                    Version = "1.0.0"
+                }
+            };
+
+            var actual = () => writer.WriteJson(document);
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("Unsupported AsyncAPI version");
         }
     }
 }
