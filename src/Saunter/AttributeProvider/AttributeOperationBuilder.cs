@@ -21,10 +21,10 @@ namespace Saunter.AttributeProvider
                 operationAttribute.BindingsRef,
                 messageIds.ToArray(),
                 operationAttribute.Tags ?? Array.Empty<string>(),
-                CreateOperationReply(operationAttribute));
+                CreateOperationReply(operationAttribute, messageIds));
         }
 
-        private static AsyncApiOperationReplyDescriptor? CreateOperationReply(OperationAttribute operationAttribute)
+        private static AsyncApiOperationReplyDescriptor? CreateOperationReply(OperationAttribute operationAttribute, IReadOnlyList<string> messageIds)
         {
             if (string.IsNullOrWhiteSpace(operationAttribute.Reply)
                 && string.IsNullOrWhiteSpace(operationAttribute.ReplyAddressLocation))
@@ -35,7 +35,10 @@ namespace Saunter.AttributeProvider
             return new AsyncApiOperationReplyDescriptor(
                 operationAttribute.Reply,
                 operationAttribute.ReplyAddressLocation,
-                operationAttribute.ReplyAddressDescription);
+                operationAttribute.ReplyAddressDescription)
+            {
+                MessageIds = messageIds.ToList(),
+            };
         }
     }
 }

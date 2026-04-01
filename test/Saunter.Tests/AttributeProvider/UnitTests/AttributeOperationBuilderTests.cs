@@ -28,6 +28,7 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             operation.Reply.ChannelId.ShouldBe("orders.reply");
             operation.Reply.AddressLocation.ShouldBe("$message.header#/replyTo");
             operation.Reply.AddressDescription.ShouldBe("Dynamic reply target");
+            operation.Reply.MessageIds.ShouldBe(["orderCreated"]);
         }
 
         private class OperationFixture

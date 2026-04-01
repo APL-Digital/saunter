@@ -58,7 +58,10 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
                 null,
                 ["orderCreated"],
                 ["orders"],
-                new AsyncApiOperationReplyDescriptor("orders.reply", "$message.header#/replyTo", "reply"));
+                new AsyncApiOperationReplyDescriptor("orders.reply", "$message.header#/replyTo", "reply")
+                {
+                    MessageIds = ["orderCreated"],
+                });
 
             mapper.RegisterMessageResolution(components, resolution);
             var channel = mapper.MapChannel(components, channelDescriptor);
@@ -70,6 +73,7 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             channel.Parameters.ShouldContainKey("tenantId");
             operation.Messages.Single().Reference.Reference.ShouldBe("#/channels/orders/messages/orderCreated");
             operation.Reply!.Channel!.Reference.Reference.ShouldBe("#/channels/orders.reply");
+            operation.Reply.Messages.Single().Reference.Reference.ShouldBe("#/channels/orders.reply/messages/orderCreated");
         }
 
         [Fact]

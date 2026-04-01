@@ -65,6 +65,36 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             resolution.Messages.Single().HeadersSchemaId.ShouldBe("messageHeaders");
         }
 
+        [Fact]
+        public void ResolveForOperation_ThrowsWhenDuplicateMessageAttributesConflict()
+        {
+            var resolver = new AttributeMessageResolver(new AsyncApiSchemaGenerator());
+            var method = typeof(MessageFixture).GetMethod(nameof(MessageFixture.PublishWithConflictingMessageDescriptors))!;
+
+            var actual = () => resolver.ResolveForOperation(method, new SendOperationAttribute(), new AsyncApiInferenceOptions());
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("Conflicting message descriptors");
+        }
+
+        [Fact]
+        public void ResolveForOperation_TypeLevelInference_ThrowsWhenDuplicateSchemasConflict()
+        {
+            var resolver = new AttributeMessageResolver(new ConflictingSchemaGenerator());
+
+            var actual = () => resolver.ResolveForOperation(
+                typeof(ConflictingTypeLevelFixture).GetTypeInfo(),
+                new SendOperationAttribute(),
+                new AsyncApiInferenceOptions
+                {
+                    MessageNameGenerator = _ => "sharedPayload",
+                    MessageTitleGenerator = _ => "Shared Payload",
+                });
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("Conflicting schema descriptors");
+        }
+
         private class MessageFixture
         {
             [Message(typeof(OrderCreated), MessageId = "order/created.v1", HeadersType = typeof(MessageHeaders), CorrelationId = "orderCorrelation", ContentType = "application/cloudevents+json", ExternalDocs = "https://example.com/messages/order-created")]
@@ -74,6 +104,12 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
 
             [Message(typeof(OrderCreated), HeadersType = typeof(string))]
             public void PublishWithPrimitiveHeaders()
+            {
+            }
+
+            [Message(typeof(OrderCreated), MessageId = "orderCreated", Summary = "first")]
+            [Message(typeof(OrderCreated), MessageId = "orderCreated", Summary = "second")]
+            public void PublishWithConflictingMessageDescriptors()
             {
             }
         }
@@ -97,6 +133,27 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             }
         }
 
+        private class ConflictingTypeLevelFixture
+        {
+            public void Publish(SharedPayloadOne payload)
+            {
+            }
+
+            public void PublishAgain(SharedPayloadTwo payload)
+            {
+            }
+        }
+
+        private class SharedPayloadOne
+        {
+            public string Value { get; set; } = string.Empty;
+        }
+
+        private class SharedPayloadTwo
+        {
+            public int Value { get; set; }
+        }
+
         private sealed class AllOfSchemaGenerator : IAsyncApiSchemaGenerator
         {
             public GeneratedSchemaDescriptors? Generate(Type type)
@@ -113,6 +170,36 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
                     });
 
                     return new GeneratedSchemaDescriptors(root, [root]);
+                }
+
+                return new AsyncApiSchemaGenerator().Generate(type);
+            }
+        }
+
+        private sealed class ConflictingSchemaGenerator : IAsyncApiSchemaGenerator
+        {
+            public GeneratedSchemaDescriptors? Generate(Type type)
+            {
+                if (type == typeof(SharedPayloadOne))
+                {
+                    var schema = new AsyncApiSchemaDescriptor
+                    {
+                        Id = "sharedPayload",
+                        Type = AsyncApiSchemaValueType.String,
+                    };
+
+                    return new GeneratedSchemaDescriptors(schema, [schema]);
+                }
+
+                if (type == typeof(SharedPayloadTwo))
+                {
+                    var schema = new AsyncApiSchemaDescriptor
+                    {
+                        Id = "sharedPayload",
+                        Type = AsyncApiSchemaValueType.Integer,
+                    };
+
+                    return new GeneratedSchemaDescriptors(schema, [schema]);
                 }
 
                 return new AsyncApiSchemaGenerator().Generate(type);

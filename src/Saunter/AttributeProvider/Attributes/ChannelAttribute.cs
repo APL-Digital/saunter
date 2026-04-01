@@ -21,6 +21,11 @@ namespace Saunter.AttributeProvider.Attributes
 
         public string[] Servers { get; set; }
 
+        /// <summary>
+        /// Initializes a <see cref="ChannelAttribute"/> without an explicit address or channel id.
+        /// <see cref="ChannelAttribute()"/> should only be used when the inference options passed to Build()
+        /// can supply the missing values; otherwise ResolveAddress and ResolveChannelId will throw.
+        /// </summary>
         public ChannelAttribute()
         {
             ChannelId = string.Empty;

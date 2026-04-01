@@ -1,3 +1,5 @@
+using Saunter;
+
 namespace Saunter.SharedKernel.Interfaces
 {
     public interface IAsyncApiDocumentCloner

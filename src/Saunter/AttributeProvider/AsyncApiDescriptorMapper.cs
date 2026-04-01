@@ -157,7 +157,11 @@ namespace Saunter.AttributeProvider
                         Description = reply.AddressDescription,
                         Location = reply.AddressLocation,
                     },
-                Messages = new List<AsyncApiMessageReference>(),
+                Messages = string.IsNullOrWhiteSpace(reply.ChannelId)
+                    ? new List<AsyncApiMessageReference>()
+                    : reply.MessageIds
+                        .Select(messageId => new AsyncApiMessageReference($"#/channels/{reply.ChannelId}/messages/{messageId}"))
+                        .ToList(),
                 Extensions = new Dictionary<string, IAsyncApiExtension>(),
             };
         }

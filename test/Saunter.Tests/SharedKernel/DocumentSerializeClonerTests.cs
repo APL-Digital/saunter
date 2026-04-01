@@ -39,7 +39,7 @@ namespace Saunter.Tests.SharedKernel
                     {
                         Url = new("http://localhost:9201"),
                         Name = "contact",
-                        Email = "gmail.ru",
+                        Email = "test@example.com",
                     },
                     TermsOfService = new("http://localhost:9202"),
                 },

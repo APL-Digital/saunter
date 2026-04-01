@@ -89,14 +89,7 @@ namespace Saunter.AttributeProvider
                 schemaDescriptors.AddRange(resolved.Schemas);
             }
 
-            return new AsyncApiMessageResolutionDescriptor(
-                messageDescriptors.Select(message => message.Id).Distinct(StringComparer.Ordinal).ToArray(),
-                messageDescriptors
-                    .DistinctBy(message => message.Id)
-                    .ToArray(),
-                schemaDescriptors
-                    .DistinctBy(schema => schema.Id)
-                    .ToArray());
+            return CreateMessageResolution(messageDescriptors, schemaDescriptors);
         }
 
         private AsyncApiMessageResolutionDescriptor GenerateMessagesFromTypes(IEnumerable<Type> payloadTypes, AsyncApiInferenceOptions inferenceOptions)
@@ -105,10 +98,9 @@ namespace Saunter.AttributeProvider
                 .Select(type => GenerateMessageFromType(type.GetTypeInfo(), inferenceOptions))
                 .ToArray();
 
-            return new AsyncApiMessageResolutionDescriptor(
-                resolutions.SelectMany(resolution => resolution.MessageIds).Distinct(StringComparer.Ordinal).ToArray(),
-                resolutions.SelectMany(resolution => resolution.Messages).DistinctBy(message => message.Id).ToArray(),
-                resolutions.SelectMany(resolution => resolution.Schemas).DistinctBy(schema => schema.Id).ToArray());
+            return CreateMessageResolution(
+                resolutions.SelectMany(resolution => resolution.Messages),
+                resolutions.SelectMany(resolution => resolution.Schemas));
         }
 
         private AsyncApiMessageResolutionDescriptor GenerateMessageFromType(TypeInfo payloadType, AsyncApiInferenceOptions inferenceOptions)
@@ -170,10 +162,139 @@ namespace Saunter.AttributeProvider
 
             return new MessageDescriptorResult(
                 message,
-                (payloadSchema?.Schemas ?? Array.Empty<AsyncApiSchemaComponentDescriptor>())
-                    .Concat(headersSchema?.Schemas ?? Array.Empty<AsyncApiSchemaComponentDescriptor>())
-                    .DistinctBy(schema => schema.Id)
-                    .ToArray());
+                DeduplicateSchemaDescriptors(
+                    (payloadSchema?.Schemas ?? Array.Empty<AsyncApiSchemaComponentDescriptor>())
+                        .Concat(headersSchema?.Schemas ?? Array.Empty<AsyncApiSchemaComponentDescriptor>())));
+        }
+
+        private static AsyncApiMessageResolutionDescriptor CreateMessageResolution(
+            IEnumerable<AsyncApiMessageDescriptor> messageDescriptors,
+            IEnumerable<AsyncApiSchemaComponentDescriptor> schemaDescriptors)
+        {
+            var deduplicatedMessages = DeduplicateMessageDescriptors(messageDescriptors);
+            return new AsyncApiMessageResolutionDescriptor(
+                deduplicatedMessages.Select(message => message.Id).ToArray(),
+                deduplicatedMessages,
+                DeduplicateSchemaDescriptors(schemaDescriptors));
+        }
+
+        private static AsyncApiMessageDescriptor[] DeduplicateMessageDescriptors(IEnumerable<AsyncApiMessageDescriptor> messageDescriptors)
+        {
+            return DeduplicateById(
+                messageDescriptors,
+                message => message.Id,
+                MessageDescriptorsMatch,
+                "message");
+        }
+
+        private static AsyncApiSchemaComponentDescriptor[] DeduplicateSchemaDescriptors(IEnumerable<AsyncApiSchemaComponentDescriptor> schemaDescriptors)
+        {
+            return DeduplicateById(
+                schemaDescriptors,
+                schema => schema.Id,
+                SchemaDescriptorsMatch,
+                "schema");
+        }
+
+        private static TDescriptor[] DeduplicateById<TDescriptor>(
+            IEnumerable<TDescriptor> descriptors,
+            Func<TDescriptor, string> idSelector,
+            Func<TDescriptor, TDescriptor, bool> descriptorsMatch,
+            string descriptorType)
+        {
+            var deduplicatedDescriptors = new List<TDescriptor>();
+
+            foreach (var descriptorsById in descriptors.GroupBy(idSelector, StringComparer.Ordinal))
+            {
+                var representative = descriptorsById.First();
+                foreach (var candidate in descriptorsById.Skip(1))
+                {
+                    if (!descriptorsMatch(representative, candidate))
+                    {
+                        throw new InvalidOperationException($"Conflicting {descriptorType} descriptors found for id '{descriptorsById.Key}'.");
+                    }
+                }
+
+                deduplicatedDescriptors.Add(representative);
+            }
+
+            return deduplicatedDescriptors.ToArray();
+        }
+
+        private static bool MessageDescriptorsMatch(AsyncApiMessageDescriptor source, AsyncApiMessageDescriptor additional)
+        {
+            return string.Equals(source.Id, additional.Id, StringComparison.Ordinal)
+                && string.Equals(source.Name, additional.Name, StringComparison.Ordinal)
+                && string.Equals(source.Title, additional.Title, StringComparison.Ordinal)
+                && string.Equals(source.Summary, additional.Summary, StringComparison.Ordinal)
+                && string.Equals(source.Description, additional.Description, StringComparison.Ordinal)
+                && string.Equals(source.PayloadSchemaId, additional.PayloadSchemaId, StringComparison.Ordinal)
+                && string.Equals(source.HeadersSchemaId, additional.HeadersSchemaId, StringComparison.Ordinal)
+                && string.Equals(source.CorrelationIdRef, additional.CorrelationIdRef, StringComparison.Ordinal)
+                && string.Equals(source.ContentType, additional.ContentType, StringComparison.Ordinal)
+                && string.Equals(source.ExternalDocsUrl, additional.ExternalDocsUrl, StringComparison.Ordinal)
+                && string.Equals(source.ExternalDocsDescription, additional.ExternalDocsDescription, StringComparison.Ordinal)
+                && string.Equals(source.BindingsRef, additional.BindingsRef, StringComparison.Ordinal)
+                && source.Tags.SequenceEqual(additional.Tags, StringComparer.Ordinal);
+        }
+
+        private static bool SchemaDescriptorsMatch(AsyncApiSchemaComponentDescriptor source, AsyncApiSchemaComponentDescriptor additional)
+        {
+            return string.Equals(source.Id, additional.Id, StringComparison.Ordinal)
+                && SchemaDescriptorsMatch(source.Schema, additional.Schema);
+        }
+
+        private static bool SchemaDescriptorsMatch(AsyncApiSchemaDescriptor source, AsyncApiSchemaDescriptor additional)
+        {
+            if (!string.Equals(source.Id, additional.Id, StringComparison.Ordinal)
+                || source.Type != additional.Type
+                || !string.Equals(source.Format, additional.Format, StringComparison.Ordinal)
+                || source.Nullable != additional.Nullable
+                || !string.Equals(source.Reference, additional.Reference, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (!NullableSchemaDescriptorsMatch(source.Items, additional.Items))
+            {
+                return false;
+            }
+
+            if (!source.Required.SequenceEqual(additional.Required, StringComparer.Ordinal)
+                || !source.EnumValues.SequenceEqual(additional.EnumValues, StringComparer.Ordinal)
+                || !source.OneOf.Zip(additional.OneOf, SchemaDescriptorsMatch).All(result => result)
+                || source.OneOf.Count != additional.OneOf.Count
+                || !source.AllOf.Zip(additional.AllOf, SchemaDescriptorsMatch).All(result => result)
+                || source.AllOf.Count != additional.AllOf.Count)
+            {
+                return false;
+            }
+
+            if (source.Properties.Count != additional.Properties.Count)
+            {
+                return false;
+            }
+
+            foreach (var property in source.Properties)
+            {
+                if (!additional.Properties.TryGetValue(property.Key, out var additionalProperty)
+                    || !SchemaDescriptorsMatch(property.Value, additionalProperty))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool NullableSchemaDescriptorsMatch(AsyncApiSchemaDescriptor? source, AsyncApiSchemaDescriptor? additional)
+        {
+            if (source is null || additional is null)
+            {
+                return source is null && additional is null;
+            }
+
+            return SchemaDescriptorsMatch(source, additional);
         }
 
         private SchemaReferenceInfo? GetAsyncApiSchemaReference(TypeInfo? payloadType)

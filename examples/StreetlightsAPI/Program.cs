@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Saunter;
 using StreetlightsAPI;
@@ -49,7 +50,15 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
-app.UseDeveloperExceptionPage();
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+}
+else
+{
+    app.UseExceptionHandler();
+    app.UseHsts();
+}
 
 app.UseRouting();
 app.UseCors(policy => policy.AllowAnyOrigin().AllowAnyMethod());
