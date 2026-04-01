@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 ### Changed
 - AsyncAPI generation now targets AsyncAPI 3.0.0 with the new descriptor-first document model.
 - Schema generation, nullability handling, reply mapping, and validation were tightened for the AsyncAPI 3 migration.
-- Saunter now targets .NET 9 and the examples/docs were updated to match the new model.
+- Saunter now targets .NET 8 and .NET 9 and the examples/docs were updated to match the new model.
 - See [PR #1](https://github.com/APL-Digital/saunter/pull/1) for the full migration context.
 
 ## [v0.14.0] - ?
