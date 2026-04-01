@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
     <Nullable>enable</Nullable>
     <IsPackable>true</IsPackable>
     <PackageId>Saunter</PackageId>
@@ -11,9 +11,9 @@
     <Authors>AsyncAPI Initiative</Authors>
     <Description>Code-first AsyncAPI documentation</Description>
     <PackageTags>asyncapi;aspnetcore;openapi;documentation;amqp</PackageTags>
-    <RepositoryUrl>https://github.com/asyncapi/saunter</RepositoryUrl>
+    <RepositoryUrl>$(SaunterRepositoryUrl)</RepositoryUrl>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <PackageProjectUrl>https://github.com/asyncapi/saunter</PackageProjectUrl>
+    <PackageProjectUrl>$(SaunterRepositoryUrl)</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <IncludeSymbols>true</IncludeSymbols>
@@ -26,8 +26,9 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <DocumentationFile>bin\$(Configuration)\Saunter.xml</DocumentationFile>
+    <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\Saunter.xml</DocumentationFile>
     <NoWarn>1701;1702;1591</NoWarn>
+    <ByteBardVersion>2.1.2</ByteBardVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -41,10 +42,14 @@
   <ItemGroup>
     <None Include="../../assets/logo.png" Pack="true" PackagePath="/" />
     <None Include="../../README.md" Pack="true" PackagePath="/" />
+    <None Include="..\Saunter.Analyzers\bin\$(Configuration)\$(SaunterAnalyzersTargetFramework)\Saunter.Analyzers.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AsyncAPI.NET.Bindings" Version="5.2.1" />
+    <ProjectReference Include="..\Saunter.Analyzers\Saunter.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <PackageReference Include="ByteBard.AsyncAPI.NET" Version="$(ByteBardVersion)" />
+    <PackageReference Include="ByteBard.AsyncAPI.NET.Readers" Version="$(ByteBardVersion)" />
+    <PackageReference Include="ByteBard.AsyncAPI.NET.Bindings" Version="$(ByteBardVersion)" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
     <PackageReference Include="Namotion.Reflection" Version="3.1.1" />
   </ItemGroup>

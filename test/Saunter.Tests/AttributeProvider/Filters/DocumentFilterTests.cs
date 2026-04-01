@@ -1,5 +1,5 @@
-﻿using System.Collections.Generic;
-using LEGO.AsyncAPI.Models;
+﻿using ByteBard.AsyncAPI.Models;
+using Saunter.AttributeProvider.Descriptors;
 using Saunter.Options.Filters;
 using Saunter.Tests.AttributeProvider.DocumentGenerationTests;
 using Shouldly;
@@ -12,48 +12,57 @@ namespace Saunter.Tests.AttributeProvider.Filters
         [Fact]
         public void DocumentFilterIsAppliedToAsyncApiDocument()
         {
-            // Arrange
             ArrangeAttributesTests.Arrange(out var options, out var documentProvider, GetType());
 
             options.AddDocumentFilter<ExampleDocumentFilter>();
 
-            // Act
             var document = documentProvider.GetDocument(null, options);
 
-            // Assert
             document.ShouldNotBeNull();
-            document.Channels.Count.ShouldBe(1);
             document.Channels.ShouldContainKey("foo");
+            document.Operations.ShouldContainKey("foo.operation");
         }
 
         [Fact]
         public void DocumentNameIsAppliedToAsyncApiDocument()
         {
-            // Arrange
-            const string DocumentName = "Test Document";
+            const string documentName = "Test Document";
 
             ArrangeAttributesTests.Arrange(out var options, out var documentProvider, GetType());
 
-            options.NamedApis[DocumentName] = new();
+            options.NamedApis[documentName] = new();
             options.AddDocumentFilter<ExampleDocumentFilter>();
 
-            // Act
-            var document = documentProvider.GetDocument(DocumentName, options);
+            var document = documentProvider.GetDocument(documentName, options);
 
-            // Assert
             document.ShouldNotBeNull();
         }
 
         private class ExampleDocumentFilter : IDocumentFilter
         {
-            public void Apply(AsyncApiDocument document, DocumentFilterContext context)
+            public void Apply(AsyncApiDocumentDescriptor document, DocumentFilterContext context)
             {
-                var channel = new AsyncApiChannel
-                {
-                    Description = "an example channel for testing"
-                };
+                document.Channels["foo"] = new AsyncApiChannelDescriptor(
+                    "foo",
+                    "foo",
+                    null,
+                    null,
+                    "an example channel for testing",
+                    null,
+                    [],
+                    [],
+                    []);
 
-                document.Channels.Add(new KeyValuePair<string, AsyncApiChannel>("foo", channel));
+                document.Operations["foo.operation"] = new AsyncApiOperationDescriptor(
+                    AsyncApiAction.Send,
+                    "foo",
+                    null,
+                    null,
+                    null,
+                    null,
+                    [],
+                    [],
+                    null);
             }
         }
     }

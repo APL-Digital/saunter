@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <Version>0.20.0</Version>
+    <SaunterAnalyzersTargetFramework>netstandard2.0</SaunterAnalyzersTargetFramework>
+    <SaunterRepositoryUrl>https://github.com/APL-Digital/saunter</SaunterRepositoryUrl>
+  </PropertyGroup>
+</Project>

@@ -89,8 +89,8 @@ namespace StreetlightsAPI
         /// <summary>
         /// Inform about environmental lighting conditions for a particular streetlight.
         /// </summary>
-        [Channel(PublishLightMeasuredTopic, Servers = new[] { "webapi" })]
-        [PublishOperation(typeof(LightMeasuredEvent), "Light", BindingsRef = "postBind")]
+        [Channel("streetlights.measurement.send", PublishLightMeasuredTopic, Servers = new[] { "webapi" })]
+        [SendOperation(typeof(LightMeasuredEvent), OperationId = "MeasureLight")]
         [HttpPost]
         [Route(PublishLightMeasuredTopic)]
         public void MeasureLight([FromBody] LightMeasuredEvent lightMeasuredEvent)
@@ -107,7 +107,7 @@ namespace StreetlightsAPI
                 streetlight.LightIntensity.Add(new(lightMeasuredEvent.SentAt, lightMeasuredEvent.Lumens));
 
                 // Re-publish messages we receive
-                _streetlightMessageBus.PublishLightMeasurement(lightMeasuredEvent);
+                _streetlightMessageBus.ReceiveLightMeasurement(lightMeasuredEvent);
             }
         }
     }

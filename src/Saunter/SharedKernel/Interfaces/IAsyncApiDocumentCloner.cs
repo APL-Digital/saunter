@@ -1,9 +1,9 @@
-﻿using LEGO.AsyncAPI.Models;
+﻿using Saunter;
 
 namespace Saunter.SharedKernel.Interfaces
 {
     public interface IAsyncApiDocumentCloner
     {
-        AsyncApiDocument CloneProtype(AsyncApiDocument prototype);
+        AsyncApiDocumentDescriptor ClonePrototype(AsyncApiDocumentDescriptor prototype);
     }
 }

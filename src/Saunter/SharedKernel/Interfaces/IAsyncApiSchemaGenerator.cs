@@ -1,13 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using LEGO.AsyncAPI.Models;
+using Saunter.SharedKernel.Descriptors;
 
 namespace Saunter.SharedKernel.Interfaces
 {
-    public interface IAsyncApiSchemaGenerator
+    internal interface IAsyncApiSchemaGenerator
     {
-        GeneratedSchemas? Generate(Type? type);
+        GeneratedSchemaDescriptors? Generate(Type? type);
     }
-
-    public readonly record struct GeneratedSchemas(AsyncApiSchema Root, IReadOnlyCollection<AsyncApiSchema> All);
 }

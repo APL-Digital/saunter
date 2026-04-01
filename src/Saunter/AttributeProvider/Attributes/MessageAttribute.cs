@@ -56,6 +56,27 @@ namespace Saunter.AttributeProvider.Attributes
         public string? BindingsRef { get; set; }
 
         /// <summary>
+        /// The name of a correlation id item to reference.
+        /// The correlation id must be added to components/correlationIds with the same name.
+        /// </summary>
+        public string? CorrelationId { get; set; }
+
+        /// <summary>
+        /// The content type to use when encoding/decoding the payload.
+        /// </summary>
+        public string? ContentType { get; set; }
+
+        /// <summary>
+        /// An absolute URL for additional message documentation.
+        /// </summary>
+        public string? ExternalDocs { get; set; }
+
+        /// <summary>
+        /// Optional description for the external docs link.
+        /// </summary>
+        public string? ExternalDocsDescription { get; set; }
+
+        /// <summary>
         /// Unique string used to identify the message. The id MUST be unique among all messages
         /// described in the API. The messageId value is case-sensitive. Tools and libraries MAY
         /// use the messageId to uniquely identify a message, therefore, it is RECOMMENDED to

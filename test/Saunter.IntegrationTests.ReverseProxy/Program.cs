@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq;
-using LEGO.AsyncAPI.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -48,9 +47,10 @@ namespace Saunter.IntegrationTests.ReverseProxy
             {
                 options.AssemblyMarkerTypes = new[] { typeof(StreetlightsController) };
 
-                options.AsyncApi = new AsyncApiDocument
+                options.AsyncApi = new AsyncApiDocumentDescriptor
                 {
-                    Info = new AsyncApiInfo
+                    Asyncapi = "3.0.0",
+                    Info = new AsyncApiInfoDescriptor
                     {
                         Title = Environment.GetEnvironmentVariable("PATH_BASE"),
                         Version = "1.0.0",
@@ -104,7 +104,8 @@ namespace Saunter.IntegrationTests.ReverseProxy
     [Route("")]
     public class StreetlightsController
     {
-        [Channel("publish/light/measured"), PublishOperation(typeof(LightMeasuredEvent))]
+        [Channel("streetlights.measurement", "publish/light/measured")]
+        [SendOperation(typeof(LightMeasuredEvent))]
         [HttpPost, Route("publish/light/measured")]
         public void MeasureLight([FromBody] LightMeasuredEvent _)
         {

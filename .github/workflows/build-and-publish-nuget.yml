@@ -1,0 +1,38 @@
+name: WORKFLOW_Build_and_Publish_NuGet
+
+concurrency: nuget-${{ inputs.PROJECT_PATH }}
+
+on:
+  workflow_call:
+    inputs:
+      PROJECT_ROOT_FOLDER:
+        default: '.\src\'
+        type: string
+      PROJECT_PATH:
+        type: string
+        required: true
+      NUGET_FOLDER:
+        default: '.\nuget'
+        type: string
+      NUGET_REGISTRY_URL:
+        type: string
+        required: true
+
+jobs:
+  build:
+    name: Pack and Publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.x
+            9.x
+      - name: Build solution and generate NuGet package
+        run: dotnet pack ${{ inputs.PROJECT_ROOT_FOLDER }}${{ inputs.PROJECT_PATH }} --configuration Release --output ${{ inputs.NUGET_FOLDER }} --include-symbols -p:SymbolPackageFormat=snupkg
+      - name: Push generated package to GitHub registry
+        run: dotnet nuget push ${{ inputs.NUGET_FOLDER }}\$(Split-Path '${{ inputs.PROJECT_PATH }}' -Leaf).*.nupkg --source ${{ vars.NUGET_REGISTRY_URL }} --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate

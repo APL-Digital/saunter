@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using LEGO.AsyncAPI.Models;
+using System.Linq;
+using ByteBard.AsyncAPI.Models;
+using Saunter.AttributeProvider.Descriptors;
 using Saunter.SharedKernel;
 using Shouldly;
 using Xunit;
@@ -11,166 +13,174 @@ namespace Saunter.Tests.SharedKernel
     {
         public static IEnumerable<object[]> GetOnUnionConflictData()
         {
-            yield return new AsyncApiChannel[]
+            yield return new object[]
             {
-                new() { Publish = new() },
-                new() { Publish = new() },
-            };
-
-            yield return new AsyncApiChannel[]
-            {
-                new() { Subscribe = new() },
-                new() { Subscribe = new() },
-            };
-
-            yield return new AsyncApiChannel[]
-            {
-                new() { Reference = new() },
-                new() { Reference = new() },
-            };
-
-            yield return new AsyncApiChannel[]
-            {
-                new() { Reference = new() },
-                new() { Subscribe = new() },
-            };
-
-            yield return new AsyncApiChannel[]
-            {
-                new() { Reference = new() },
-                new() { Publish = new() },
+                new AsyncApiChannelDescriptor("conflict", "foo", null, null, null, null, [], [], []),
+                new AsyncApiChannelDescriptor("conflict", "bar", null, null, null, null, [], [], []),
             };
         }
 
         [Theory]
         [MemberData(nameof(GetOnUnionConflictData))]
-        public void AsyncApiChannelUnion_OnUnion_Conflict(AsyncApiChannel source, AsyncApiChannel additionaly)
+        public void AsyncApiChannelUnion_OnUnion_Conflict(AsyncApiChannelDescriptor source, AsyncApiChannelDescriptor additional)
         {
-            // Arrange
-            AsyncApiChannelUnion channelUnion = new();
+            var channelUnion = new AsyncApiChannelUnion();
+            var actual = () => channelUnion.Union(source, additional);
 
-            // Act
-            var actual = () => channelUnion.Union(source, additionaly);
-
-            // Assert
             Should.Throw<InvalidOperationException>(actual);
         }
 
-        public static IEnumerable<object[]> GetOnUnionSuccessMerge()
+        [Fact]
+        public void AsyncApiChannelUnion_OnUnion_SuccessMerge()
         {
-            yield return new AsyncApiChannel[]
-            {
-                new() { },
-                new() { Publish = new(), Subscribe = new() },
-                new() { Publish = new(), Subscribe = new() },
-            };
-            yield return new AsyncApiChannel[]
-            {
-                new() { Publish = new(), Subscribe = new() },
-                new() { },
-                new() { Publish = new(), Subscribe = new() },
-            };
-            yield return new AsyncApiChannel[]
-            {
-                new() { Publish = new() },
-                new() { Subscribe = new() },
-                new() { Publish = new(), Subscribe = new() },
-            };
-            yield return new AsyncApiChannel[]
-            {
-                new() { Subscribe = new() },
-                new() { Publish = new() },
-                new() { Publish = new(), Subscribe = new() },
-            };
-            yield return new AsyncApiChannel[]
-            {
-                new() { Reference = new() },
-                new() { },
-                new() { Reference = new() },
-            };
-            yield return new AsyncApiChannel[]
-            {
-                new() { },
-                new() { Reference = new() },
-                new() { Reference = new() },
-            };
-            yield return new AsyncApiChannel[]
-            {
-                new()
-                {
-                    Description = "description",
-                    Servers = new List<string>() { "server1", "server2", },
-                    Parameters = new Dictionary<string, AsyncApiParameter>()
-                    {
-                        { "test", new() { Description = "description" } }
-                    },
-                },
-                new() { },
-                new()
-                {
-                    Description = "description",
-                    Servers = new List<string>() { "server1", "server2", },
-                    Parameters = new Dictionary<string, AsyncApiParameter>()
-                    {
-                        { "test", new() { Description = "description" } }
-                    },
-                },
-            };
+            var source = new AsyncApiChannelDescriptor(
+                "orders",
+                "foo",
+                null,
+                null,
+                "description",
+                null,
+                [],
+                ["one"],
+                [new AsyncApiParameterDescriptor("tenant_id", "description", "tenant_id", [], null, [])]);
+
+            var additional = new AsyncApiChannelDescriptor(
+                "orders",
+                "foo",
+                null,
+                "summary",
+                null,
+                null,
+                [],
+                ["two"],
+                []);
+
+            var channelUnion = new AsyncApiChannelUnion();
+            var actual = channelUnion.Union(source, additional);
+
+            actual.ShouldNotBeNull();
+            actual.Address.ShouldBe("foo");
+            actual.Description.ShouldBe("description");
+            actual.Summary.ShouldBe("summary");
+            actual.MessageIds.ShouldContain("one");
+            actual.MessageIds.ShouldContain("two");
+            actual.Parameters.ShouldContainKey("tenant_id");
         }
 
-        [Theory]
-        [MemberData(nameof(GetOnUnionSuccessMerge))]
-        public void AsyncApiChannelUnion_OnUnion_SuccessMerge(AsyncApiChannel source, AsyncApiChannel additionaly, AsyncApiChannel expected)
+        [Fact]
+        public void AsyncApiChannelUnion_OnUnion_DuplicateMembers_WithMatchingDefinitions_SourceShouldWin()
         {
-            // Arrange
-            AsyncApiChannelUnion channelUnion = new();
+            var source = new AsyncApiChannelDescriptor(
+                "orders",
+                "foo",
+                null,
+                null,
+                null,
+                null,
+                [],
+                ["one"],
+                [new AsyncApiParameterDescriptor("tenant_id", "source", null, [], null, [])]);
 
-            // Act
-            var actual = channelUnion.Union(source, additionaly);
+            var additional = new AsyncApiChannelDescriptor(
+                "orders",
+                "foo",
+                null,
+                null,
+                null,
+                null,
+                [],
+                ["one"],
+                [new AsyncApiParameterDescriptor("tenant_id", "source", null, [], null, [])]);
 
-            // Assert
-            actual.ShouldNotBeNull();
+            var channelUnion = new AsyncApiChannelUnion();
+            var actual = channelUnion.Union(source, additional);
 
-            actual.Description.ShouldBe(expected.Description);
-            actual.Servers.ShouldBe(expected.Servers);
+            actual.MessageIds.ShouldContain("one");
+            actual.Parameters.Single(parameter => parameter.Name == "tenant_id").Description.ShouldBe("source");
+        }
 
-            actual.Parameters.Count.ShouldBe(expected.Parameters.Count);
+        [Fact]
+        public void AsyncApiChannelUnion_OnUnion_ThrowsOnConflictingParameterDefinitions()
+        {
+            var source = new AsyncApiChannelDescriptor(
+                "orders",
+                "foo",
+                null,
+                null,
+                null,
+                null,
+                [],
+                ["one"],
+                [new AsyncApiParameterDescriptor("tenant_id", "source", null, [], null, [])]);
 
-            foreach (var item in expected.Parameters)
-            {
-                actual.Parameters.ShouldContainKey(item.Key);
-            }
+            var additional = new AsyncApiChannelDescriptor(
+                "orders",
+                "foo",
+                null,
+                null,
+                null,
+                null,
+                [],
+                ["one"],
+                [new AsyncApiParameterDescriptor("tenant_id", "additional", null, [], null, [])]);
 
-            if (actual.Publish is null)
-            {
-                expected.Publish.ShouldBeNull();
-            }
-            else
-            {
-                expected.Publish.ShouldNotBeNull();
-                actual.Publish.OperationId.ShouldBe(expected.Publish.OperationId);
-            }
+            var channelUnion = new AsyncApiChannelUnion();
+            var actual = () => channelUnion.Union(source, additional);
 
-            if (actual.Subscribe is null)
-            {
-                expected.Subscribe.ShouldBeNull();
-            }
-            else
-            {
-                expected.Subscribe.ShouldNotBeNull();
-                actual.Subscribe.OperationId.ShouldBe(expected.Subscribe.OperationId);
-            }
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("conflicting definitions");
+        }
 
-            if (actual.Reference is null)
-            {
-                expected.Reference.ShouldBeNull();
-            }
-            else
-            {
-                expected.Reference.ShouldNotBeNull();
-                actual.Reference.Id.ShouldBe(expected.Reference.Id);
-                actual.Reference.Type.ShouldBe(expected.Reference.Type);
-            }
+        [Fact]
+        public void AsyncApiChannelUnion_OnUnion_ThrowsOnConflictingBindingsReferences()
+        {
+            var source = new AsyncApiChannelDescriptor("orders", "foo", null, null, null, "sourceBinding", [], [], []);
+            var additional = new AsyncApiChannelDescriptor("orders", "foo", null, null, null, "additionalBinding", [], [], []);
+
+            var channelUnion = new AsyncApiChannelUnion();
+            var actual = () => channelUnion.Union(source, additional);
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("conflicting bindings references");
+        }
+
+        [Fact]
+        public void AsyncApiChannelUnion_OnUnion_PrefersNonBlankBindingsReference()
+        {
+            var source = new AsyncApiChannelDescriptor("orders", "foo", null, null, null, "   ", [], [], []);
+            var additional = new AsyncApiChannelDescriptor("orders", "foo", null, null, null, "additionalBinding", [], [], []);
+
+            var channelUnion = new AsyncApiChannelUnion();
+            var actual = channelUnion.Union(source, additional);
+
+            actual.BindingsRef.ShouldBe("additionalBinding");
+        }
+
+        [Fact]
+        public void AsyncApiChannelUnion_OnUnion_IgnoresNullServerReferences()
+        {
+            var source = new AsyncApiChannelDescriptor("orders", "foo", null, null, null, null, [], [], []);
+            var additional = new AsyncApiChannelDescriptor("orders", "foo", null, null, null, null, ["valid"], [], []);
+
+            var channelUnion = new AsyncApiChannelUnion();
+            var actual = channelUnion.Union(source, additional);
+
+            actual.Servers.ShouldContain("valid");
+        }
+
+        [Fact]
+        public void AsyncApiChannelUnion_OnUnion_DuplicateServersAndTags_SourceShouldWin()
+        {
+            var source = new AsyncApiChannelDescriptor("orders", "foo", null, null, null, null, ["shared"], [], []);
+            source.Tags.Add(new AsyncApiTag { Name = "shared", Description = "source" });
+            var additional = new AsyncApiChannelDescriptor("orders", "foo", null, null, null, null, ["shared"], [], []);
+            additional.Tags.Add(new AsyncApiTag { Name = "shared", Description = "additional" });
+
+            var channelUnion = new AsyncApiChannelUnion();
+            var actual = channelUnion.Union(source, additional);
+
+            actual.Servers.Single().ShouldBe("shared");
+            actual.Tags.Single().Description.ShouldBe("source");
         }
     }
 }

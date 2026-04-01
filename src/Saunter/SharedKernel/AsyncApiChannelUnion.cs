@@ -1,73 +1,101 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using LEGO.AsyncAPI.Models;
-using LEGO.AsyncAPI.Models.Interfaces;
+using Saunter.AttributeProvider.Descriptors;
 using Saunter.SharedKernel.Interfaces;
 
 namespace Saunter.SharedKernel
 {
     internal class AsyncApiChannelUnion : IAsyncApiChannelUnion
     {
-        public AsyncApiChannel Union(AsyncApiChannel source, AsyncApiChannel additionaly)
+        public AsyncApiChannelDescriptor Union(AsyncApiChannelDescriptor source, AsyncApiChannelDescriptor additional)
         {
-            if (source.Publish is not null && additionaly.Publish is not null)
+            if (!string.IsNullOrWhiteSpace(source.Address)
+                && !string.IsNullOrWhiteSpace(additional.Address)
+                && !string.Equals(source.Address, additional.Address, StringComparison.Ordinal))
             {
-                throw new InvalidOperationException("Publish operation conflict");
+                throw new InvalidOperationException("Channel address conflict");
             }
 
-            if (source.Subscribe is not null && additionaly.Subscribe is not null)
+            if (!string.IsNullOrWhiteSpace(source.BindingsRef)
+                && !string.IsNullOrWhiteSpace(additional.BindingsRef)
+                && !string.Equals(source.BindingsRef, additional.BindingsRef, StringComparison.Ordinal))
             {
-                throw new InvalidOperationException("Subscribe operation conflict");
+                throw new InvalidOperationException($"Channel '{source.Id}' has conflicting bindings references '{source.BindingsRef}' and '{additional.BindingsRef}'.");
             }
 
-            if (source.Reference is not null && additionaly.Reference is not null)
+            var merged = new AsyncApiChannelDescriptor(
+                source.Id,
+                FirstNonBlank(source.Address, additional.Address) ?? source.Address,
+                source.Title ?? additional.Title,
+                source.Summary ?? additional.Summary,
+                source.Description ?? additional.Description,
+                FirstNonBlank(source.BindingsRef, additional.BindingsRef),
+                MergeStrings(source.ServerNames, additional.ServerNames),
+                MergeStrings(source.MessageIds, additional.MessageIds),
+                MergeParameters(source.Parameters, additional.Parameters));
+
+            foreach (var tag in MergeTags(source.Tags, additional.Tags))
             {
-                throw new InvalidOperationException("Reference operation conflict");
+                merged.Tags.Add(tag);
             }
 
-            var publishOperation = source.Publish ?? additionaly.Publish;
-            var subscribeOperation = source.Subscribe ?? additionaly.Subscribe;
-            var reference = source.Reference ?? additionaly.Reference;
+            return merged;
+        }
 
-            if (reference is not null && (publishOperation is not null || subscribeOperation is not null))
+        private static string? FirstNonBlank(string? source, string? additional)
+        {
+            return !string.IsNullOrWhiteSpace(source)
+                ? source
+                : !string.IsNullOrWhiteSpace(additional) ? additional : null;
+        }
+
+        private static IReadOnlyList<string> MergeStrings(IReadOnlyList<string> source, IReadOnlyList<string> additional)
+        {
+            return source
+                .Concat(additional)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+        }
+
+        private static IReadOnlyList<AsyncApiParameterDescriptor> MergeParameters(IReadOnlyList<AsyncApiParameterDescriptor> source, IReadOnlyList<AsyncApiParameterDescriptor> additional)
+        {
+            var parametersByName = new Dictionary<string, AsyncApiParameterDescriptor>(StringComparer.Ordinal);
+
+            foreach (var parameter in source.Concat(additional))
             {
-                throw new InvalidOperationException("Reference operation conflict");
+                if (!parametersByName.TryGetValue(parameter.Name, out var existing))
+                {
+                    parametersByName[parameter.Name] = parameter;
+                    continue;
+                }
+
+                if (!ParametersMatch(existing, parameter))
+                {
+                    throw new InvalidOperationException($"Channel parameter '{parameter.Name}' has conflicting definitions.");
+                }
             }
 
-            var servers = source.Servers?.Any() == true
-                ? source.Servers
-                : additionaly.Servers
-                ?? new List<string>();
+            return parametersByName.Values.ToList();
+        }
 
-            var bindings = source.Bindings?.Any() == true
-                ? source.Bindings
-                : additionaly.Bindings
-                ?? new();
+        private static bool ParametersMatch(AsyncApiParameterDescriptor source, AsyncApiParameterDescriptor additional)
+        {
+            return string.Equals(source.Description, additional.Description, StringComparison.Ordinal)
+                && string.Equals(source.Location, additional.Location, StringComparison.Ordinal)
+                && string.Equals(source.DefaultValue, additional.DefaultValue, StringComparison.Ordinal)
+                && source.EnumValues.SequenceEqual(additional.EnumValues, StringComparer.Ordinal)
+                && source.Examples.SequenceEqual(additional.Examples, StringComparer.Ordinal);
+        }
 
-            var parameters = source.Parameters?.Any() == true
-                ? source.Parameters
-                : additionaly.Parameters
-                ?? new Dictionary<string, AsyncApiParameter>();
-
-            var extensions = source.Extensions?.Any() == true
-                ? source.Extensions
-                : additionaly.Extensions
-                ?? new Dictionary<string, IAsyncApiExtension>();
-
-            return new()
-            {
-                Publish = publishOperation,
-                Subscribe = subscribeOperation,
-
-                Servers = servers,
-                Bindings = bindings,
-                Parameters = parameters,
-                Extensions = extensions,
-
-                Reference = reference,
-                Description = source.Description ?? additionaly.Description,
-            };
+        private static IReadOnlyList<ByteBard.AsyncAPI.Models.AsyncApiTag> MergeTags(
+            IList<ByteBard.AsyncAPI.Models.AsyncApiTag> source,
+            IList<ByteBard.AsyncAPI.Models.AsyncApiTag> additional)
+        {
+            return source
+                .Concat(additional)
+                .DistinctBy(tag => tag.Name)
+                .ToList();
         }
     }
 }

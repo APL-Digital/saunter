@@ -1,4 +1,5 @@
 ﻿using System;
+using ByteBard.AsyncAPI.Models;
 using Saunter.AttributeProvider.Attributes;
 using Shouldly;
 using Xunit;
@@ -11,51 +12,40 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         [InlineData(typeof(IServiceEvents))]
         [InlineData(typeof(ServiceEventsFromInterface))]
         [InlineData(typeof(ServiceEventsFromAnnotatedInterface))]
-        // Check that annotations are not inherited from the interface
         public void NonAnnotatedTypesTest(Type type)
         {
-            // Arrange
             ArrangeAttributesTests.Arrange(out var options, out var documentProvider, type);
 
-            // Act
             var document = documentProvider.GetDocument(null, options);
 
-            // Assert
             document.ShouldNotBeNull();
             document.Channels.Count.ShouldBe(0);
+            document.Operations.Count.ShouldBe(0);
         }
 
         [Theory]
-        [InlineData(typeof(IAnnotatedServiceEvents), "interface.event.service.anotated.interface")]
-        [InlineData(typeof(AnnotatedServiceEventsFromAnnotatedInterface), "class.event.service.anotated.interface")]
-        [InlineData(typeof(SecondAnnotatedServiceEventsFromAnnotatedInterface), "class.event.secondservice.anotated.interface")]
-        // Check that the actual type's annotation takes precedence of the inherited interface
-        public void AnnotatedTypesTest(Type type, string channelName)
+        [InlineData(typeof(IAnnotatedServiceEvents), "interface.event.service.annotated.interface")]
+        [InlineData(typeof(AnnotatedServiceEventsFromAnnotatedInterface), "class.event.service.annotated.interface")]
+        [InlineData(typeof(SecondAnnotatedServiceEventsFromAnnotatedInterface), "class.event.secondservice.annotated.interface")]
+        public void AnnotatedTypesTest(Type type, string channelAddress)
         {
-            // Arrange
             ArrangeAttributesTests.Arrange(out var options, out var documentProvider, type);
 
-            // Act
             var document = documentProvider.GetDocument(null, options);
 
-            // Assert
             document.ShouldNotBeNull();
+            var channel = document.AssertAndGetChannel(channelAddress, channelAddress);
+            var send = document.AssertAndGetOperation("PublishEvent", AsyncApiAction.Send);
 
-            var channel = document.AssertAndGetChannel(channelName, null);
-
-            var publish = channel.Publish;
-            publish.ShouldNotBeNull();
-            publish.OperationId.ShouldBe("PublishEvent");
-            publish.Description.ShouldBe($"({channelName}) Subscribe to domains events about a tenant.");
-
-            document.AssertByMessage(publish, "tenantEvent");
+            document.AssertByMessage(send, "tenantEvent");
+            channel.ShouldNotBeNull();
         }
 
         [AsyncApi]
         private interface IAnnotatedServiceEvents
         {
-            [Channel("interface.event.service.anotated.interface")]
-            [PublishOperation(typeof(TenantEvent), Description = "(interface.event.service.anotated.interface) Subscribe to domains events about a tenant.")]
+            [Channel("interface.event.service.annotated.interface", "interface.event.service.annotated.interface")]
+            [SendOperation(typeof(TenantEvent), OperationId = "PublishEvent", Description = "(interface.event.service.annotated.interface) Send domains events about a tenant.")]
             void PublishEvent(TenantEvent evt);
         }
 
@@ -77,16 +67,16 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         [AsyncApi]
         private class AnnotatedServiceEventsFromAnnotatedInterface : IAnnotatedServiceEvents
         {
-            [Channel("class.event.service.anotated.interface")]
-            [PublishOperation(typeof(TenantEvent), Description = "(class.event.service.anotated.interface) Subscribe to domains events about a tenant.")]
+            [Channel("class.event.service.annotated.interface", "class.event.service.annotated.interface")]
+            [SendOperation(typeof(TenantEvent), OperationId = "PublishEvent", Description = "(class.event.service.annotated.interface) Send domains events about a tenant.")]
             public void PublishEvent(TenantEvent evt) { }
         }
 
         [AsyncApi]
         private class SecondAnnotatedServiceEventsFromAnnotatedInterface : IAnnotatedServiceEvents
         {
-            [Channel("class.event.secondservice.anotated.interface")]
-            [PublishOperation(typeof(TenantEvent), Description = "(class.event.secondservice.anotated.interface) Subscribe to domains events about a tenant.")]
+            [Channel("class.event.secondservice.annotated.interface", "class.event.secondservice.annotated.interface")]
+            [SendOperation(typeof(TenantEvent), OperationId = "PublishEvent", Description = "(class.event.secondservice.annotated.interface) Send domains events about a tenant.")]
             public void PublishEvent(TenantEvent evt) { }
         }
 

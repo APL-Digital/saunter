@@ -1,34 +1,55 @@
-﻿using LEGO.AsyncAPI.Models;
+﻿using System.Linq;
+using ByteBard.AsyncAPI.Models;
+using Saunter.AttributeProvider.Descriptors;
 using Shouldly;
 
 namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
 {
     internal static class AssertAsyncApiDocumentHelper
     {
-        public static AsyncApiChannel AssertAndGetChannel(this AsyncApiDocument document, string key, string description)
+        public static AsyncApiChannelDescriptor AssertAndGetChannel(this AsyncApiDocumentDescriptor document, string key, string address)
         {
-            document.Channels.Count.ShouldBe(1);
+            document.Channels.Count.ShouldBeGreaterThanOrEqualTo(1);
             document.Channels.ShouldContainKey(key);
 
             var channel = document.Channels[key];
             channel.ShouldNotBeNull();
-            channel.Description.ShouldBe(description);
+            channel.Address.ShouldBe(address);
 
             return channel;
         }
 
-        public static void AssertByMessage(this AsyncApiDocument document, AsyncApiOperation operation, params string[] messageIds)
+        public static AsyncApiOperationDescriptor AssertAndGetOperation(this AsyncApiDocumentDescriptor document, string key, AsyncApiAction action)
         {
-            operation.Message.Count.ShouldBe(messageIds.Length);
-            operation.Message.ShouldAllBe(c => c.Reference.Type == ReferenceType.Message);
+            document.Operations.ShouldContainKey(key);
+
+            var operation = document.Operations[key];
+            operation.ShouldNotBeNull();
+            operation.Action.ShouldBe(action);
+
+            return operation;
+        }
+
+        public static void AssertByMessage(this AsyncApiDocumentDescriptor document, AsyncApiOperationDescriptor operation, params string[] messageIds)
+        {
+            operation.MessageIds.Count.ShouldBe(messageIds.Length);
 
             foreach (var messageId in messageIds)
             {
-                operation.Message.ShouldContain(m => m.Reference.Id == messageId);
+                operation.MessageIds.ShouldContain(messageId);
                 document.Components.Messages.ShouldContainKey(messageId);
+                document.Components.Messages[messageId].PayloadSchemaId.ShouldNotBeNull();
+                document.Components.Schemas.ShouldContainKey(document.Components.Messages[messageId].PayloadSchemaId!);
+            }
+        }
 
-                var message = document.Components.Messages[messageId];
-                document.Components.Schemas.ContainsKey(message.Payload.Reference.Id);
+        public static void AssertChannelMessages(this AsyncApiDocumentDescriptor _, AsyncApiChannelDescriptor channel, params string[] messageIds)
+        {
+            channel.MessageIds.Count.ShouldBe(messageIds.Length);
+
+            foreach (var messageId in messageIds)
+            {
+                channel.MessageIds.ShouldContain(messageId);
             }
         }
     }

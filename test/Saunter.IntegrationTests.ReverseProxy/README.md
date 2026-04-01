@@ -14,3 +14,5 @@ docker-compose --file ./test/Saunter.IntegrationTests.ReverseProxy/docker-compos
 You should be able to access both services UI
 * http://localhost:5000/service-a/asyncapi/ui
 * http://localhost:5000/service-b/asyncapi/ui
+
+The sample now emits AsyncAPI v3 documents with ByteBard model types and root `operations`.

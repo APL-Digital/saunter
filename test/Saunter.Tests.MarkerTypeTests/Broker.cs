@@ -3,8 +3,8 @@
 namespace Saunter.Tests.MarkerTypeTests
 {
     [AsyncApi]
-    [Channel("asw.sample_service.anothersample", Description = "Another sample events.")]
-    [PublishOperation(OperationId = "AnotherSampleMessagePublisher", Summary = "Publish another sample.")]
+    [Channel("asw.sample_service.anothersample", "asw.sample_service.anothersample", Description = "Another sample events.")]
+    [SendOperation(OperationId = "AnotherSampleMessagePublisher", Summary = "Send another sample.")]
     public class AnotherSamplePublisher
     {
         [Message(typeof(AnotherSampleMesssage))]
@@ -12,8 +12,8 @@ namespace Saunter.Tests.MarkerTypeTests
     }
 
     [AsyncApi]
-    [Channel("asw.sample_service.sample", Description = "Sample events.")]
-    [SubscribeOperation(OperationId = "SampleMessageConsumer", Summary = "Consume sample messages.")]
+    [Channel("asw.sample_service.sample", "asw.sample_service.sample", Description = "Sample events.")]
+    [ReceiveOperation(OperationId = "SampleMessageConsumer", Summary = "Receive sample messages.")]
     public class SampleConsumer
     {
         [Message(typeof(SampleMessage))]

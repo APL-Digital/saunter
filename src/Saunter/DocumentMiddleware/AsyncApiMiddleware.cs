@@ -1,23 +1,28 @@
-﻿using System.IO;
+﻿using System.Collections.Concurrent;
 using System.Net;
 using System.Threading.Tasks;
-using LEGO.AsyncAPI.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Saunter.Options;
+using Saunter.SharedKernel.Interfaces;
 
 namespace Saunter.DocumentMiddleware
 {
     internal class AsyncApiMiddleware
     {
+        private const string DefaultDocumentCacheKey = "__default";
+
         private readonly RequestDelegate _next;
         private readonly IAsyncApiDocumentProvider _asyncApiDocumentProvider;
+        private readonly IAsyncApiDocumentWriter _documentWriter;
         private readonly AsyncApiOptions _options;
+        private readonly ConcurrentDictionary<string, string> _documentJsonCache = new();
 
-        public AsyncApiMiddleware(RequestDelegate next, IOptions<AsyncApiOptions> options, IAsyncApiDocumentProvider asyncApiDocumentProvider)
+        public AsyncApiMiddleware(RequestDelegate next, IOptions<AsyncApiOptions> options, IAsyncApiDocumentProvider asyncApiDocumentProvider, IAsyncApiDocumentWriter documentWriter)
         {
             _next = next;
             _asyncApiDocumentProvider = asyncApiDocumentProvider;
+            _documentWriter = documentWriter;
             _options = options.Value;
         }
 
@@ -35,14 +40,18 @@ namespace Saunter.DocumentMiddleware
                 return;
             }
 
-            var asyncApiSchema = _asyncApiDocumentProvider.GetDocument(documentName, _options);
+            var cacheKey = documentName ?? DefaultDocumentCacheKey;
+            var asyncApiSchemaJson = _documentJsonCache.GetOrAdd(cacheKey, _ =>
+            {
+                var asyncApiSchema = _asyncApiDocumentProvider.GetDocument(documentName, _options);
+                return _documentWriter.WriteJson(asyncApiSchema);
+            });
 
-            await RespondWithAsyncApiSchemaJson(context.Response, asyncApiSchema);
+            await RespondWithAsyncApiSchemaJson(context.Response, asyncApiSchemaJson);
         }
 
-        private static async Task RespondWithAsyncApiSchemaJson(HttpResponse response, AsyncApiDocument asyncApiSchema)
+        private static async Task RespondWithAsyncApiSchemaJson(HttpResponse response, string asyncApiSchemaJson)
         {
-            var asyncApiSchemaJson = asyncApiSchema.SerializeAsJson(LEGO.AsyncAPI.AsyncApiVersion.AsyncApi2_0);
             response.StatusCode = (int)HttpStatusCode.OK;
             response.ContentType = "application/json";
 

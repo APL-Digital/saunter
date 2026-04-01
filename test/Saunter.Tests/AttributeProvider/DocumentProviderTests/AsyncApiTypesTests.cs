@@ -1,5 +1,4 @@
-﻿using LEGO.AsyncAPI.Models;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Saunter.Options;
 using Saunter.Tests.MarkerTypeTests;
@@ -13,14 +12,15 @@ namespace Saunter.Tests.AttributeProvider.DocumentProviderTests
         [Fact]
         public void GetDocument_GeneratesDocumentWithMultipleMessagesPerChannel()
         {
-            var services = new ServiceCollection() as IServiceCollection;
+            var services = new ServiceCollection();
 
             services.AddFakeLogging();
             services.AddAsyncApiSchemaGeneration(o =>
             {
-                o.AsyncApi = new AsyncApiDocument
+                o.AsyncApi = new AsyncApiDocumentDescriptor
                 {
-                    Info = new()
+                    Asyncapi = "3.0.0",
+                    Info = new AsyncApiInfoDescriptor
                     {
                         Title = GetType().FullName,
                         Version = "1.0.0"
@@ -36,6 +36,9 @@ namespace Saunter.Tests.AttributeProvider.DocumentProviderTests
             var document = documentProvider.GetDocument(null, options);
 
             document.ShouldNotBeNull();
+            document.Channels.ShouldContainKey("asw.sample_service.anothersample");
+            document.Operations.ShouldContainKey("AnotherSampleMessagePublisher");
+            document.Operations.ShouldContainKey("SampleMessageConsumer");
         }
     }
 }
