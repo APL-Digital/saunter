@@ -28,6 +28,7 @@
   <PropertyGroup>
     <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\Saunter.xml</DocumentationFile>
     <NoWarn>1701;1702;1591</NoWarn>
+    <ByteBardVersion>2.1.2</ByteBardVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -46,9 +47,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Saunter.Analyzers\Saunter.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
-    <PackageReference Include="ByteBard.AsyncAPI.NET" Version="2.1.2" />
-    <PackageReference Include="ByteBard.AsyncAPI.NET.Readers" Version="2.1.2" />
-    <PackageReference Include="ByteBard.AsyncAPI.NET.Bindings" Version="2.1.2" />
+    <PackageReference Include="ByteBard.AsyncAPI.NET" Version="$(ByteBardVersion)" />
+    <PackageReference Include="ByteBard.AsyncAPI.NET.Readers" Version="$(ByteBardVersion)" />
+    <PackageReference Include="ByteBard.AsyncAPI.NET.Bindings" Version="$(ByteBardVersion)" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
     <PackageReference Include="Namotion.Reflection" Version="3.1.1" />
   </ItemGroup>
