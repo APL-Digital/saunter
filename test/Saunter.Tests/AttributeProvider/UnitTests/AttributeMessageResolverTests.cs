@@ -90,6 +90,41 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
         }
 
         [Fact]
+        public void ResolveForOperation_FallsBackToOperationPayloadTypeWhenAttributesYieldNoMessages()
+        {
+            var resolver = new AttributeMessageResolver(new BlankSchemaIdGenerator());
+            var method = typeof(MessageFixture).GetMethod(nameof(MessageFixture.PublishWithoutExplicitMessageIdButInferredPayloadExists))!;
+
+            var resolution = resolver.ResolveForOperation(
+                method,
+                new SendOperationAttribute(),
+                new AsyncApiInferenceOptions
+                {
+                    InferPayloadTypeFromMethodSignature = true,
+                });
+
+            resolution.MessageIds.ShouldBe(["fallbackPayload"]);
+            resolution.Messages.Single().PayloadSchemaId.ShouldBe("fallbackPayload");
+        }
+
+        [Fact]
+        public void ResolveForOperation_TypeLevelFallsBackToOperationPayloadTypeWhenAttributesYieldNoMessages()
+        {
+            var resolver = new AttributeMessageResolver(new BlankSchemaIdGenerator());
+
+            var resolution = resolver.ResolveForOperation(
+                typeof(TypeLevelBlankAttributeFixture).GetTypeInfo(),
+                new SendOperationAttribute(),
+                new AsyncApiInferenceOptions
+                {
+                    InferPayloadTypeFromMethodSignature = true,
+                });
+
+            resolution.MessageIds.ShouldBe(["fallbackPayload"]);
+            resolution.Messages.Single().PayloadSchemaId.ShouldBe("fallbackPayload");
+        }
+
+        [Fact]
         public void ResolveForOperation_TypeLevelInference_ThrowsWhenDuplicateSchemasConflict()
         {
             var resolver = new AttributeMessageResolver(new ConflictingSchemaGenerator());
@@ -129,6 +164,11 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             public void PublishWithoutExplicitMessageId()
             {
             }
+
+            [Message(typeof(OrderCreated))]
+            public void PublishWithoutExplicitMessageIdButInferredPayloadExists(FallbackPayload _)
+            {
+            }
         }
 
         private class OrderCreated
@@ -146,6 +186,14 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             public string Name { get; set; } = string.Empty;
 
             public void Publish(OrderCreated _)
+            {
+            }
+        }
+
+        private class TypeLevelBlankAttributeFixture
+        {
+            [Message(typeof(OrderCreated))]
+            public void Publish(FallbackPayload _)
             {
             }
         }
@@ -169,6 +217,11 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
         private class SharedPayloadTwo
         {
             public int Value { get; set; }
+        }
+
+        private class FallbackPayload
+        {
+            public string Value { get; set; } = string.Empty;
         }
 
         private sealed class AllOfSchemaGenerator : IAsyncApiSchemaGenerator

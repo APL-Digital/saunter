@@ -81,8 +81,8 @@ namespace Saunter.Tests.SharedKernel
 
             // Assert
             schema.ShouldNotBeNull();
-            schema.Value.All.Count.ShouldBe(2);
-            schema.Value.All.Select(x => x.Id).ShouldBe(new[] { "foo", "bar" }, ignoreOrder: true);
+            schema.Value.All.Count.ShouldBe(4);
+            schema.Value.All.Select(x => x.Id).ShouldBe(new[] { "foo", "bar", "string", "decimal" }, ignoreOrder: true);
             schema.Value.Root.Properties.Count.ShouldBe(7);
             schema.Value.Root.Required.ShouldBe(new[] { "id", "myUri", "bar", "helloWorld", "timestamp", "fooType" }, ignoreOrder: true);
 
@@ -118,7 +118,7 @@ namespace Saunter.Tests.SharedKernel
             bar.Properties.ShouldContainKey("cost");
             var barCost = bar.Properties["cost"];
             barCost.Type.ShouldBe(AsyncApiSchemaValueType.Number);
-            barCost.Id.ShouldBe("decimal");
+            barCost.Id.ShouldBeNull();
             barCost.Format.ShouldBe("decimal");
             barCost.Nullable.ShouldBeTrue();
 
@@ -132,7 +132,7 @@ namespace Saunter.Tests.SharedKernel
             schema.Value.Root.Properties.ShouldContainKey("helloWorld2");
             var helloWorld2 = schema.Value.Root.Properties["helloWorld2"];
             helloWorld2.Type.ShouldBe(AsyncApiSchemaValueType.String);
-            helloWorld2.Id.ShouldBe("string");
+            helloWorld2.Id.ShouldBeNull();
             helloWorld2.Format.ShouldBe("string");
             helloWorld2.Nullable.ShouldBeTrue();
 
@@ -254,6 +254,25 @@ namespace Saunter.Tests.SharedKernel
             Should.Throw<InvalidOperationException>(actual)
                 .Message.ShouldContain("Conflicting schema descriptors found for id 'duplicate'");
         }
+
+        [Fact]
+        public void AsyncApiSchemaGenerator_KeepsSharedObjectSchemaNonNullableForNullableUsages()
+        {
+            AsyncApiSchemaGenerator generator = new();
+
+            var schema = generator.Generate(typeof(FooWithNullableBar));
+
+            schema.ShouldNotBeNull();
+            schema.Value.All.Single(component => component.Id == "bar").Nullable.ShouldBeFalse();
+
+            var requiredBar = schema.Value.Root.Properties["requiredBar"];
+            requiredBar.Id.ShouldBe("bar");
+            requiredBar.Nullable.ShouldBeFalse();
+
+            var optionalBar = schema.Value.Root.Properties["optionalBar"];
+            optionalBar.Nullable.ShouldBeTrue();
+            optionalBar.AllOf.Single().Reference.ShouldBe("#/components/schemas/bar");
+        }
     }
 
     public class Foo
@@ -292,6 +311,12 @@ namespace Saunter.Tests.SharedKernel
     {
         public Loop UltraLoop { get; set; } = null!;
         public Loop? UltraLoop2 { get; set; }
+    }
+
+    public class FooWithNullableBar
+    {
+        public Bar RequiredBar { get; set; } = null!;
+        public Bar? OptionalBar { get; set; }
     }
 
     public class BaseWithProperty

@@ -9,7 +9,7 @@ namespace Saunter.Tests.SharedKernel
     public class DocumentWriterTests
     {
         [Fact]
-        public void WriteJson_PreservesNullableKeyword()
+        public void WriteJson_UsesJsonSchemaNullabilityForAsyncApi3()
         {
             var writer = new AsyncApiDocumentWriter(new AsyncApiDocumentMapper(new global::Saunter.AttributeProvider.AsyncApiDescriptorMapper(new AsyncApiSchemaMapper())));
             var document = new AsyncApiDocumentDescriptor
@@ -36,9 +36,9 @@ namespace Saunter.Tests.SharedKernel
 
             var json = writer.WriteJson(document);
 
-            json.ShouldContain("\"nullable\"");
-            json.ShouldNotContain("\"oneOf\"");
-            json.ShouldNotContain("\"type\": \"null\"");
+            json.ShouldNotContain("\"nullable\"");
+            json.ShouldContain("\"oneOf\"");
+            json.ShouldContain("\"type\": \"null\"");
         }
 
         [Fact]

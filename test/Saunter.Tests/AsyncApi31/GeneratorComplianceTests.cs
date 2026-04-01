@@ -104,7 +104,7 @@ namespace Saunter.Tests.AsyncApi31
             var document = documentProvider.GetDocument(null, options);
             var json = new AsyncApiDocumentWriter(new AsyncApiDocumentMapper(new global::Saunter.AttributeProvider.AsyncApiDescriptorMapper(new AsyncApiSchemaMapper()))).WriteJson(document);
 
-            json.ShouldContain("\"nullable\"");
+            json.ShouldNotContain("\"nullable\"");
         }
 
         [Fact]

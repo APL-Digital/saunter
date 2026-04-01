@@ -24,7 +24,11 @@ namespace Saunter.AttributeProvider
             var messageAttributes = method.GetCustomAttributes<MessageAttribute>().ToArray();
             if (messageAttributes.Any())
             {
-                return GenerateMessagesFromAttributes(messageAttributes, inferenceOptions);
+                var resolution = GenerateMessagesFromAttributes(messageAttributes, inferenceOptions);
+                if (resolution.Messages.Any())
+                {
+                    return resolution;
+                }
             }
 
             if (operationAttribute.MessagePayloadType is not null)
@@ -49,7 +53,11 @@ namespace Saunter.AttributeProvider
 
             if (messageAttributes.Any())
             {
-                return GenerateMessagesFromAttributes(messageAttributes, inferenceOptions);
+                var resolution = GenerateMessagesFromAttributes(messageAttributes, inferenceOptions);
+                if (resolution.Messages.Any())
+                {
+                    return resolution;
+                }
             }
 
             if (operationAttribute.MessagePayloadType is not null)

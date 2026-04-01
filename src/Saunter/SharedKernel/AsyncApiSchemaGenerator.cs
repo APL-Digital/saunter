@@ -55,7 +55,6 @@ namespace Saunter.SharedKernel
             var name = ToSchemaName(typeInfo);
             var schema = new AsyncApiSchemaDescriptor
             {
-                Nullable = isNullable,
                 Id = name,
                 Type = MapJsonTypeToSchemaType(typeInfo),
             };
@@ -75,7 +74,11 @@ namespace Saunter.SharedKernel
                     schema.Format = name;
                 }
 
-                return new(schema, Array.Empty<AsyncApiSchemaDescriptor>());
+                var usageSchema = CreateUsageSchema(schema, isNullable);
+                var sharedSchemas = ReferenceEquals(usageSchema, schema)
+                    ? Array.Empty<AsyncApiSchemaDescriptor>()
+                    : [schema];
+                return new(usageSchema, sharedSchemas);
             }
 
             if (schema.Type == AsyncApiSchemaValueType.Array)
@@ -89,7 +92,13 @@ namespace Saunter.SharedKernel
                     itemSchemas.AddRange(generatedItemSchema.Value.All);
                 }
 
-                return new(schema, DeduplicateSchemas(itemSchemas, $"building array items for schema '{name}'"));
+                var usageSchema = CreateUsageSchema(schema, isNullable);
+                if (!ReferenceEquals(usageSchema, schema))
+                {
+                    itemSchemas.Insert(0, schema);
+                }
+
+                return new(usageSchema, DeduplicateSchemas(itemSchemas, $"building array items for schema '{name}'"));
             }
 
             if (!parents.Add(type))
@@ -98,18 +107,7 @@ namespace Saunter.SharedKernel
                 {
                     Reference = $"#/components/schemas/{name}",
                 };
-                if (!isNullable)
-                {
-                    return new(referenceSchema, Array.Empty<AsyncApiSchemaDescriptor>());
-                }
-
-                var nullableReferenceSchema = new AsyncApiSchemaDescriptor
-                {
-                    Nullable = true,
-                };
-                nullableReferenceSchema.AllOf.Add(referenceSchema);
-
-                return new(nullableReferenceSchema, Array.Empty<AsyncApiSchemaDescriptor>());
+                return new(CreateUsageSchema(referenceSchema, isNullable), Array.Empty<AsyncApiSchemaDescriptor>());
             }
 
             var nestedSchemas = new List<AsyncApiSchemaDescriptor> { schema };
@@ -136,7 +134,91 @@ namespace Saunter.SharedKernel
                 nestedSchemas.AddRange(generatedSchemas.Value.All);
             }
 
-            return new(schema, DeduplicateSchemas(nestedSchemas, $"building object properties for schema '{name}'"));
+            return new(CreateUsageSchema(schema, isNullable), DeduplicateSchemas(nestedSchemas, $"building object properties for schema '{name}'"));
+        }
+
+        private static AsyncApiSchemaDescriptor CreateUsageSchema(AsyncApiSchemaDescriptor schema, bool isNullable)
+        {
+            if (!isNullable)
+            {
+                return schema;
+            }
+
+            if (!string.IsNullOrWhiteSpace(schema.Reference))
+            {
+                return CreateNullableReferenceWrapper(schema.Reference);
+            }
+
+            if (!string.IsNullOrWhiteSpace(schema.Id)
+                && schema.Type is AsyncApiSchemaValueType.Object or AsyncApiSchemaValueType.Array)
+            {
+                return CreateNullableReferenceWrapper($"#/components/schemas/{schema.Id}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(schema.Id))
+            {
+                var clone = CloneSchema(schema);
+                clone.Id = null;
+                clone.Nullable = true;
+                return clone;
+            }
+
+            schema.Nullable = true;
+            return schema;
+        }
+
+        private static AsyncApiSchemaDescriptor CreateNullableReferenceWrapper(string reference)
+        {
+            var wrapper = new AsyncApiSchemaDescriptor
+            {
+                Nullable = true,
+            };
+            wrapper.AllOf.Add(new AsyncApiSchemaDescriptor
+            {
+                Reference = reference,
+            });
+
+            return wrapper;
+        }
+
+        private static AsyncApiSchemaDescriptor CloneSchema(AsyncApiSchemaDescriptor schema)
+        {
+            var clone = new AsyncApiSchemaDescriptor
+            {
+                Id = schema.Id,
+                Type = schema.Type,
+                Format = schema.Format,
+                Nullable = schema.Nullable,
+                Reference = schema.Reference,
+                Items = schema.Items is null ? null : CloneSchema(schema.Items),
+            };
+
+            foreach (var pair in schema.Properties)
+            {
+                clone.Properties[pair.Key] = CloneSchema(pair.Value);
+            }
+
+            foreach (var required in schema.Required)
+            {
+                clone.Required.Add(required);
+            }
+
+            foreach (var value in schema.EnumValues)
+            {
+                clone.EnumValues.Add(value);
+            }
+
+            foreach (var item in schema.OneOf)
+            {
+                clone.OneOf.Add(CloneSchema(item));
+            }
+
+            foreach (var item in schema.AllOf)
+            {
+                clone.AllOf.Add(CloneSchema(item));
+            }
+
+            return clone;
         }
 
         private static Type? GetEnumerableItemType(TypeInfo typeInfo)
