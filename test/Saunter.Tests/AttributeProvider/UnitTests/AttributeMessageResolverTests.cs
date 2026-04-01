@@ -78,6 +78,18 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
         }
 
         [Fact]
+        public void ResolveForOperation_SkipsAttributeMessageWhenSchemaIdIsBlank()
+        {
+            var resolver = new AttributeMessageResolver(new BlankSchemaIdGenerator());
+            var method = typeof(MessageFixture).GetMethod(nameof(MessageFixture.PublishWithoutExplicitMessageId))!;
+
+            var resolution = resolver.ResolveForOperation(method, new SendOperationAttribute(), new AsyncApiInferenceOptions());
+
+            resolution.MessageIds.ShouldBeEmpty();
+            resolution.Messages.ShouldBeEmpty();
+        }
+
+        [Fact]
         public void ResolveForOperation_TypeLevelInference_ThrowsWhenDuplicateSchemasConflict()
         {
             var resolver = new AttributeMessageResolver(new ConflictingSchemaGenerator());
@@ -110,6 +122,11 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             [Message(typeof(OrderCreated), MessageId = "orderCreated", Summary = "first")]
             [Message(typeof(OrderCreated), MessageId = "orderCreated", Summary = "second")]
             public void PublishWithConflictingMessageDescriptors()
+            {
+            }
+
+            [Message(typeof(OrderCreated))]
+            public void PublishWithoutExplicitMessageId()
             {
             }
         }
@@ -197,6 +214,25 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
                     {
                         Id = "sharedPayload",
                         Type = AsyncApiSchemaValueType.Integer,
+                    };
+
+                    return new GeneratedSchemaDescriptors(schema, [schema]);
+                }
+
+                return new AsyncApiSchemaGenerator().Generate(type);
+            }
+        }
+
+        private sealed class BlankSchemaIdGenerator : IAsyncApiSchemaGenerator
+        {
+            public GeneratedSchemaDescriptors? Generate(Type type)
+            {
+                if (type == typeof(OrderCreated))
+                {
+                    var schema = new AsyncApiSchemaDescriptor
+                    {
+                        Id = string.Empty,
+                        Type = AsyncApiSchemaValueType.Object,
                     };
 
                     return new GeneratedSchemaDescriptors(schema, [schema]);

@@ -18,6 +18,7 @@ namespace Saunter.Analyzers
         public const string ChannelParameterMismatchDiagnosticId = "SAUN003";
         public const string InvalidReferenceNameDiagnosticId = "SAUN004";
         public const string OrphanedAnnotationDiagnosticId = "SAUN005";
+        public const string InvalidChannelParameterNameDiagnosticId = "SAUN006";
 
         private static readonly Regex s_referenceNamePattern = new("^[A-Za-z0-9._-]+$", RegexOptions.Compiled);
         private static readonly Regex s_channelParameterNamePattern = new("^[A-Za-z0-9_-]+$", RegexOptions.Compiled);
@@ -55,6 +56,14 @@ namespace Saunter.Analyzers
             DiagnosticSeverity.Warning,
             isEnabledByDefault: true);
 
+        private static readonly DiagnosticDescriptor s_invalidChannelParameterName = new(
+            InvalidChannelParameterNameDiagnosticId,
+            "Invalid AsyncAPI channel parameter name",
+            "ChannelParameter value '{0}' is not a valid AsyncAPI channel parameter name. Use only letters, digits, '-', or '_'.",
+            "Usage",
+            DiagnosticSeverity.Warning,
+            isEnabledByDefault: true);
+
         private static readonly DiagnosticDescriptor s_orphanedAnnotation = new(
             OrphanedAnnotationDiagnosticId,
             "Annotation is missing surrounding AsyncAPI context",
@@ -68,7 +77,8 @@ namespace Saunter.Analyzers
             s_invalidExternalDocs,
             s_channelParameterMismatch,
             s_invalidReferenceName,
-            s_orphanedAnnotation);
+            s_orphanedAnnotation,
+            s_invalidChannelParameterName);
 
         public override void Initialize(AnalysisContext context)
         {
@@ -224,7 +234,7 @@ namespace Saunter.Analyzers
                 var location = parameterAttribute.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation() ?? attributeSyntax.GetLocation();
                 if (!s_channelParameterNamePattern.IsMatch(name))
                 {
-                    context.ReportDiagnostic(Diagnostic.Create(s_invalidReferenceName, location, "ChannelParameter", name));
+                    context.ReportDiagnostic(Diagnostic.Create(s_invalidChannelParameterName, location, name));
                     continue;
                 }
 

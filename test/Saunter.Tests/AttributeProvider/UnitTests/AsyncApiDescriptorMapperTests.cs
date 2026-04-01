@@ -100,6 +100,41 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
         }
 
         [Fact]
+        public void MapChannel_ThrowsOnConflictingReusableParameterDefinition()
+        {
+            var mapper = new AsyncApiDescriptorMapper(new AsyncApiSchemaMapper());
+            var components = new AsyncApiComponents
+            {
+                Parameters =
+                {
+                    ["tenantId"] = new AsyncApiParameter
+                    {
+                        Description = "existing-description",
+                        Location = "path",
+                        Default = "tenant-default",
+                        Examples = ["tenant-a"],
+                        Enum = ["tenant-a"],
+                    }
+                }
+            };
+            var channelDescriptor = new AsyncApiChannelDescriptor(
+                "orders",
+                "orders.{tenantId}",
+                null,
+                null,
+                null,
+                null,
+                [],
+                [],
+                [new AsyncApiParameterDescriptor("tenantId", "incoming-description", "path", ["tenant-a"], "tenant-default", ["tenant-a"])]);
+
+            var actual = () => mapper.MapChannel(components, channelDescriptor);
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("Conflicting reusable parameter name 'tenantId'");
+        }
+
+        [Fact]
         public void RegisterMessageResolution_ThrowsClearErrorForInvalidExternalDocsUrl()
         {
             var mapper = new AsyncApiDescriptorMapper(new AsyncApiSchemaMapper());

@@ -218,6 +218,42 @@ namespace Saunter.Tests.SharedKernel
             loop2.AllOf.Count.ShouldBe(1);
             loop2.AllOf.Single().Reference.ShouldBe("#/components/schemas/loop");
         }
+
+        [Fact]
+        public void AsyncApiSchemaGenerator_IncludesInheritedPublicInstancePropertiesAndSkipsIndexers()
+        {
+            AsyncApiSchemaGenerator generator = new();
+
+            var schema = generator.Generate(typeof(DerivedWithIndexer));
+
+            schema.ShouldNotBeNull();
+            schema.Value.Root.Properties.ShouldContainKey("baseName");
+            schema.Value.Root.Properties.ShouldContainKey("derivedName");
+            schema.Value.Root.Properties.ShouldNotContainKey("item");
+        }
+
+        [Fact]
+        public void AsyncApiSchemaGenerator_DoesNotTreatDictionariesAsArrays()
+        {
+            AsyncApiSchemaGenerator generator = new();
+
+            var schema = generator.Generate(typeof(global::System.Collections.Generic.Dictionary<string, int>));
+
+            schema.ShouldNotBeNull();
+            schema.Value.Root.Type.ShouldBe(AsyncApiSchemaValueType.Object);
+            schema.Value.Root.Items.ShouldBeNull();
+        }
+
+        [Fact]
+        public void AsyncApiSchemaGenerator_ThrowsWhenDifferentSchemasShareTheSameId()
+        {
+            AsyncApiSchemaGenerator generator = new();
+
+            Action actual = () => { _ = generator.Generate(typeof(CollisionRoot)); };
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("Conflicting schema descriptors found for id 'duplicate'");
+        }
     }
 
     public class Foo
@@ -256,5 +292,39 @@ namespace Saunter.Tests.SharedKernel
     {
         public Loop UltraLoop { get; set; } = null!;
         public Loop? UltraLoop2 { get; set; }
+    }
+
+    public class BaseWithProperty
+    {
+        public string BaseName { get; set; } = string.Empty;
+    }
+
+    public class DerivedWithIndexer : BaseWithProperty
+    {
+        public string DerivedName { get; set; } = string.Empty;
+
+        public string this[int index] => index.ToString();
+    }
+
+    public class CollisionRoot
+    {
+        public global::Saunter.Tests.SharedKernel.Collisions.One.Duplicate DuplicateOne { get; set; } = null!;
+        public global::Saunter.Tests.SharedKernel.Collisions.Two.Duplicate DuplicateTwo { get; set; } = null!;
+    }
+}
+
+namespace Saunter.Tests.SharedKernel.Collisions.One
+{
+    public class Duplicate
+    {
+        public string Value { get; set; } = string.Empty;
+    }
+}
+
+namespace Saunter.Tests.SharedKernel.Collisions.Two
+{
+    public class Duplicate
+    {
+        public int Value { get; set; }
     }
 }

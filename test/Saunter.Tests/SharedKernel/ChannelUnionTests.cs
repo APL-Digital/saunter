@@ -145,6 +145,18 @@ namespace Saunter.Tests.SharedKernel
         }
 
         [Fact]
+        public void AsyncApiChannelUnion_OnUnion_PrefersNonBlankBindingsReference()
+        {
+            var source = new AsyncApiChannelDescriptor("orders", "foo", null, null, null, "   ", [], [], []);
+            var additional = new AsyncApiChannelDescriptor("orders", "foo", null, null, null, "additionalBinding", [], [], []);
+
+            var channelUnion = new AsyncApiChannelUnion();
+            var actual = channelUnion.Union(source, additional);
+
+            actual.BindingsRef.ShouldBe("additionalBinding");
+        }
+
+        [Fact]
         public void AsyncApiChannelUnion_OnUnion_IgnoresNullServerReferences()
         {
             var source = new AsyncApiChannelDescriptor("orders", "foo", null, null, null, null, [], [], []);

@@ -61,7 +61,7 @@ else
 }
 
 app.UseRouting();
-app.UseCors(policy => policy.AllowAnyOrigin().AllowAnyMethod());
+app.UseCors(policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 
 app.MapAsyncApiDocuments();
 app.MapAsyncApiUi();

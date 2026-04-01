@@ -30,7 +30,7 @@ namespace Saunter.SharedKernel
                 source.Title ?? additional.Title,
                 source.Summary ?? additional.Summary,
                 source.Description ?? additional.Description,
-                source.BindingsRef ?? additional.BindingsRef,
+                FirstNonBlank(source.BindingsRef, additional.BindingsRef),
                 MergeStrings(source.ServerNames, additional.ServerNames),
                 MergeStrings(source.MessageIds, additional.MessageIds),
                 MergeParameters(source.Parameters, additional.Parameters));

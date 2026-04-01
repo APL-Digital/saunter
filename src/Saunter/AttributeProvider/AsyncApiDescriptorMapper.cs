@@ -57,18 +57,21 @@ namespace Saunter.AttributeProvider
         {
             foreach (var parameter in descriptor.Parameters)
             {
-                if (!components.Parameters.ContainsKey(parameter.Name))
+                if (components.Parameters.TryGetValue(parameter.Name, out var existingParameter))
                 {
-                    components.Parameters[parameter.Name] = new AsyncApiParameter
-                    {
-                        Description = parameter.Description,
-                        Location = parameter.Location,
-                        Default = parameter.DefaultValue,
-                        Examples = parameter.Examples.ToList(),
-                        Enum = parameter.EnumValues.ToList(),
-                        Extensions = new Dictionary<string, IAsyncApiExtension>(),
-                    };
+                    EnsureReusableParameterMatches(parameter, existingParameter);
+                    continue;
                 }
+
+                components.Parameters[parameter.Name] = new AsyncApiParameter
+                {
+                    Description = parameter.Description,
+                    Location = parameter.Location,
+                    Default = parameter.DefaultValue,
+                    Examples = parameter.Examples.ToList(),
+                    Enum = parameter.EnumValues.ToList(),
+                    Extensions = new Dictionary<string, IAsyncApiExtension>(),
+                };
             }
 
             return new AsyncApiChannel
@@ -88,6 +91,54 @@ namespace Saunter.AttributeProvider
                 Extensions = new Dictionary<string, IAsyncApiExtension>(),
                 Bindings = AttributeProviderModelFactory.CreateBindingsReference<IChannelBinding>(descriptor.BindingsRef, "channelBindings"),
             };
+        }
+
+        private static void EnsureReusableParameterMatches(AsyncApiParameterDescriptor parameter, AsyncApiParameter existingParameter)
+        {
+            ThrowOnParameterConflict(parameter.Name, "Description", existingParameter.Description, parameter.Description);
+            ThrowOnParameterConflict(parameter.Name, "Location", existingParameter.Location, parameter.Location);
+            ThrowOnParameterConflict(parameter.Name, "Default", existingParameter.Default?.ToString(), parameter.DefaultValue);
+            ThrowOnParameterConflict(parameter.Name, "Examples", existingParameter.Examples, parameter.Examples);
+            ThrowOnParameterConflict(parameter.Name, "Enum", existingParameter.Enum, parameter.EnumValues);
+            ThrowOnParameterConflict(
+                parameter.Name,
+                "Extensions",
+                existingParameter.Extensions.Keys.OrderBy(key => key, global::System.StringComparer.Ordinal),
+                global::System.Array.Empty<string>());
+        }
+
+        private static void ThrowOnParameterConflict(string parameterName, string propertyName, string? existingValue, string? incomingValue)
+        {
+            if (global::System.String.Equals(existingValue, incomingValue, global::System.StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            throw new global::System.InvalidOperationException(
+                $"Conflicting reusable parameter name '{parameterName}' for property '{propertyName}': existing value {FormatValue(existingValue)} differs from incoming value {FormatValue(incomingValue)}.");
+        }
+
+        private static void ThrowOnParameterConflict(string parameterName, string propertyName, IEnumerable<string>? existingValues, IEnumerable<string>? incomingValues)
+        {
+            var existing = existingValues?.ToArray() ?? global::System.Array.Empty<string>();
+            var incoming = incomingValues?.ToArray() ?? global::System.Array.Empty<string>();
+            if (existing.SequenceEqual(incoming, global::System.StringComparer.Ordinal))
+            {
+                return;
+            }
+
+            throw new global::System.InvalidOperationException(
+                $"Conflicting reusable parameter name '{parameterName}' for property '{propertyName}': existing value {FormatValue(existing)} differs from incoming value {FormatValue(incoming)}.");
+        }
+
+        private static string FormatValue(string? value)
+        {
+            return value is null ? "<null>" : $"'{value}'";
+        }
+
+        private static string FormatValue(IEnumerable<string> values)
+        {
+            return $"[{string.Join(", ", values.Select(value => value is null ? "<null>" : $"'{value}'"))}]";
         }
 
         public AsyncApiOperation MapOperation(AsyncApiOperationDescriptor descriptor)

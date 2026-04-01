@@ -30,10 +30,9 @@ namespace Saunter.SharedKernel
 
             return new(
                 generatedSchemas.Value.Root,
-                allSchemas
-                    .Where(schema => !string.IsNullOrWhiteSpace(schema.Id))
-                    .DistinctBy(schema => schema.Id)
-                    .ToArray());
+                DeduplicateSchemas(
+                    allSchemas.Where(schema => !string.IsNullOrWhiteSpace(schema.Id)),
+                    "building the generated schema set"));
         }
 
         private static GeneratedSchemaDescriptors? GenerateBranch(Type? type, HashSet<Type> parents, NullabilityInfoContext nullabilityInfoContext, NullabilityInfo? nullabilityInfo = null, bool isRoot = false)
@@ -90,7 +89,7 @@ namespace Saunter.SharedKernel
                     itemSchemas.AddRange(generatedItemSchema.Value.All);
                 }
 
-                return new(schema, itemSchemas.DistinctBy(n => n.Id).ToArray());
+                return new(schema, DeduplicateSchemas(itemSchemas, $"building array items for schema '{name}'"));
             }
 
             if (!parents.Add(type))
@@ -114,9 +113,9 @@ namespace Saunter.SharedKernel
             }
 
             var nestedSchemas = new List<AsyncApiSchemaDescriptor> { schema };
-            var properties = typeInfo
-                .DeclaredProperties
-                .Where(p => p.GetMethod is not null && !p.GetMethod.IsStatic);
+            var properties = typeInfo.AsType()
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.GetMethod is not null && !p.GetMethod.IsStatic && p.GetIndexParameters().Length == 0);
 
             foreach (var prop in properties)
             {
@@ -137,11 +136,16 @@ namespace Saunter.SharedKernel
                 nestedSchemas.AddRange(generatedSchemas.Value.All);
             }
 
-            return new(schema, nestedSchemas.DistinctBy(n => n.Id).ToArray());
+            return new(schema, DeduplicateSchemas(nestedSchemas, $"building object properties for schema '{name}'"));
         }
 
         private static Type? GetEnumerableItemType(TypeInfo typeInfo)
         {
+            if (IsDictionaryType(typeInfo))
+            {
+                return null;
+            }
+
             if (typeInfo.IsArray)
             {
                 return typeInfo.GetElementType();
@@ -161,6 +165,20 @@ namespace Saunter.SharedKernel
                 .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
 
             return enumerableInterface?.GenericTypeArguments[0];
+        }
+
+        private static bool IsDictionaryType(TypeInfo typeInfo)
+        {
+            return IsGenericType(typeInfo, typeof(IDictionary<,>))
+                || IsGenericType(typeInfo, typeof(IReadOnlyDictionary<,>))
+                || typeInfo.ImplementedInterfaces.Any(interfaceType =>
+                    IsGenericType(interfaceType.GetTypeInfo(), typeof(IDictionary<,>))
+                    || IsGenericType(interfaceType.GetTypeInfo(), typeof(IReadOnlyDictionary<,>)));
+        }
+
+        private static bool IsGenericType(TypeInfo typeInfo, Type genericTypeDefinition)
+        {
+            return typeInfo.IsGenericType && typeInfo.GetGenericTypeDefinition() == genericTypeDefinition;
         }
 
         private static IEnumerable<string> GetEnumValues(TypeInfo typeInfo)
@@ -185,6 +203,28 @@ namespace Saunter.SharedKernel
             }
 
             return ToSchemaName(name, true);
+        }
+
+        private static AsyncApiSchemaDescriptor[] DeduplicateSchemas(IEnumerable<AsyncApiSchemaDescriptor> schemas, string context)
+        {
+            var deduplicatedSchemas = new List<AsyncApiSchemaDescriptor>();
+
+            foreach (var schemasById in schemas.GroupBy(schema => schema.Id, StringComparer.Ordinal))
+            {
+                var representative = schemasById.First();
+                foreach (var candidate in schemasById.Skip(1))
+                {
+                    if (!SchemaDescriptorsMatch(representative, candidate))
+                    {
+                        throw new InvalidOperationException(
+                            $"Conflicting schema descriptors found for id '{schemasById.Key}' while {context}.");
+                    }
+                }
+
+                deduplicatedSchemas.Add(representative);
+            }
+
+            return deduplicatedSchemas.ToArray();
         }
 
         private static string ToSchemaName(string name, bool camelCase)
@@ -265,6 +305,59 @@ namespace Saunter.SharedKernel
             }
 
             return nullabilityInfo.GenericTypeArguments.FirstOrDefault();
+        }
+
+        private static bool SchemaDescriptorsMatch(AsyncApiSchemaDescriptor source, AsyncApiSchemaDescriptor additional)
+        {
+            if (!string.Equals(source.Id, additional.Id, StringComparison.Ordinal)
+                || source.Type != additional.Type
+                || !string.Equals(source.Format, additional.Format, StringComparison.Ordinal)
+                || source.Nullable != additional.Nullable
+                || !string.Equals(source.Reference, additional.Reference, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (!NullableSchemaDescriptorsMatch(source.Items, additional.Items))
+            {
+                return false;
+            }
+
+            if (!source.Required.SequenceEqual(additional.Required, StringComparer.Ordinal)
+                || !source.EnumValues.SequenceEqual(additional.EnumValues, StringComparer.Ordinal)
+                || !source.OneOf.Zip(additional.OneOf, SchemaDescriptorsMatch).All(result => result)
+                || source.OneOf.Count != additional.OneOf.Count
+                || !source.AllOf.Zip(additional.AllOf, SchemaDescriptorsMatch).All(result => result)
+                || source.AllOf.Count != additional.AllOf.Count)
+            {
+                return false;
+            }
+
+            if (source.Properties.Count != additional.Properties.Count)
+            {
+                return false;
+            }
+
+            foreach (var property in source.Properties)
+            {
+                if (!additional.Properties.TryGetValue(property.Key, out var additionalProperty)
+                    || !SchemaDescriptorsMatch(property.Value, additionalProperty))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool NullableSchemaDescriptorsMatch(AsyncApiSchemaDescriptor? source, AsyncApiSchemaDescriptor? additional)
+        {
+            if (source is null || additional is null)
+            {
+                return source is null && additional is null;
+            }
+
+            return SchemaDescriptorsMatch(source, additional);
         }
 
         private static readonly TypeInfo s_boolTypeInfo = typeof(bool).GetTypeInfo();

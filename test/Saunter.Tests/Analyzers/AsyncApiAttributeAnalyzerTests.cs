@@ -87,6 +87,27 @@ public class OrdersApi
         }
 
         [Fact]
+        public async Task AnalyzeAsync_DetectsInvalidChannelParameterNames()
+        {
+            const string source = """
+using Saunter.AttributeProvider.Attributes;
+
+[AsyncApi]
+public class OrdersApi
+{
+    [Channel("orders", "orders/{tenantId}")]
+    [ChannelParameter("tenant.id")]
+    [SendOperation]
+    public void Publish() { }
+}
+""";
+
+            var diagnostics = await AnalyzeAsync(source);
+
+            diagnostics.ShouldContain(diagnostic => diagnostic.Id == AsyncApiAttributeAnalyzer.InvalidChannelParameterNameDiagnosticId);
+        }
+
+        [Fact]
         public async Task AnalyzeAsync_DetectsInvalidReferenceNames()
         {
             const string source = """

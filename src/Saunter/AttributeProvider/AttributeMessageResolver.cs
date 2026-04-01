@@ -142,7 +142,13 @@ namespace Saunter.AttributeProvider
             }
 
             var payloadSchema = GetAsyncApiSchemaReference(messageAttribute.PayloadType.GetTypeInfo());
-            var messageId = AttributeProviderModelFactory.SanitizeComponentKey(messageAttribute.MessageId ?? payloadSchema?.Id ?? messageAttribute.PayloadType.Name);
+            var messageId = messageAttribute.MessageId is string explicitMessageId
+                ? AttributeProviderModelFactory.SanitizeComponentKey(explicitMessageId)
+                : payloadSchema?.Id ?? AttributeProviderModelFactory.SanitizeComponentKey(messageAttribute.PayloadType.Name);
+            if (string.IsNullOrWhiteSpace(messageId))
+            {
+                return null;
+            }
 
             var headersSchema = GetHeadersSchemaReference(messageAttribute.HeadersType?.GetTypeInfo());
             var message = new AsyncApiMessageDescriptor(
