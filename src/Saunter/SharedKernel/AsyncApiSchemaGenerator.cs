@@ -101,6 +101,28 @@ namespace Saunter.SharedKernel
                 return new(usageSchema, DeduplicateSchemas(itemSchemas, $"building array items for schema '{name}'"));
             }
 
+            if (TryGetDictionaryValueType(typeInfo, out var dictionaryValueType))
+            {
+                if (!parents.Add(type))
+                {
+                    var referenceSchema = new AsyncApiSchemaDescriptor
+                    {
+                        Reference = $"#/components/schemas/{name}",
+                    };
+                    return new(CreateUsageSchema(referenceSchema, isNullable), Array.Empty<AsyncApiSchemaDescriptor>());
+                }
+
+                var dictionarySchemas = new List<AsyncApiSchemaDescriptor> { schema };
+                var generatedValueSchema = GenerateBranch(dictionaryValueType, parents, nullabilityInfoContext, GetDictionaryValueNullabilityInfo(nullabilityInfo));
+                if (generatedValueSchema is not null)
+                {
+                    schema.AdditionalProperties = generatedValueSchema.Value.Root;
+                    dictionarySchemas.AddRange(generatedValueSchema.Value.All);
+                }
+
+                return new(CreateUsageSchema(schema, isNullable), DeduplicateSchemas(dictionarySchemas, $"building dictionary values for schema '{name}'"));
+            }
+
             if (!parents.Add(type))
             {
                 var referenceSchema = new AsyncApiSchemaDescriptor
@@ -191,6 +213,7 @@ namespace Saunter.SharedKernel
                 Nullable = schema.Nullable,
                 Reference = schema.Reference,
                 Items = schema.Items is null ? null : CloneSchema(schema.Items),
+                AdditionalProperties = schema.AdditionalProperties is null ? null : CloneSchema(schema.AdditionalProperties),
             };
 
             foreach (var pair in schema.Properties)
@@ -251,16 +274,75 @@ namespace Saunter.SharedKernel
 
         private static bool IsDictionaryType(TypeInfo typeInfo)
         {
-            return IsGenericType(typeInfo, typeof(IDictionary<,>))
-                || IsGenericType(typeInfo, typeof(IReadOnlyDictionary<,>))
-                || typeInfo.ImplementedInterfaces.Any(interfaceType =>
-                    IsGenericType(interfaceType.GetTypeInfo(), typeof(IDictionary<,>))
-                    || IsGenericType(interfaceType.GetTypeInfo(), typeof(IReadOnlyDictionary<,>)));
+            return TryGetDictionaryTypeArguments(typeInfo, out _, out _)
+                || typeof(IDictionary).IsAssignableFrom(typeInfo.AsType());
         }
 
         private static bool IsGenericType(TypeInfo typeInfo, Type genericTypeDefinition)
         {
             return typeInfo.IsGenericType && typeInfo.GetGenericTypeDefinition() == genericTypeDefinition;
+        }
+
+        private static bool TryGetDictionaryValueType(TypeInfo typeInfo, out Type valueType)
+        {
+            if (TryGetDictionaryTypeArguments(typeInfo, out var keyType, out valueType))
+            {
+                if (keyType == typeof(string))
+                {
+                    return true;
+                }
+
+                throw new InvalidOperationException(
+                    $"Dictionary type '{typeInfo.AsType()}' cannot be represented as an AsyncAPI schema map because it uses non-string keys.");
+            }
+
+            if (typeof(IDictionary).IsAssignableFrom(typeInfo.AsType()))
+            {
+                throw new InvalidOperationException(
+                    $"Dictionary type '{typeInfo.AsType()}' cannot be represented as an AsyncAPI schema map because its value type cannot be determined.");
+            }
+
+            valueType = null!;
+            return false;
+        }
+
+        private static bool TryGetDictionaryTypeArguments(TypeInfo typeInfo, out Type keyType, out Type valueType)
+        {
+            if (TryGetDictionaryTypeArguments(typeInfo.AsType(), out keyType, out valueType))
+            {
+                return true;
+            }
+
+            foreach (var interfaceType in typeInfo.ImplementedInterfaces)
+            {
+                if (TryGetDictionaryTypeArguments(interfaceType.GetTypeInfo(), out keyType, out valueType))
+                {
+                    return true;
+                }
+            }
+
+            keyType = null!;
+            valueType = null!;
+            return false;
+        }
+
+        private static bool TryGetDictionaryTypeArguments(Type type, out Type keyType, out Type valueType)
+        {
+            var typeInfo = type.GetTypeInfo();
+            if (typeInfo.IsGenericType)
+            {
+                var genericType = typeInfo.GetGenericTypeDefinition();
+                if (genericType == typeof(IDictionary<,>) || genericType == typeof(IReadOnlyDictionary<,>))
+                {
+                    keyType = typeInfo.GenericTypeArguments[0];
+                    valueType = typeInfo.GenericTypeArguments[1];
+                    return true;
+                }
+            }
+
+            keyType = null!;
+            valueType = null!;
+            return false;
         }
 
         private static IEnumerable<string> GetEnumValues(TypeInfo typeInfo)
@@ -389,6 +471,22 @@ namespace Saunter.SharedKernel
             return nullabilityInfo.GenericTypeArguments.FirstOrDefault();
         }
 
+        private static NullabilityInfo? GetDictionaryValueNullabilityInfo(NullabilityInfo? nullabilityInfo)
+        {
+            if (nullabilityInfo is null)
+            {
+                return null;
+            }
+
+            var genericTypeArguments = nullabilityInfo.GenericTypeArguments;
+            if (genericTypeArguments.Length < 2)
+            {
+                return null;
+            }
+
+            return genericTypeArguments[1];
+        }
+
         private static bool SchemaDescriptorsMatch(AsyncApiSchemaDescriptor source, AsyncApiSchemaDescriptor additional)
         {
             if (!string.Equals(source.Id, additional.Id, StringComparison.Ordinal)
@@ -401,6 +499,11 @@ namespace Saunter.SharedKernel
             }
 
             if (!NullableSchemaDescriptorsMatch(source.Items, additional.Items))
+            {
+                return false;
+            }
+
+            if (!NullableSchemaDescriptorsMatch(source.AdditionalProperties, additional.AdditionalProperties))
             {
                 return false;
             }

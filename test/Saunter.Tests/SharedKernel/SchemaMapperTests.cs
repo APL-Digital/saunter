@@ -36,6 +36,11 @@ namespace Saunter.Tests.SharedKernel
                     }
                 }
             };
+            descriptor.AdditionalProperties = new AsyncApiSchemaDescriptor
+            {
+                Type = AsyncApiSchemaValueType.Integer,
+                Format = "int32",
+            };
 
             var schema = mapper.Map(descriptor);
 
@@ -46,6 +51,8 @@ namespace Saunter.Tests.SharedKernel
             schema.Properties["child"].Nullable.ShouldBeTrue();
             schema.Properties["child"].AllOf.Single().ShouldBeOfType<AsyncApiJsonSchemaReference>()
                 .Reference.Reference.ShouldBe("#/components/schemas/order");
+            schema.AdditionalProperties.ShouldNotBeNull();
+            schema.AdditionalProperties.Type.ShouldBe(SchemaType.Integer);
         }
     }
 }

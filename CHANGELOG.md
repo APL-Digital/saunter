@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 
 <!-- Please update the links section at the bottom when adding a new version. -->
+## [v0.20.0]
+### Changed
+- AsyncAPI generation now targets AsyncAPI 3.0.0 with the new descriptor-first document model.
+- Schema generation, nullability handling, reply mapping, and validation were tightened for the AsyncAPI 3 migration.
+- Saunter now targets .NET 9 and the examples/docs were updated to match the new model.
+- See [PR #1](https://github.com/APL-Digital/saunter/pull/1) for the full migration context.
 
 ## [v0.14.0] - ?
 ### Changed
@@ -162,6 +168,7 @@ When updating here set baseVersion to the previous tag and targetVersion to your
 This link will be dead until after you have completed the pull request and tagged the new version in master
 -->
 
+[v0.20.0]: https://github.com/APL-Digital/saunter/compare/v0.14.0...v0.20.0
 [v0.11.1]: https://github.com/tehmantra/saunter/compare/v0.11.0...v0.11.1
 [v0.11.0]: https://github.com/tehmantra/saunter/compare/v0.10.0...v0.11.0
 [v0.10.0]: https://github.com/tehmantra/saunter/compare/v0.9.1...v0.10.0

@@ -42,6 +42,11 @@ namespace Saunter.SharedKernel
                 schema.Items = Map(descriptor.Items);
             }
 
+            if (descriptor.AdditionalProperties is not null)
+            {
+                schema.AdditionalProperties = Map(descriptor.AdditionalProperties);
+            }
+
             foreach (var item in descriptor.OneOf)
             {
                 schema.OneOf.Add(Map(item));

@@ -242,6 +242,37 @@ namespace Saunter.Tests.SharedKernel
             schema.ShouldNotBeNull();
             schema.Value.Root.Type.ShouldBe(AsyncApiSchemaValueType.Object);
             schema.Value.Root.Items.ShouldBeNull();
+            schema.Value.Root.Properties.ShouldBeEmpty();
+            schema.Value.Root.AdditionalProperties.ShouldNotBeNull();
+            schema.Value.Root.AdditionalProperties.Type.ShouldBe(AsyncApiSchemaValueType.Integer);
+            schema.Value.Root.AdditionalProperties.Format.ShouldBe("int32");
+        }
+
+        [Fact]
+        public void AsyncApiSchemaGenerator_UsesAdditionalPropertiesForDictionaryProperties()
+        {
+            AsyncApiSchemaGenerator generator = new();
+
+            var schema = generator.Generate(typeof(FooWithDictionary));
+
+            schema.ShouldNotBeNull();
+            var attributes = schema.Value.Root.Properties["attributes"];
+            attributes.Type.ShouldBe(AsyncApiSchemaValueType.Object);
+            attributes.Properties.ShouldBeEmpty();
+            attributes.AdditionalProperties.ShouldNotBeNull();
+            attributes.AdditionalProperties.Type.ShouldBe(AsyncApiSchemaValueType.String);
+            attributes.AdditionalProperties.Format.ShouldBe("string");
+        }
+
+        [Fact]
+        public void AsyncApiSchemaGenerator_ThrowsForNonStringDictionaryKeys()
+        {
+            AsyncApiSchemaGenerator generator = new();
+
+            Action actual = () => { _ = generator.Generate(typeof(global::System.Collections.Generic.Dictionary<int, string>)); };
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("non-string keys");
         }
 
         [Fact]
@@ -317,6 +348,11 @@ namespace Saunter.Tests.SharedKernel
     {
         public Bar RequiredBar { get; set; } = null!;
         public Bar? OptionalBar { get; set; }
+    }
+
+    public class FooWithDictionary
+    {
+        public global::System.Collections.Generic.Dictionary<string, string> Attributes { get; set; } = new();
     }
 
     public class BaseWithProperty

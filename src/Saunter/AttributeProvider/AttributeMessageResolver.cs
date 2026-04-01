@@ -274,6 +274,11 @@ namespace Saunter.AttributeProvider
                 return false;
             }
 
+            if (!NullableSchemaDescriptorsMatch(source.AdditionalProperties, additional.AdditionalProperties))
+            {
+                return false;
+            }
+
             if (!source.Required.SequenceEqual(additional.Required, StringComparer.Ordinal)
                 || !source.EnumValues.SequenceEqual(additional.EnumValues, StringComparer.Ordinal)
                 || !source.OneOf.Zip(additional.OneOf, SchemaDescriptorsMatch).All(result => result)
@@ -311,6 +316,70 @@ namespace Saunter.AttributeProvider
             return SchemaDescriptorsMatch(source, additional);
         }
 
+        private static AsyncApiSchemaDescriptor CreateNullableRootWrapperComponent(
+            TypeInfo payloadType,
+            AsyncApiSchemaDescriptor root,
+            IReadOnlyCollection<AsyncApiSchemaComponentDescriptor> existingSchemas)
+        {
+            var baseSchemaId = root.AllOf
+                .Select(item => item.Reference)
+                .Where(reference => !string.IsNullOrWhiteSpace(reference) && reference!.StartsWith("#/components/schemas/", StringComparison.Ordinal))
+                .Select(reference => reference!["#/components/schemas/".Length..])
+                .FirstOrDefault()
+                ?? existingSchemas.Select(schema => schema.Id).FirstOrDefault();
+
+            if (string.IsNullOrWhiteSpace(baseSchemaId))
+            {
+                throw new InvalidOperationException(
+                    $"Generated schema root for payload type '{payloadType.AsType()}' is missing a reusable component id.");
+            }
+
+            var wrapper = CloneSchema(root);
+            wrapper.Id = baseSchemaId + "Nullable";
+            return wrapper;
+        }
+
+        private static AsyncApiSchemaDescriptor CloneSchema(AsyncApiSchemaDescriptor schema)
+        {
+            var clone = new AsyncApiSchemaDescriptor
+            {
+                Id = schema.Id,
+                Type = schema.Type,
+                Format = schema.Format,
+                Nullable = schema.Nullable,
+                Reference = schema.Reference,
+                Items = schema.Items is null ? null : CloneSchema(schema.Items),
+                AdditionalProperties = schema.AdditionalProperties is null ? null : CloneSchema(schema.AdditionalProperties),
+            };
+
+            foreach (var pair in schema.Properties)
+            {
+                clone.Properties[pair.Key] = CloneSchema(pair.Value);
+            }
+
+            foreach (var required in schema.Required)
+            {
+                clone.Required.Add(required);
+            }
+
+            foreach (var value in schema.EnumValues)
+            {
+                clone.EnumValues.Add(value);
+            }
+
+            foreach (var item in schema.OneOf)
+            {
+                clone.OneOf.Add(CloneSchema(item));
+            }
+
+            foreach (var item in schema.AllOf)
+            {
+                clone.AllOf.Add(CloneSchema(item));
+            }
+
+            return clone;
+        }
+
         private SchemaReferenceInfo? GetAsyncApiSchemaReference(TypeInfo? payloadType)
         {
             var generatedSchemas = _schemaGenerator.Generate(payloadType?.AsType());
@@ -322,11 +391,26 @@ namespace Saunter.AttributeProvider
             var schemas = generatedSchemas.Value.All
                 .Where(schema => !string.IsNullOrWhiteSpace(schema.Id))
                 .Select(schema => new AsyncApiSchemaComponentDescriptor(schema.Id!, schema))
-                .ToArray();
+                .ToList();
+
+            if (generatedSchemas.Value.Root.Id is string rootId)
+            {
+                return new SchemaReferenceInfo(
+                    rootId,
+                    schemas);
+            }
+
+            if (payloadType is null)
+            {
+                throw new InvalidOperationException("Generated schema root is missing an id.");
+            }
+
+            var wrapperComponent = CreateNullableRootWrapperComponent(payloadType, generatedSchemas.Value.Root, schemas);
+            schemas.Add(new AsyncApiSchemaComponentDescriptor(wrapperComponent.Id!, wrapperComponent));
 
             return new SchemaReferenceInfo(
-                generatedSchemas.Value.Root.Id!,
-                schemas);
+                wrapperComponent.Id!,
+                DeduplicateSchemaDescriptors(schemas));
         }
 
         private SchemaReferenceInfo? GetHeadersSchemaReference(TypeInfo? headersType)

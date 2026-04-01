@@ -1,0 +1,25 @@
+name: Publish NuGet package
+run-name: Publish ${{ inputs.PROJECT }} NuGet package
+
+on:
+  workflow_dispatch:
+    inputs:
+      PROJECT:
+        type: choice
+        required: true
+        description: Publish for
+        options:
+        - Saunter
+
+concurrency: nuget-${{ inputs.PROJECT }}
+
+jobs:
+  build:
+    name: Pack and Publish
+    uses: ./.github/workflows/build-and-publish-nuget.yml
+    with:
+      PROJECT_PATH: >-
+        ${{ fromJSON('{
+            "Saunter": "Saunter"
+        }')[github.event.inputs.PROJECT] }}
+      NUGET_REGISTRY_URL: ${{ vars.NUGET_REGISTRY_URL }}

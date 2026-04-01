@@ -142,6 +142,19 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
                 .Message.ShouldContain("Conflicting schema descriptors");
         }
 
+        [Fact]
+        public void ResolveForOperation_RegistersWrapperSchemaForNullableRootPayloads()
+        {
+            var resolver = new AttributeMessageResolver(new AsyncApiSchemaGenerator());
+            var method = typeof(MessageFixture).GetMethod(nameof(MessageFixture.PublishNullablePrimitivePayload))!;
+
+            var resolution = resolver.ResolveForOperation(method, new SendOperationAttribute(), new AsyncApiInferenceOptions());
+
+            resolution.Messages.Single().PayloadSchemaId.ShouldBe("int32Nullable");
+            resolution.Schemas.ShouldContain(schema => schema.Id == "int32");
+            resolution.Schemas.ShouldContain(schema => schema.Id == "int32Nullable" && schema.Schema.Nullable);
+        }
+
         private class MessageFixture
         {
             [Message(typeof(OrderCreated), MessageId = "order/created.v1", HeadersType = typeof(MessageHeaders), CorrelationId = "orderCorrelation", ContentType = "application/cloudevents+json", ExternalDocs = "https://example.com/messages/order-created")]
@@ -167,6 +180,11 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
 
             [Message(typeof(OrderCreated))]
             public void PublishWithoutExplicitMessageIdButInferredPayloadExists(FallbackPayload _)
+            {
+            }
+
+            [Message(typeof(int?))]
+            public void PublishNullablePrimitivePayload()
             {
             }
         }

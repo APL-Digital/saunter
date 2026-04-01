@@ -26,6 +26,8 @@ namespace Saunter.SharedKernel.Descriptors
 
         public AsyncApiSchemaDescriptor? Items { get; set; }
 
+        public AsyncApiSchemaDescriptor? AdditionalProperties { get; set; }
+
         public IDictionary<string, AsyncApiSchemaDescriptor> Properties { get; } = new Dictionary<string, AsyncApiSchemaDescriptor>();
 
         public IList<string> Required { get; } = new List<string>();
