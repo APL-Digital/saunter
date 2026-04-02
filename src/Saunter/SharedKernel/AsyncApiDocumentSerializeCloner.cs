@@ -27,7 +27,7 @@ namespace Saunter.SharedKernel
                 Asyncapi = prototype.Asyncapi,
                 DefaultContentType = prototype.DefaultContentType,
                 Info = CloneInfo(prototype.Info),
-                Components = CloneComponents(prototype.Components),
+                Components = prototype.Components is null ? new AsyncApiComponentsDescriptor() : CloneComponents(prototype.Components),
                 Servers = prototype.Servers.ToDictionary(pair => pair.Key, pair => CloneServer(pair.Value)),
                 Channels = prototype.Channels.ToDictionary(pair => pair.Key, pair => CloneChannel(pair.Value)),
                 Operations = prototype.Operations.ToDictionary(pair => pair.Key, pair => CloneOperation(pair.Value)),
@@ -60,15 +60,15 @@ namespace Saunter.SharedKernel
         {
             return new AsyncApiComponentsDescriptor
             {
-                Schemas = components.Schemas.ToDictionary(pair => pair.Key, pair => CloneSchema(pair.Value)),
-                Messages = components.Messages.ToDictionary(pair => pair.Key, pair => pair.Value with { Tags = pair.Value.Tags.ToArray() }),
-                Parameters = components.Parameters.ToDictionary(pair => pair.Key, pair => pair.Value with { EnumValues = pair.Value.EnumValues.ToArray(), Examples = pair.Value.Examples.ToArray() }),
-                OperationBindings = components.OperationBindings.ToDictionary(pair => pair.Key, pair => CloneBindings(pair.Value)),
-                MessageBindings = components.MessageBindings.ToDictionary(pair => pair.Key, pair => CloneBindings(pair.Value)),
-                ChannelBindings = components.ChannelBindings.ToDictionary(pair => pair.Key, pair => CloneBindings(pair.Value)),
-                OperationTraits = new Dictionary<string, AsyncApiOperationTrait>(components.OperationTraits),
-                CorrelationIds = new Dictionary<string, AsyncApiCorrelationId>(components.CorrelationIds),
-                SecuritySchemes = new Dictionary<string, AsyncApiSecurityScheme>(components.SecuritySchemes),
+                Schemas = (components.Schemas ?? new Dictionary<string, AsyncApiSchemaDescriptor>()).ToDictionary(pair => pair.Key, pair => CloneSchema(pair.Value)),
+                Messages = (components.Messages ?? new Dictionary<string, AsyncApiMessageDescriptor>()).ToDictionary(pair => pair.Key, pair => pair.Value with { Tags = pair.Value.Tags.ToArray() }),
+                Parameters = (components.Parameters ?? new Dictionary<string, AsyncApiParameterDescriptor>()).ToDictionary(pair => pair.Key, pair => pair.Value with { EnumValues = pair.Value.EnumValues.ToArray(), Examples = pair.Value.Examples.ToArray() }),
+                OperationBindings = (components.OperationBindings ?? new Dictionary<string, AsyncApiBindings<IOperationBinding>>()).ToDictionary(pair => pair.Key, pair => CloneBindings(pair.Value)),
+                MessageBindings = (components.MessageBindings ?? new Dictionary<string, AsyncApiBindings<IMessageBinding>>()).ToDictionary(pair => pair.Key, pair => CloneBindings(pair.Value)),
+                ChannelBindings = (components.ChannelBindings ?? new Dictionary<string, AsyncApiBindings<IChannelBinding>>()).ToDictionary(pair => pair.Key, pair => CloneBindings(pair.Value)),
+                OperationTraits = new Dictionary<string, AsyncApiOperationTrait>(components.OperationTraits ?? new Dictionary<string, AsyncApiOperationTrait>()),
+                CorrelationIds = new Dictionary<string, AsyncApiCorrelationId>(components.CorrelationIds ?? new Dictionary<string, AsyncApiCorrelationId>()),
+                SecuritySchemes = new Dictionary<string, AsyncApiSecurityScheme>(components.SecuritySchemes ?? new Dictionary<string, AsyncApiSecurityScheme>()),
             };
         }
 

@@ -164,5 +164,26 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             Should.Throw<InvalidOperationException>(actual)
                 .Message.ShouldContain("ExternalDocs");
         }
+
+        [Fact]
+        public void RegisterMessageResolution_InitializesSchemaCollectionWhenNull()
+        {
+            var mapper = new AsyncApiDescriptorMapper(new AsyncApiSchemaMapper());
+            var components = new AsyncApiComponents
+            {
+                Schemas = null!
+            };
+            var resolution = new AsyncApiMessageResolutionDescriptor(
+                [],
+                [],
+                [
+                    new AsyncApiSchemaComponentDescriptor("orderCreatedPayload", new AsyncApiSchemaDescriptor { Id = "orderCreatedPayload", Type = AsyncApiSchemaValueType.Object }),
+                ]);
+
+            mapper.RegisterMessageResolution(components, resolution);
+
+            components.Schemas.ShouldNotBeNull();
+            components.Schemas.ShouldContainKey("orderCreatedPayload");
+        }
     }
 }

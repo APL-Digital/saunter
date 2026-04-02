@@ -77,6 +77,7 @@ namespace Saunter.Tests.SharedKernel
                 Reference = "#/components/schemas/rabbitMqUser"
             });
             document.Components.Schemas["payload"] = payload;
+            var originalReferencedComponent = document.Components.Schemas["rabbitMqUser"];
 
             var json = writer.WriteJson(document);
             var propertySchema = JsonNode.Parse(json)!["components"]!["schemas"]!["payload"]!["properties"]!["rabbitMqUser"]!;
@@ -85,6 +86,34 @@ namespace Saunter.Tests.SharedKernel
             propertySchema["oneOf"].ShouldNotBeNull();
             propertySchema["oneOf"]![0]!["allOf"]![0]!["$ref"]!.GetValue<string>().ShouldBe("#/components/schemas/rabbitMqUser");
             propertySchema["oneOf"]![1]!["type"]!.GetValue<string>().ShouldBe("null");
+            document.Components.Schemas["rabbitMqUser"].ShouldBeSameAs(originalReferencedComponent);
+            originalReferencedComponent.Id.ShouldBe("rabbitMqUser");
+            originalReferencedComponent.Type.ShouldBe(AsyncApiSchemaValueType.Object);
+            originalReferencedComponent.Nullable.ShouldBeFalse();
+            originalReferencedComponent.OneOf.ShouldBeEmpty();
+        }
+
+        [Fact]
+        public void WriteJson_IgnoresNullSchemaCollectionForAsyncApi3()
+        {
+            var writer = new AsyncApiDocumentWriter(new AsyncApiDocumentMapper(new global::Saunter.AttributeProvider.AsyncApiDescriptorMapper(new AsyncApiSchemaMapper())));
+            var document = new AsyncApiDocumentDescriptor
+            {
+                Asyncapi = "3.0.0",
+                Info = new AsyncApiInfoDescriptor
+                {
+                    Title = "test",
+                    Version = "1.0.0"
+                },
+                Components = new AsyncApiComponentsDescriptor
+                {
+                    Schemas = null!
+                }
+            };
+
+            var json = writer.WriteJson(document);
+
+            json.ShouldContain("\"asyncapi\": \"3.0.0\"");
         }
 
         [Fact]

@@ -64,10 +64,24 @@ namespace Saunter.AttributeProvider.Attributes
             ArgumentNullException.ThrowIfNull(resolverType);
             ArgumentNullException.ThrowIfNull(messageType);
 
-            IChannelResolver resolver = Activator.CreateInstance(resolverType, messageType) as IChannelResolver
-                ?? throw new ArgumentException(
-                    $"Channel resolver type '{resolverType.FullName}' must implement IChannelResolver and expose a constructor that accepts message type '{messageType.FullName}'.",
-                    nameof(resolverType));
+            var resolverErrorMessage = $"Channel resolver type '{resolverType.FullName}' must implement IChannelResolver and expose a constructor that accepts message type '{messageType.FullName}'.";
+            object? resolverInstance;
+            try
+            {
+                resolverInstance = Activator.CreateInstance(resolverType, messageType);
+            }
+            catch (Exception ex)
+            {
+                throw new ArgumentException(
+                    resolverErrorMessage,
+                    nameof(resolverType),
+                    ex is System.Reflection.TargetInvocationException { InnerException: not null } invocationException
+                        ? invocationException.InnerException
+                        : ex);
+            }
+
+            IChannelResolver resolver = resolverInstance as IChannelResolver
+                ?? throw new ArgumentException(resolverErrorMessage, nameof(resolverType));
 
             ChannelId = channelId;
             Address = resolver.ResolveChannelName()

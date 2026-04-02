@@ -101,5 +101,23 @@ namespace Saunter.Tests.SharedKernel
             Assert.Equal(prototype.Components.Messages.Count, result.Components.Messages.Count);
             Assert.Equal(prototype.Components.Schemas.Count, result.Components.Schemas.Count);
         }
+
+        [Fact]
+        public void ClonePrototype_HandlesNullSchemaCollection()
+        {
+            var prototype = new AsyncApiDocumentDescriptor
+            {
+                Components = new AsyncApiComponentsDescriptor
+                {
+                    Schemas = null!
+                }
+            };
+
+            var result = _cloner.ClonePrototype(prototype);
+
+            Assert.NotNull(result.Components);
+            Assert.NotNull(result.Components.Schemas);
+            Assert.Empty(result.Components.Schemas);
+        }
     }
 }

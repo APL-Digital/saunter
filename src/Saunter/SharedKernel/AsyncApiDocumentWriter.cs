@@ -36,6 +36,11 @@ namespace Saunter.SharedKernel
 
         private static void NormalizeNullabilityForAsyncApi3(AsyncApiDocument document)
         {
+            if (document.Components?.Schemas is null || document.Components.Schemas.Count == 0)
+            {
+                return;
+            }
+
             foreach (var schemaId in document.Components.Schemas.Keys.ToArray())
             {
                 var multiFormatSchema = document.Components.Schemas[schemaId];

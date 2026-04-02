@@ -18,6 +18,9 @@ namespace Saunter.AttributeProvider
 
         public void RegisterMessageResolution(AsyncApiComponents components, AsyncApiMessageResolutionDescriptor resolution)
         {
+            components.Schemas ??= new Dictionary<string, AsyncApiMultiFormatSchema>();
+            components.Messages ??= new Dictionary<string, AsyncApiMessage>();
+
             foreach (var schema in resolution.Schemas)
             {
                 if (!components.Schemas.ContainsKey(schema.Id))

@@ -76,14 +76,19 @@ namespace Saunter.AttributeProvider
                 if (!clone.Operations.TryAdd(item.OperationId, item.Operation))
                 {
                     var existingOperation = clone.Operations[item.OperationId];
+                    var existingSource = operationSources.TryGetValue(item.OperationId, out var knownSource)
+                        ? knownSource
+                        : "preconfigured document operation";
                     throw new InvalidOperationException(
                         $"Operation id '{item.OperationId}' is produced by multiple operations. " +
-                        $"Existing definition: source='{operationSources[item.OperationId]}', action='{existingOperation.Action}', channel='{existingOperation.ChannelId}', messages={FormatValues(existingOperation.MessageIds)}. " +
+                        $"Existing definition: source='{existingSource}', action='{existingOperation.Action}', channel='{existingOperation.ChannelId}', messages={FormatValues(existingOperation.MessageIds)}. " +
                         $"Incoming definition: source='{FormatMember(item.SourceMember)}', action='{item.Operation.Action}', channel='{item.Operation.ChannelId}', messages={FormatValues(item.Operation.MessageIds)}. " +
                         "Set an explicit OperationId or adjust inference so each operation id is unique.");
                 }
-
-                operationSources[item.OperationId] = FormatMember(item.SourceMember);
+                else
+                {
+                    operationSources[item.OperationId] = FormatMember(item.SourceMember);
+                }
             }
 
             var filterContext = new DocumentFilterContext(asyncApiTypes);
