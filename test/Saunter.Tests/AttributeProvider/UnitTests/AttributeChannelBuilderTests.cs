@@ -34,7 +34,7 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             var actual = () => builder.Build(member, attribute, [], new AsyncApiInferenceOptions());
 
             Should.Throw<InvalidOperationException>(actual)
-                .Message.ShouldContain("not present in address");
+                .Message.ShouldContain("ChannelFixture.PublishWithExtraParameter");
         }
 
         [Fact]
@@ -47,7 +47,7 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             var actual = () => builder.Build(member, attribute, [], new AsyncApiInferenceOptions());
 
             Should.Throw<InvalidOperationException>(actual)
-                .Message.ShouldContain("must not contain query strings or fragments");
+                .Message.ShouldContain("ChannelFixture.Publish");
         }
 
         [Fact]
@@ -91,6 +91,18 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             channel.Address.ShouldBe("orders.{tenantId}");
         }
 
+        [Fact]
+        public void ChannelAttribute_ThrowsDescriptiveErrorWhenResolverConstructionFails()
+        {
+            var actual = () => new ChannelAttribute("orders", typeof(ThrowingChannelResolver), typeof(string));
+
+            var error = Should.Throw<ArgumentException>(actual);
+            error.Message.ShouldContain(typeof(ThrowingChannelResolver).FullName!);
+            error.Message.ShouldContain(typeof(string).FullName!);
+            error.InnerException.ShouldBeOfType<InvalidOperationException>()
+                .Message.ShouldBe("resolver exploded");
+        }
+
         private class ChannelFixture
         {
             [ChannelParameter("tenantId", typeof(string))]
@@ -111,6 +123,19 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             [ChannelParameter("tenantId", typeof(string), DefaultValue = "tenant-default", Examples = new[] { "tenant-a", "tenant-b" })]
             public void PublishWithParameterMetadata()
             {
+            }
+        }
+
+        private sealed class ThrowingChannelResolver : IChannelResolver
+        {
+            public ThrowingChannelResolver(Type _)
+            {
+                throw new InvalidOperationException("resolver exploded");
+            }
+
+            public string ResolveChannelName()
+            {
+                return "orders";
             }
         }
     }

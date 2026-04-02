@@ -198,7 +198,8 @@ namespace Saunter.AttributeProvider
                 messageDescriptors,
                 message => message.Id,
                 MessageDescriptorsMatch,
-                "message");
+                "message",
+                FormatMessageDescriptor);
         }
 
         private static AsyncApiSchemaComponentDescriptor[] DeduplicateSchemaDescriptors(IEnumerable<AsyncApiSchemaComponentDescriptor> schemaDescriptors)
@@ -207,14 +208,16 @@ namespace Saunter.AttributeProvider
                 schemaDescriptors,
                 schema => schema.Id,
                 SchemaDescriptorsMatch,
-                "schema");
+                "schema",
+                FormatSchemaComponentDescriptor);
         }
 
         private static TDescriptor[] DeduplicateById<TDescriptor>(
             IEnumerable<TDescriptor> descriptors,
             Func<TDescriptor, string> idSelector,
             Func<TDescriptor, TDescriptor, bool> descriptorsMatch,
-            string descriptorType)
+            string descriptorType,
+            Func<TDescriptor, string> formatDescriptor)
         {
             var deduplicatedDescriptors = new List<TDescriptor>();
 
@@ -225,7 +228,9 @@ namespace Saunter.AttributeProvider
                 {
                     if (!descriptorsMatch(representative, candidate))
                     {
-                        throw new InvalidOperationException($"Conflicting {descriptorType} descriptors found for id '{descriptorsById.Key}'.");
+                        throw new InvalidOperationException(
+                            $"Conflicting {descriptorType} descriptors found for id '{descriptorsById.Key}'. " +
+                            $"Existing definition: {formatDescriptor(representative)}. Incoming definition: {formatDescriptor(candidate)}.");
                     }
                 }
 
@@ -402,7 +407,7 @@ namespace Saunter.AttributeProvider
 
             if (payloadType is null)
             {
-                throw new InvalidOperationException("Generated schema root is missing an id.");
+                throw new InvalidOperationException("Generated schema root is missing an id and no payload type was provided to identify the failing schema generation path.");
             }
 
             var wrapperComponent = CreateNullableRootWrapperComponent(payloadType, generatedSchemas.Value.Root, schemas);
@@ -421,9 +426,11 @@ namespace Saunter.AttributeProvider
             }
 
             var generatedSchema = _schemaGenerator.Generate(headersType.AsType());
+            var generatedRoot = generatedSchema?.Root;
             if (generatedSchema is null || !IsObjectLikeSchema(generatedSchema.Value.Root))
             {
-                throw new InvalidOperationException($"Headers type '{headersType.Name}' must generate an object schema.");
+                throw new InvalidOperationException(
+                    $"Headers type '{headersType.AsType().FullName}' must generate an object-like schema, but generated {FormatSchemaDescriptor(generatedRoot)}.");
             }
 
             return GetAsyncApiSchemaReference(headersType);
@@ -492,6 +499,39 @@ namespace Saunter.AttributeProvider
             }
 
             return Nullable.GetUnderlyingType(type) is { } underlying && IsIgnorableParameter(underlying);
+        }
+
+        private static string FormatMessageDescriptor(AsyncApiMessageDescriptor descriptor)
+        {
+            return $"id={FormatValue(descriptor.Id)}, name={FormatValue(descriptor.Name)}, title={FormatValue(descriptor.Title)}, payload={FormatValue(descriptor.PayloadSchemaId)}, headers={FormatValue(descriptor.HeadersSchemaId)}, contentType={FormatValue(descriptor.ContentType)}, bindings={FormatValue(descriptor.BindingsRef)}, tags={FormatValues(descriptor.Tags)}";
+        }
+
+        private static string FormatSchemaComponentDescriptor(AsyncApiSchemaComponentDescriptor descriptor)
+        {
+            return $"id={FormatValue(descriptor.Id)}, schema={FormatSchemaDescriptor(descriptor.Schema)}";
+        }
+
+        private static string FormatSchemaDescriptor(AsyncApiSchemaDescriptor? descriptor)
+        {
+            if (descriptor is null)
+            {
+                return "<null>";
+            }
+
+            return $"id={FormatValue(descriptor.Id)}, type={descriptor.Type?.ToString() ?? "<null>"}, format={FormatValue(descriptor.Format)}, nullable={descriptor.Nullable}, reference={FormatValue(descriptor.Reference)}, properties={FormatValues(descriptor.Properties.Keys)}, oneOfCount={descriptor.OneOf.Count}, allOfCount={descriptor.AllOf.Count}";
+        }
+
+        private static string FormatValues(IEnumerable<string> values)
+        {
+            var materialized = values.ToArray();
+            return materialized.Length == 0
+                ? "[]"
+                : $"[{string.Join(", ", materialized.Select(FormatValue))}]";
+        }
+
+        private static string FormatValue(string? value)
+        {
+            return value is null ? "<null>" : $"'{value}'";
         }
 
         private readonly record struct SchemaReferenceInfo(string Id, IReadOnlyList<AsyncApiSchemaComponentDescriptor> Schemas);

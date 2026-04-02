@@ -1,6 +1,10 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Saunter.AttributeProvider.Attributes;
+using Saunter.AttributeProvider.Descriptors;
 using Saunter.Options;
+using Saunter.Tests.AttributeProvider.DocumentGenerationTests;
 using Saunter.Tests.MarkerTypeTests;
 using Shouldly;
 using Xunit;
@@ -39,6 +43,136 @@ namespace Saunter.Tests.AttributeProvider.DocumentProviderTests
             document.Channels.ShouldContainKey("asw.sample_service.anothersample");
             document.Operations.ShouldContainKey("AnotherSampleMessagePublisher");
             document.Operations.ShouldContainKey("SampleMessageConsumer");
+        }
+
+        [Fact]
+        public void GetDocument_ThrowsWithDetailedOperationConflict()
+        {
+            var services = new ServiceCollection();
+
+            services.AddFakeLogging();
+            services.AddAsyncApiSchemaGeneration(o =>
+            {
+                o.AsyncApi = new AsyncApiDocumentDescriptor
+                {
+                    Asyncapi = "3.0.0",
+                    Info = new AsyncApiInfoDescriptor
+                    {
+                        Title = GetType().FullName,
+                        Version = "1.0.0"
+                    },
+                };
+                o.AssemblyMarkerTypes = new[] { typeof(ConflictingPublishOne), typeof(ConflictingPublishTwo) };
+            });
+
+            using var serviceprovider = services.BuildServiceProvider();
+
+            var documentProvider = serviceprovider.GetRequiredService<IAsyncApiDocumentProvider>();
+            var options = serviceprovider.GetRequiredService<IOptions<AsyncApiOptions>>().Value;
+
+            var actual = () => documentProvider.GetDocument(null, options);
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("Existing definition:");
+        }
+
+        [Fact]
+        public void GetDocument_ThrowsWithDetailedOperationConflictAgainstPreconfiguredOperation()
+        {
+            var services = new ServiceCollection();
+
+            services.AddFakeLogging();
+            services.AddAsyncApiSchemaGeneration(o =>
+            {
+                o.AsyncApi = new AsyncApiDocumentDescriptor
+                {
+                    Asyncapi = "3.0.0",
+                    Info = new AsyncApiInfoDescriptor
+                    {
+                        Title = GetType().FullName,
+                        Version = "1.0.0"
+                    },
+                    Operations =
+                    {
+                        ["Publish"] = new AsyncApiOperationDescriptor(ByteBard.AsyncAPI.Models.AsyncApiAction.Send, "existingChannel", null, null, null, null, [], [], null)
+                    }
+                };
+                o.AssemblyMarkerTypes = new[] { typeof(PreconfiguredConflictPublisher) };
+            });
+
+            using var serviceprovider = services.BuildServiceProvider();
+
+            var documentProvider = serviceprovider.GetRequiredService<IAsyncApiDocumentProvider>();
+            var options = serviceprovider.GetRequiredService<IOptions<AsyncApiOptions>>().Value;
+
+            var actual = () => documentProvider.GetDocument(null, options);
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("preconfigured document operation");
+        }
+
+        [Fact]
+        public void GetDocument_UsesFullTypeNameForClassLevelOperationConflictSources()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(ClassLevelConflictOne), typeof(ClassLevelConflictTwo));
+
+            var actual = () => documentProvider.GetDocument(null, options);
+
+            var error = Should.Throw<InvalidOperationException>(actual);
+            error.Message.ShouldContain(typeof(ClassLevelConflictOne).FullName!);
+            error.Message.ShouldContain(typeof(ClassLevelConflictTwo).FullName!);
+        }
+
+        [AsyncApi]
+        private class ConflictingPublishOne
+        {
+            [Channel("orders.created", "orders.created")]
+            [SendOperation]
+            [Message(typeof(ConflictPayload))]
+            public void Publish()
+            {
+            }
+        }
+
+        [AsyncApi]
+        private class ConflictingPublishTwo
+        {
+            [Channel("orders.updated", "orders.updated")]
+            [SendOperation]
+            [Message(typeof(ConflictPayload))]
+            public void Publish()
+            {
+            }
+        }
+
+        private class ConflictPayload
+        {
+            public string Id { get; set; } = string.Empty;
+        }
+
+        [AsyncApi]
+        [Channel("class.level.one", "class.level.one")]
+        [SendOperation(typeof(ConflictPayload), OperationId = "ClassLevelConflict")]
+        private class ClassLevelConflictOne
+        {
+        }
+
+        [AsyncApi]
+        [Channel("class.level.two", "class.level.two")]
+        [SendOperation(typeof(ConflictPayload), OperationId = "ClassLevelConflict")]
+        private class ClassLevelConflictTwo
+        {
+        }
+
+        [AsyncApi]
+        private class PreconfiguredConflictPublisher
+        {
+            [Channel("orders.preconfigured", "orders.preconfigured")]
+            [SendOperation]
+            [Message(typeof(ConflictPayload))]
+            public void Publish()
+            {
+            }
         }
     }
 }

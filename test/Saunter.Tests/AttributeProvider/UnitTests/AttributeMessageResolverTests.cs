@@ -41,7 +41,7 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             var actual = () => resolver.ResolveForOperation(method, new SendOperationAttribute(), new AsyncApiInferenceOptions());
 
             Should.Throw<InvalidOperationException>(actual)
-                .Message.ShouldContain("must generate an object schema");
+                .Message.ShouldContain(typeof(string).FullName!);
         }
 
         [Fact]
@@ -74,7 +74,7 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             var actual = () => resolver.ResolveForOperation(method, new SendOperationAttribute(), new AsyncApiInferenceOptions());
 
             Should.Throw<InvalidOperationException>(actual)
-                .Message.ShouldContain("Conflicting message descriptors");
+                .Message.ShouldContain("Existing definition:");
         }
 
         [Fact]
@@ -139,7 +139,7 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
                 });
 
             Should.Throw<InvalidOperationException>(actual)
-                .Message.ShouldContain("Conflicting schema descriptors");
+                .Message.ShouldContain("Existing definition:");
         }
 
         [Fact]

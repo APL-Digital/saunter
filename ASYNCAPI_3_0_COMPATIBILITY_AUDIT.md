@@ -22,12 +22,16 @@ Scope:
   - See [AsyncApiDocumentValidator.cs](src/Saunter/AttributeProvider/AsyncApiDocumentValidator.cs#L7-L88) and [AttributeChannelBuilder.cs](src/Saunter/AttributeProvider/AttributeChannelBuilder.cs#L57-L107).
 - AsyncAPI 3.0 serialization now normalizes nullable schemas into `oneOf` + `null` and strips the legacy `nullable` keyword from emitted JSON.
   - See [AsyncApiDocumentWriter.cs](src/Saunter/SharedKernel/AsyncApiDocumentWriter.cs#L17-L118).
+- AsyncAPI 3.0 nullable normalization no longer crashes when a nullable usage schema wraps a component reference such as `allOf: [{ $ref: ... }], nullable: true`. The writer now preserves the reference as a pure `$ref`-bearing branch and wraps nullability around it instead of writing scalar metadata through an unresolved reference wrapper.
+  - See [AsyncApiDocumentWriter.cs](src/Saunter/SharedKernel/AsyncApiDocumentWriter.cs) and [DocumentWriterTests.cs](test/Saunter.Tests/SharedKernel/DocumentWriterTests.cs).
 - String-keyed CLR dictionaries now emit AsyncAPI map schemas via `additionalProperties` instead of reflecting CLR members like `count`, `keys`, or `values`. Unsupported map shapes fail fast with a clear exception.
   - See [AsyncApiSchemaGenerator.cs](src/Saunter/SharedKernel/AsyncApiSchemaGenerator.cs) and [SchemaGeneratorTests.cs](test/Saunter.Tests/SharedKernel/SchemaGeneratorTests.cs).
 - Nullable root payloads no longer lose their payload schema reference. The message resolver now registers a reusable nullable wrapper component when the root usage schema has no id.
   - See [AttributeMessageResolver.cs](src/Saunter/AttributeProvider/AttributeMessageResolver.cs) and [AttributeMessageResolverTests.cs](test/Saunter.Tests/AttributeProvider/UnitTests/AttributeMessageResolverTests.cs).
 - Re-validation against the AsyncAPI 3.0.0 spec found two still-open compliance gaps that were not called out explicitly in the previous audit: the generator still honors prototype `Asyncapi` values that start with `2.`, and reply validation does not enforce the spec rule that a reply channel's own `address` must be `null` or absent when `reply.address` is authored.
   - See [AttributeDocumentProvider.cs](src/Saunter/AttributeProvider/AttributeDocumentProvider.cs#L45-L56) and [AsyncApiDocumentValidator.cs](src/Saunter/AttributeProvider/AsyncApiDocumentValidator.cs#L46-L88).
+- Error reporting for document generation conflicts is more actionable now. Channel/address conflicts, parameter conflicts, duplicate operation ids, duplicate message/schema descriptors, and several channel/header inference failures now include the conflicting ids and a summary of the competing definitions instead of generic failure text.
+  - See [AsyncApiChannelUnion.cs](src/Saunter/SharedKernel/AsyncApiChannelUnion.cs), [AttributeDocumentProvider.cs](src/Saunter/AttributeProvider/AttributeDocumentProvider.cs), [AttributeMessageResolver.cs](src/Saunter/AttributeProvider/AttributeMessageResolver.cs), and [AttributeChannelBuilder.cs](src/Saunter/AttributeProvider/AttributeChannelBuilder.cs).
 
 ## Summary Table
 
@@ -140,6 +144,8 @@ Scope:
   - See [AsyncApiSchemaGenerator.cs](src/Saunter/SharedKernel/AsyncApiSchemaGenerator.cs), [AsyncApiSchemaMapper.cs](src/Saunter/SharedKernel/AsyncApiSchemaMapper.cs), and [SchemaGeneratorTests.cs](test/Saunter.Tests/SharedKernel/SchemaGeneratorTests.cs).
 - Nullable root payload schemas now keep a reusable component id. When the generator returns a nullable usage wrapper with `Root.Id == null`, the message resolver registers a wrapper component such as `int32Nullable` and uses that as `PayloadSchemaId`.
   - See [AttributeMessageResolver.cs](src/Saunter/AttributeProvider/AttributeMessageResolver.cs) and [AttributeMessageResolverTests.cs](test/Saunter.Tests/AttributeProvider/UnitTests/AttributeMessageResolverTests.cs).
+- AsyncAPI 3 nullable component-reference usages are now safe to serialize. A schema property shaped like `allOf: [{ $ref: "#/components/schemas/foo" }], nullable: true` is rewritten to `oneOf: [{ allOf: [{ $ref: ... }] }, { type: "null" }]` without mutating the referenced component schema or crashing on unresolved ByteBard reference wrappers.
+  - See [AsyncApiDocumentWriter.cs](src/Saunter/SharedKernel/AsyncApiDocumentWriter.cs) and [DocumentWriterTests.cs](test/Saunter.Tests/SharedKernel/DocumentWriterTests.cs).
 
 ### Partial Support And Gaps
 

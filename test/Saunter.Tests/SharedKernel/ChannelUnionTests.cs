@@ -27,7 +27,8 @@ namespace Saunter.Tests.SharedKernel
             var channelUnion = new AsyncApiChannelUnion();
             var actual = () => channelUnion.Union(source, additional);
 
-            Should.Throw<InvalidOperationException>(actual);
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldBe("Channel 'conflict' has conflicting addresses 'foo' and 'bar'. Existing definition: id='conflict', address='foo', messages=[], servers=[]. Incoming definition: id='conflict', address='bar', messages=[], servers=[].");
         }
 
         [Fact]
@@ -128,7 +129,7 @@ namespace Saunter.Tests.SharedKernel
             var actual = () => channelUnion.Union(source, additional);
 
             Should.Throw<InvalidOperationException>(actual)
-                .Message.ShouldContain("conflicting definitions");
+                .Message.ShouldBe("Channel 'orders' parameter 'tenant_id' has conflicting definitions. Existing definition: name='tenant_id', description='source', location=<null>, default=<null>, enum=[], examples=[]. Incoming definition: name='tenant_id', description='additional', location=<null>, default=<null>, enum=[], examples=[].");
         }
 
         [Fact]

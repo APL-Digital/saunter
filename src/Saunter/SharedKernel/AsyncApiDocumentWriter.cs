@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using ByteBard.AsyncAPI;
 using ByteBard.AsyncAPI.Models;
 using Saunter.SharedKernel.Interfaces;
@@ -35,7 +36,12 @@ namespace Saunter.SharedKernel
 
         private static void NormalizeNullabilityForAsyncApi3(AsyncApiDocument document)
         {
-            foreach (var schemaId in global::System.Linq.Enumerable.ToArray(document.Components.Schemas.Keys))
+            if (document.Components?.Schemas is null || document.Components.Schemas.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var schemaId in document.Components.Schemas.Keys.ToArray())
             {
                 var multiFormatSchema = document.Components.Schemas[schemaId];
                 if (multiFormatSchema.Schema is AsyncApiJsonSchema schema)
@@ -48,17 +54,21 @@ namespace Saunter.SharedKernel
         private static AsyncApiJsonSchema RewriteNullableSchema(AsyncApiJsonSchema schema)
         {
             var normalized = CloneSchemaWithoutNullableKeyword(schema);
-            if (!normalized.Nullable)
+            if (!IsNullableSchema(schema))
             {
                 return normalized;
             }
 
-            normalized.Nullable = false;
             var wrapper = new AsyncApiJsonSchema
             {
-                Title = normalized.Title,
+                Title = IsReferenceSchema(normalized) ? null : normalized.Title,
             };
-            normalized.Title = null;
+
+            if (!IsReferenceSchema(normalized))
+            {
+                normalized.Title = null;
+            }
+
             wrapper.OneOf.Add(normalized);
             wrapper.OneOf.Add(new AsyncApiJsonSchema
             {
@@ -70,14 +80,17 @@ namespace Saunter.SharedKernel
 
         private static AsyncApiJsonSchema CloneSchemaWithoutNullableKeyword(AsyncApiJsonSchema schema)
         {
-            var clone = schema is AsyncApiJsonSchemaReference schemaReference
-                ? new AsyncApiJsonSchemaReference(schemaReference.Reference.Reference)
-                : new AsyncApiJsonSchema();
+            if (TryGetReference(schema, out var reference))
+            {
+                return new AsyncApiJsonSchemaReference(reference);
+            }
 
-            clone.Title = schema.Title;
-            clone.Type = schema.Type;
-            clone.Format = schema.Format;
-            clone.Nullable = schema.Nullable;
+            var clone = new AsyncApiJsonSchema
+            {
+                Title = schema.Title,
+                Type = schema.Type,
+                Format = schema.Format,
+            };
 
             if (schema.Items is not null)
             {
@@ -104,6 +117,11 @@ namespace Saunter.SharedKernel
                 clone.OneOf.Add(RewriteNullableSchema(item));
             }
 
+            foreach (var item in schema.AnyOf)
+            {
+                clone.AnyOf.Add(RewriteNullableSchema(item));
+            }
+
             foreach (var item in schema.AllOf)
             {
                 clone.AllOf.Add(RewriteNullableSchema(item));
@@ -115,6 +133,28 @@ namespace Saunter.SharedKernel
             }
 
             return clone;
+        }
+
+        private static bool IsReferenceSchema(AsyncApiJsonSchema schema)
+        {
+            return TryGetReference(schema, out _);
+        }
+
+        private static bool IsNullableSchema(AsyncApiJsonSchema schema)
+        {
+            return !IsReferenceSchema(schema) && schema.Nullable;
+        }
+
+        private static bool TryGetReference(AsyncApiJsonSchema schema, out string reference)
+        {
+            if (schema is AsyncApiJsonSchemaReference schemaReference)
+            {
+                reference = schemaReference.Reference.Reference;
+                return !string.IsNullOrWhiteSpace(reference);
+            }
+
+            reference = string.Empty;
+            return false;
         }
     }
 }

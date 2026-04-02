@@ -109,7 +109,8 @@ namespace Saunter.UI
             var name = $"{GetType().Namespace}.index.html";
 
             using var stream = GetType().Assembly.GetManifestResourceStream(name)
-                ?? throw new FileNotFoundException($"Not found html file {name}");
+                ?? throw new FileNotFoundException(
+                    $"Embedded AsyncAPI UI resource '{name}' was not found in assembly '{GetType().Assembly.GetName().Name}'.");
 
             using var reader = new StreamReader(stream);
 

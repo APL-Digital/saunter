@@ -381,7 +381,8 @@ namespace Saunter.SharedKernel
                     if (!SchemaDescriptorsMatch(representative, candidate))
                     {
                         throw new InvalidOperationException(
-                            $"Conflicting schema descriptors found for id '{schemasById.Key}' while {context}.");
+                            $"Conflicting schema descriptors found for id '{schemasById.Key}' while {context}. " +
+                            $"Existing definition: {FormatSchemaDescriptor(representative)}. Incoming definition: {FormatSchemaDescriptor(candidate)}.");
                     }
                 }
 
@@ -543,6 +544,24 @@ namespace Saunter.SharedKernel
             }
 
             return SchemaDescriptorsMatch(source, additional);
+        }
+
+        private static string FormatSchemaDescriptor(AsyncApiSchemaDescriptor schema)
+        {
+            return $"id={FormatValue(schema.Id)}, type={schema.Type?.ToString() ?? "<null>"}, format={FormatValue(schema.Format)}, nullable={schema.Nullable}, reference={FormatValue(schema.Reference)}, properties={FormatValues(schema.Properties.Keys)}, oneOfCount={schema.OneOf.Count}, allOfCount={schema.AllOf.Count}";
+        }
+
+        private static string FormatValues(IEnumerable<string> values)
+        {
+            var materialized = values.ToArray();
+            return materialized.Length == 0
+                ? "[]"
+                : $"[{string.Join(", ", materialized.Select(FormatValue))}]";
+        }
+
+        private static string FormatValue(string? value)
+        {
+            return value is null ? "<null>" : $"'{value}'";
         }
 
         private static readonly TypeInfo s_boolTypeInfo = typeof(bool).GetTypeInfo();

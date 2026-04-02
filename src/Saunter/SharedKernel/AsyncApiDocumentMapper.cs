@@ -19,6 +19,9 @@ namespace Saunter.SharedKernel
 
         public AsyncApiDocument Map(AsyncApiDocumentDescriptor document)
         {
+            var components = document.Components ?? new AsyncApiComponentsDescriptor();
+            var messages = components.Messages ?? new Dictionary<string, AsyncApiMessageDescriptor>();
+            var schemas = components.Schemas ?? new Dictionary<string, SharedKernel.Descriptors.AsyncApiSchemaDescriptor>();
             var mapped = new AsyncApiDocument
             {
                 Id = document.Id,
@@ -27,12 +30,15 @@ namespace Saunter.SharedKernel
                 Info = MapInfo(document.Info),
                 Components = new AsyncApiComponents
                 {
-                    OperationBindings = new Dictionary<string, AsyncApiBindings<IOperationBinding>>(document.Components.OperationBindings),
-                    MessageBindings = new Dictionary<string, AsyncApiBindings<IMessageBinding>>(document.Components.MessageBindings),
-                    ChannelBindings = new Dictionary<string, AsyncApiBindings<IChannelBinding>>(document.Components.ChannelBindings),
-                    OperationTraits = new Dictionary<string, AsyncApiOperationTrait>(document.Components.OperationTraits),
-                    CorrelationIds = new Dictionary<string, AsyncApiCorrelationId>(document.Components.CorrelationIds),
-                    SecuritySchemes = new Dictionary<string, AsyncApiSecurityScheme>(document.Components.SecuritySchemes),
+                    Schemas = new Dictionary<string, AsyncApiMultiFormatSchema>(),
+                    Messages = new Dictionary<string, AsyncApiMessage>(),
+                    Parameters = new Dictionary<string, AsyncApiParameter>(),
+                    OperationBindings = new Dictionary<string, AsyncApiBindings<IOperationBinding>>(components.OperationBindings ?? new Dictionary<string, AsyncApiBindings<IOperationBinding>>()),
+                    MessageBindings = new Dictionary<string, AsyncApiBindings<IMessageBinding>>(components.MessageBindings ?? new Dictionary<string, AsyncApiBindings<IMessageBinding>>()),
+                    ChannelBindings = new Dictionary<string, AsyncApiBindings<IChannelBinding>>(components.ChannelBindings ?? new Dictionary<string, AsyncApiBindings<IChannelBinding>>()),
+                    OperationTraits = new Dictionary<string, AsyncApiOperationTrait>(components.OperationTraits ?? new Dictionary<string, AsyncApiOperationTrait>()),
+                    CorrelationIds = new Dictionary<string, AsyncApiCorrelationId>(components.CorrelationIds ?? new Dictionary<string, AsyncApiCorrelationId>()),
+                    SecuritySchemes = new Dictionary<string, AsyncApiSecurityScheme>(components.SecuritySchemes ?? new Dictionary<string, AsyncApiSecurityScheme>()),
                 },
                 Servers = document.Servers.ToDictionary(pair => pair.Key, pair => MapServer(pair.Value)),
                 Channels = new Dictionary<string, AsyncApiChannel>(),
@@ -40,9 +46,9 @@ namespace Saunter.SharedKernel
             };
 
             var messageResolution = new AsyncApiMessageResolutionDescriptor(
-                document.Components.Messages.Keys.ToArray(),
-                document.Components.Messages.Values.ToArray(),
-                document.Components.Schemas.Select(pair => new AsyncApiSchemaComponentDescriptor(pair.Key, pair.Value)).ToArray());
+                messages.Keys.ToArray(),
+                messages.Values.ToArray(),
+                schemas.Select(pair => new AsyncApiSchemaComponentDescriptor(pair.Key, pair.Value)).ToArray());
             _descriptorMapper.RegisterMessageResolution(mapped.Components, messageResolution);
 
             foreach (var pair in document.Channels)
