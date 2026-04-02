@@ -42,7 +42,7 @@
   <ItemGroup>
     <None Include="../../assets/logo.png" Pack="true" PackagePath="/" />
     <None Include="../../README.md" Pack="true" PackagePath="/" />
-    <None Include="..\Saunter.Analyzers\bin\$(Configuration)\$(SaunterAnalyzersTargetFramework)\Saunter.Analyzers.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="..\Saunter.Analyzers\bin\$(Configuration)\$(SaunterAnalyzersTargetFramework)\$(SaunterAnalyzersAssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
   </ItemGroup>
 
   <ItemGroup>

@@ -28,7 +28,7 @@ namespace Saunter.Tests
             var analyzerAsset = document
                 .Descendants("None")
                 .FirstOrDefault(element =>
-                    ((string?)element.Attribute("Include"))?.Contains("Saunter.Analyzers.dll", StringComparison.Ordinal) == true
+                    ((string?)element.Attribute("Include"))?.Contains("$(SaunterAnalyzersAssemblyName).dll", StringComparison.Ordinal) == true
                     && ((string?)element.Attribute("PackagePath")) == "analyzers/dotnet/cs");
 
             analyzerAsset.ShouldNotBeNull();
