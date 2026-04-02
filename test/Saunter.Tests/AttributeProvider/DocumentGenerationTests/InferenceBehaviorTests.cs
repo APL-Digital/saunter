@@ -63,6 +63,24 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         }
 
         [Fact]
+        public void GenerateDocument_ChannelIdOverrideAvoidsInferenceCollision()
+        {
+            ArrangeAttributesTests.Arrange(
+                out var options,
+                out var documentProvider,
+                typeof(ChannelIdCollisionBasePublisher),
+                typeof(ChannelIdCollisionExtendedPublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            document.AssertAndGetChannel("commandRoute", "system.command.route.*");
+            var deepChannel = document.AssertAndGetChannel("commandRouteExtended", "system.command.route.*.*.*.*");
+
+            document.AssertAndGetOperation("PublishShort", ByteBard.AsyncAPI.Models.AsyncApiAction.Send).ChannelId.ShouldBe("commandRoute");
+            document.AssertAndGetOperation("PublishDeep", ByteBard.AsyncAPI.Models.AsyncApiAction.Send).ChannelId.ShouldBe(deepChannel.Id);
+        }
+
+        [Fact]
         public void GenerateDocument_UsesLegacyOperationIdFallbackWhenInferenceDisabled()
         {
             ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(OperationIdGeneratorPublisher));
@@ -156,6 +174,26 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         {
             [Channel("tenant.created")]
             [SendOperation(typeof(ClassPayload))]
+            public void Publish()
+            {
+            }
+        }
+
+        [AsyncApi]
+        private class ChannelIdCollisionBasePublisher
+        {
+            [Channel("system.command.route.*")]
+            [SendOperation(typeof(ClassPayload), OperationId = "PublishShort")]
+            public void Publish()
+            {
+            }
+        }
+
+        [AsyncApi]
+        private class ChannelIdCollisionExtendedPublisher
+        {
+            [Channel("system.command.route.*.*.*.*", ChannelId = "commandRouteExtended")]
+            [SendOperation(typeof(ClassPayload), OperationId = "PublishDeep")]
             public void Publish()
             {
             }

@@ -72,6 +72,14 @@ Start with one of these examples:
    - payload type from the method signature
    - message id, name, and title from the payload type
 
+   If two addresses infer the same `channelId`, override it explicitly:
+
+   ```csharp
+   [Channel("system.command.route.*.*.*.*", ChannelId = "commandRouteExtended")]
+   [SendOperation(typeof(CommandEnvelope))]
+   public void Publish(CommandEnvelope command) { }
+   ```
+
 4. Prefer method-level annotations by default.
 
    Method-level annotations are the clearest path for most users. Class-level annotations are still supported when you want to declare shared channels or shared operation context across multiple members.
@@ -220,7 +228,7 @@ services.ConfigureNamedAsyncApi("Foo", asyncApi =>
 - LEGO AsyncAPI.NET was replaced with `ByteBard.AsyncAPI.NET`, `ByteBard.AsyncAPI.NET.Readers`, and `ByteBard.AsyncAPI.NET.Bindings`.
 - Public API types now use Saunter descriptors, including `AsyncApiOptions.AsyncApi`, `IAsyncApiDocumentProvider`, and the filter interfaces.
 - `PublishOperationAttribute` and `SubscribeOperationAttribute` were removed and replaced with `SendOperationAttribute` and `ReceiveOperationAttribute`.
-- `ChannelAttribute` still supports `(channelId, address)`, but now also supports inferred ids from a single address in the happy path.
+- `ChannelAttribute` still supports `(channelId, address)`, supports inferred ids from a single address in the happy path, and lets you override the inferred id with `[Channel("address", ChannelId = "customId")]`.
 - Generated documents now use AsyncAPI v3 root `operations` and v3 channel `address` fields instead of v2 channel-local `publish` and `subscribe`.
 - Existing code that mutates or asserts v2 document shape must be updated to the v3 document model.
 

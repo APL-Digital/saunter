@@ -78,6 +78,19 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             channel.Parameters[0].Examples.ShouldBe(["tenant-a", "tenant-b"]);
         }
 
+        [Fact]
+        public void Build_UsesNamedChannelIdOverrideWithAddressOnlyConstructor()
+        {
+            var builder = new AttributeChannelBuilder();
+            var member = typeof(ChannelFixture).GetMethod(nameof(ChannelFixture.Publish))!;
+            var attribute = new ChannelAttribute("orders.{tenantId}") { ChannelId = "ordersByTenant" };
+
+            var channel = builder.Build(member, attribute, ["orderCreated"], new AsyncApiInferenceOptions());
+
+            channel.Id.ShouldBe("ordersByTenant");
+            channel.Address.ShouldBe("orders.{tenantId}");
+        }
+
         private class ChannelFixture
         {
             [ChannelParameter("tenantId", typeof(string))]

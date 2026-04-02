@@ -16,6 +16,8 @@ Scope:
   - See [AttributeOperationBuilder.cs](src/Saunter/AttributeProvider/AttributeOperationBuilder.cs#L27-L42) and [AsyncApiDescriptorMapper.cs](src/Saunter/AttributeProvider/AsyncApiDescriptorMapper.cs#L192-L217).
 - Channel tags are richer than before. `ChannelTagAttribute` can emit full tag objects with `description` and `externalDocs`; operation and message tags are still name-only.
   - See [ChannelTagAttribute.cs](src/Saunter/AttributeProvider/Attributes/ChannelTagAttribute.cs#L6-L22) and [AttributeChannelBuilder.cs](src/Saunter/AttributeProvider/AttributeChannelBuilder.cs#L33-L52).
+- Channel ids are easier to author explicitly now. In addition to the positional `(channelId, address)` constructor, `ChannelAttribute` supports `[Channel("address", ChannelId = "customId")]`, which is useful when inferred channel ids collide even though the AsyncAPI 3 `channels` map requires unique case-sensitive `{channelId}` keys.
+  - See [ChannelAttribute.cs](src/Saunter/AttributeProvider/Attributes/ChannelAttribute.cs) and [InferenceBehaviorTests.cs](test/Saunter.Tests/AttributeProvider/DocumentGenerationTests/InferenceBehaviorTests.cs).
 - Validation coverage is broader than the previous audit described. The current validator checks unknown channel messages, unknown servers, unknown message/operation/channel binding refs, unknown correlation ids, unknown operation trait refs, unknown operation message refs, and unknown reply channels. The channel builder also rejects invalid parameter names, malformed address expressions, and query/fragment-bearing addresses.
   - See [AsyncApiDocumentValidator.cs](src/Saunter/AttributeProvider/AsyncApiDocumentValidator.cs#L7-L88) and [AttributeChannelBuilder.cs](src/Saunter/AttributeProvider/AttributeChannelBuilder.cs#L57-L107).
 - AsyncAPI 3.0 serialization now normalizes nullable schemas into `oneOf` + `null` and strips the legacy `nullable` keyword from emitted JSON.
@@ -45,7 +47,7 @@ Scope:
 | Root `info` | Required | Partially supported | Supports core metadata only; `info.tags` and `info.externalDocs` are missing |
 | Root `servers` | Optional | Supported | Mapped in [AsyncApiDocumentMapper.cs](src/Saunter/SharedKernel/AsyncApiDocumentMapper.cs#L20-L58) |
 | Root `defaultContentType` | Optional | Supported with opinionated default | Auto-set to `application/json` when inference is enabled |
-| Root `channels` | Optional | Supported | Generated and merged in [AttributeDocumentProvider.cs](src/Saunter/AttributeProvider/AttributeDocumentProvider.cs#L65-L79) |
+| Root `channels` | Optional | Supported | Generated and merged in [AttributeDocumentProvider.cs](src/Saunter/AttributeProvider/AttributeDocumentProvider.cs#L65-L79); channel ids can be explicit or inferred |
 | Root `operations` | Required by app model | Supported | Generated in [AttributeDocumentProvider.cs](src/Saunter/AttributeProvider/AttributeDocumentProvider.cs#L65-L79) |
 | Root `components` | Optional | Partially supported | Only a subset of component maps is modeled in [AsyncApiComponentsDescriptor.cs](src/Saunter/Descriptors/AsyncApiComponentsDescriptor.cs#L9-L28) |
 | Root `info.title` / `version` / `description` / `contact` / `license` / `termsOfService` | Mixed | Supported | Mapped by [AsyncApiDocumentMapper.cs](src/Saunter/SharedKernel/AsyncApiDocumentMapper.cs#L61-L80) |
@@ -130,6 +132,8 @@ Scope:
   - See [AsyncApiServerDescriptor.cs](src/Saunter/Descriptors/AsyncApiServerDescriptor.cs#L6-L32) and [AsyncApiDocumentMapper.cs](src/Saunter/SharedKernel/AsyncApiDocumentMapper.cs#L83-L113).
 - Channel parameter support is stronger than the previous audit stated: `enum`, `default`, `examples`, `description`, and `location` are all carried through to the generated component parameter.
   - See [AsyncApiParameterDescriptor.cs](src/Saunter/AttributeProvider/Descriptors/AsyncApiParameterDescriptor.cs#L5-L11) and [AsyncApiDescriptorMapperTests.cs](test/Saunter.Tests/AttributeProvider/UnitTests/AsyncApiDescriptorMapperTests.cs#L79-L100).
+- Channels Object support includes both explicit and inferred `channelId` authoring. That maps cleanly onto the spec's case-sensitive `{channelId}` patterned field and now has a named-property escape hatch for address patterns that sanitize to the same inferred id.
+  - See [ChannelAttribute.cs](src/Saunter/AttributeProvider/Attributes/ChannelAttribute.cs) and [InferenceBehaviorTests.cs](test/Saunter.Tests/AttributeProvider/DocumentGenerationTests/InferenceBehaviorTests.cs).
 - Reply metadata is supported end-to-end for `reply.channel`, `reply.address`, and emitted `reply.messages`.
   - See [AttributeOperationBuilderTests.cs](test/Saunter.Tests/AttributeProvider/UnitTests/AttributeOperationBuilderTests.cs#L11-L32) and [AsyncApiDescriptorMapperTests.cs](test/Saunter.Tests/AttributeProvider/UnitTests/AsyncApiDescriptorMapperTests.cs#L16-L77).
 - String-keyed CLR dictionaries are now modeled as AsyncAPI maps. The schema generator produces `type: object` with `additionalProperties`, and the schema mapper carries that through to the serialized schema model.

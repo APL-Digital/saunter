@@ -5,7 +5,10 @@ namespace Saunter.AttributeProvider.Attributes
     [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class | AttributeTargets.Interface)]
     public class ChannelAttribute : Attribute
     {
-        public string ChannelId { get; }
+        /// <summary>
+        /// Used as the generated AsyncAPI v3 channel key. When omitted, Saunter can infer it from the address.
+        /// </summary>
+        public string ChannelId { get; set; }
 
         public string Address { get; }
 
