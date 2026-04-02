@@ -283,7 +283,7 @@ namespace Saunter.Tests.SharedKernel
             Action actual = () => { _ = generator.Generate(typeof(CollisionRoot)); };
 
             Should.Throw<InvalidOperationException>(actual)
-                .Message.ShouldContain("Conflicting schema descriptors found for id 'duplicate'");
+                .Message.ShouldContain("Existing definition:");
         }
 
         [Fact]

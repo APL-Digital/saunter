@@ -8,7 +8,7 @@ namespace Saunter.AttributeProvider.Attributes
         public ChannelParameterAttribute(string name)
         {
             Name = string.IsNullOrWhiteSpace(name)
-                ? throw new ArgumentException("Value cannot be null or whitespace.", nameof(name))
+                ? throw new ArgumentException("ChannelParameterAttribute name cannot be null, empty, or whitespace.", nameof(name))
                 : name;
             Type = typeof(string);
         }
@@ -16,7 +16,7 @@ namespace Saunter.AttributeProvider.Attributes
         public ChannelParameterAttribute(string name, Type type)
         {
             Name = string.IsNullOrWhiteSpace(name)
-                ? throw new ArgumentException("Value cannot be null or whitespace.", nameof(name))
+                ? throw new ArgumentException("ChannelParameterAttribute name cannot be null, empty, or whitespace.", nameof(name))
                 : name;
             Type = type ?? throw new ArgumentNullException(nameof(type));
         }

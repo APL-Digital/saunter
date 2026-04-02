@@ -14,14 +14,18 @@ namespace Saunter.SharedKernel
                 && !string.IsNullOrWhiteSpace(additional.Address)
                 && !string.Equals(source.Address, additional.Address, StringComparison.Ordinal))
             {
-                throw new InvalidOperationException("Channel address conflict");
+                throw new InvalidOperationException(
+                    $"Channel '{source.Id}' has conflicting addresses '{source.Address}' and '{additional.Address}'. " +
+                    $"Existing definition: {FormatChannel(source)}. Incoming definition: {FormatChannel(additional)}.");
             }
 
             if (!string.IsNullOrWhiteSpace(source.BindingsRef)
                 && !string.IsNullOrWhiteSpace(additional.BindingsRef)
                 && !string.Equals(source.BindingsRef, additional.BindingsRef, StringComparison.Ordinal))
             {
-                throw new InvalidOperationException($"Channel '{source.Id}' has conflicting bindings references '{source.BindingsRef}' and '{additional.BindingsRef}'.");
+                throw new InvalidOperationException(
+                    $"Channel '{source.Id}' has conflicting bindings references '{source.BindingsRef}' and '{additional.BindingsRef}'. " +
+                    $"Existing definition: {FormatChannel(source)}. Incoming definition: {FormatChannel(additional)}.");
             }
 
             var merged = new AsyncApiChannelDescriptor(
@@ -33,7 +37,7 @@ namespace Saunter.SharedKernel
                 FirstNonBlank(source.BindingsRef, additional.BindingsRef),
                 MergeStrings(source.ServerNames, additional.ServerNames),
                 MergeStrings(source.MessageIds, additional.MessageIds),
-                MergeParameters(source.Parameters, additional.Parameters));
+                MergeParameters(source.Id, source.Parameters, additional.Parameters));
 
             foreach (var tag in MergeTags(source.Tags, additional.Tags))
             {
@@ -58,7 +62,7 @@ namespace Saunter.SharedKernel
                 .ToList();
         }
 
-        private static IReadOnlyList<AsyncApiParameterDescriptor> MergeParameters(IReadOnlyList<AsyncApiParameterDescriptor> source, IReadOnlyList<AsyncApiParameterDescriptor> additional)
+        private static IReadOnlyList<AsyncApiParameterDescriptor> MergeParameters(string channelId, IReadOnlyList<AsyncApiParameterDescriptor> source, IReadOnlyList<AsyncApiParameterDescriptor> additional)
         {
             var parametersByName = new Dictionary<string, AsyncApiParameterDescriptor>(StringComparer.Ordinal);
 
@@ -72,7 +76,9 @@ namespace Saunter.SharedKernel
 
                 if (!ParametersMatch(existing, parameter))
                 {
-                    throw new InvalidOperationException($"Channel parameter '{parameter.Name}' has conflicting definitions.");
+                    throw new InvalidOperationException(
+                        $"Channel '{channelId}' parameter '{parameter.Name}' has conflicting definitions. " +
+                        $"Existing definition: {FormatParameter(existing)}. Incoming definition: {FormatParameter(parameter)}.");
                 }
             }
 
@@ -96,6 +102,29 @@ namespace Saunter.SharedKernel
                 .Concat(additional)
                 .DistinctBy(tag => tag.Name)
                 .ToList();
+        }
+
+        private static string FormatChannel(AsyncApiChannelDescriptor channel)
+        {
+            return $"id={FormatValue(channel.Id)}, address={FormatValue(channel.Address)}, messages={FormatValues(channel.MessageIds)}, servers={FormatValues(channel.ServerNames)}";
+        }
+
+        private static string FormatParameter(AsyncApiParameterDescriptor parameter)
+        {
+            return $"name={FormatValue(parameter.Name)}, description={FormatValue(parameter.Description)}, location={FormatValue(parameter.Location)}, default={FormatValue(parameter.DefaultValue)}, enum={FormatValues(parameter.EnumValues)}, examples={FormatValues(parameter.Examples)}";
+        }
+
+        private static string FormatValues(IEnumerable<string> values)
+        {
+            var materialized = values.ToArray();
+            return materialized.Length == 0
+                ? "[]"
+                : $"[{string.Join(", ", materialized.Select(FormatValue))}]";
+        }
+
+        private static string FormatValue(string? value)
+        {
+            return value is null ? "<null>" : $"'{value}'";
         }
     }
 }

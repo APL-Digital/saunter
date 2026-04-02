@@ -34,7 +34,7 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             var actual = () => builder.Build(member, attribute, [], new AsyncApiInferenceOptions());
 
             Should.Throw<InvalidOperationException>(actual)
-                .Message.ShouldContain("not present in address");
+                .Message.ShouldContain("ChannelFixture.PublishWithExtraParameter");
         }
 
         [Fact]
@@ -47,7 +47,7 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             var actual = () => builder.Build(member, attribute, [], new AsyncApiInferenceOptions());
 
             Should.Throw<InvalidOperationException>(actual)
-                .Message.ShouldContain("must not contain query strings or fragments");
+                .Message.ShouldContain("ChannelFixture.Publish");
         }
 
         [Fact]

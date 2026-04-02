@@ -64,6 +64,7 @@ namespace Saunter.AttributeProvider
 
             var generatedItems = GenerateChannelsFromMethods(clone.Components, options, asyncApiTypes)
                 .Concat(GenerateChannelsFromClasses(clone.Components, options, asyncApiTypes));
+            var operationSources = new Dictionary<string, string>(StringComparer.Ordinal);
 
             foreach (var item in generatedItems)
             {
@@ -74,8 +75,15 @@ namespace Saunter.AttributeProvider
 
                 if (!clone.Operations.TryAdd(item.OperationId, item.Operation))
                 {
-                    throw new InvalidOperationException($"Operation conflict for '{item.OperationId}'.");
+                    var existingOperation = clone.Operations[item.OperationId];
+                    throw new InvalidOperationException(
+                        $"Operation id '{item.OperationId}' is produced by multiple operations. " +
+                        $"Existing definition: source='{operationSources[item.OperationId]}', action='{existingOperation.Action}', channel='{existingOperation.ChannelId}', messages={FormatValues(existingOperation.MessageIds)}. " +
+                        $"Incoming definition: source='{FormatMember(item.SourceMember)}', action='{item.Operation.Action}', channel='{item.Operation.ChannelId}', messages={FormatValues(item.Operation.MessageIds)}. " +
+                        "Set an explicit OperationId or adjust inference so each operation id is unique.");
                 }
+
+                operationSources[item.OperationId] = FormatMember(item.SourceMember);
             }
 
             var filterContext = new DocumentFilterContext(asyncApiTypes);
@@ -123,7 +131,8 @@ namespace Saunter.AttributeProvider
                         channelItem.Id,
                         channelItem,
                         GetOperationId(pair.Key, item.Method, pair.Key.Action, options),
-                        operation);
+                        operation,
+                        item.Method);
                 }
             }
         }
@@ -161,7 +170,8 @@ namespace Saunter.AttributeProvider
                         channelItem.Id,
                         channelItem,
                         GetOperationId(pair.Key, item.Type, pair.Key.Action, options),
-                        operation);
+                        operation,
+                        item.Type);
                 }
             }
         }
@@ -274,6 +284,20 @@ namespace Saunter.AttributeProvider
                 .ToArray();
         }
 
-        private readonly record struct GeneratedOperation(string ChannelId, AsyncApiChannelDescriptor Channel, string OperationId, AsyncApiOperationDescriptor Operation);
+        private static string FormatMember(MemberInfo member)
+        {
+            return member.DeclaringType is null
+                ? member.Name
+                : $"{member.DeclaringType.FullName}.{member.Name}";
+        }
+
+        private static string FormatValues(IReadOnlyList<string> values)
+        {
+            return values.Count == 0
+                ? "[]"
+                : $"[{string.Join(", ", values.Select(value => $"'{value}'"))}]";
+        }
+
+        private readonly record struct GeneratedOperation(string ChannelId, AsyncApiChannelDescriptor Channel, string OperationId, AsyncApiOperationDescriptor Operation, MemberInfo SourceMember);
     }
 }

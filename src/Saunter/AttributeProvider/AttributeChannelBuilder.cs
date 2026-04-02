@@ -18,7 +18,7 @@ namespace Saunter.AttributeProvider
         public AsyncApiChannelDescriptor Build(MemberInfo member, ChannelAttribute attribute, IReadOnlyList<string> messageIds, AsyncApiInferenceOptions inferenceOptions)
         {
             var address = ResolveAddress(member, attribute, inferenceOptions);
-            var channelId = ResolveChannelId(attribute, address, inferenceOptions);
+            var channelId = ResolveChannelId(member, attribute, address, inferenceOptions);
             var channel = new AsyncApiChannelDescriptor(
                 channelId,
                 address,
@@ -56,7 +56,7 @@ namespace Saunter.AttributeProvider
 
         private static IReadOnlyList<AsyncApiParameterDescriptor> BuildChannelParameters(MemberInfo member, string address)
         {
-            var expressionNames = GetChannelAddressParameterNames(address);
+            var expressionNames = GetChannelAddressParameterNames(member, address);
             var attributes = member.GetCustomAttributes<ChannelParameterAttribute>().ToArray();
             var parameters = new Dictionary<string, AsyncApiParameterDescriptor>(attributes.Length);
 
@@ -64,7 +64,8 @@ namespace Saunter.AttributeProvider
             {
                 if (!s_channelParameterNamePattern.IsMatch(attribute.Name))
                 {
-                    throw new InvalidOperationException($"Channel parameter '{attribute.Name}' is not a valid AsyncAPI parameter name. Use only letters, digits, '-', or '_'.");
+                    throw new InvalidOperationException(
+                        $"Channel parameter '{attribute.Name}' on member '{FormatMember(member)}' is not a valid AsyncAPI parameter name. Use only letters, digits, '-', or '_'.");
                 }
 
                 parameters.Add(attribute.Name, CreateChannelParameter(attribute));
@@ -72,7 +73,8 @@ namespace Saunter.AttributeProvider
 
             foreach (var parameterName in parameters.Keys.Except(expressionNames))
             {
-                throw new InvalidOperationException($"Channel parameter '{parameterName}' is not present in address '{address}'. Remove [ChannelParameter(\"{parameterName}\")] or add '{{{parameterName}}}' to the address.");
+                throw new InvalidOperationException(
+                    $"Channel parameter '{parameterName}' on member '{FormatMember(member)}' is not present in address '{address}'. Remove [ChannelParameter(\"{parameterName}\")] or add '{{{parameterName}}}' to the address.");
             }
 
             foreach (var parameterName in expressionNames)
@@ -86,18 +88,20 @@ namespace Saunter.AttributeProvider
             return parameters.Values.ToArray();
         }
 
-        private static IReadOnlyCollection<string> GetChannelAddressParameterNames(string address)
+        private static IReadOnlyCollection<string> GetChannelAddressParameterNames(MemberInfo member, string address)
         {
             if (address.Contains('?') || address.Contains('#'))
             {
-                throw new InvalidOperationException($"Channel address '{address}' must not contain query strings or fragments. Move that data into parameters or message content.");
+                throw new InvalidOperationException(
+                    $"Channel address '{address}' on member '{FormatMember(member)}' must not contain query strings or fragments. Move that data into parameters or message content.");
             }
 
             var matches = s_channelAddressExpressionPattern.Matches(address);
             var strippedAddress = s_channelAddressExpressionPattern.Replace(address, string.Empty);
             if (strippedAddress.Contains('{') || strippedAddress.Contains('}'))
             {
-                throw new InvalidOperationException($"Channel address '{address}' contains an invalid expression. Check that each parameter placeholder is balanced like '{{parameterName}}'.");
+                throw new InvalidOperationException(
+                    $"Channel address '{address}' on member '{FormatMember(member)}' contains an invalid expression. Check that each parameter placeholder is balanced like '{{parameterName}}'.");
             }
 
             return matches
@@ -138,10 +142,11 @@ namespace Saunter.AttributeProvider
                 return routeTemplate;
             }
 
-            throw new InvalidOperationException($"Channel address is missing for '{member.Name}'. Set [Channel(\"address\")] explicitly or enable route-based inference on a member with route metadata.");
+            throw new InvalidOperationException(
+                $"Channel address is missing for member '{FormatMember(member)}'. Set [Channel(\"address\")] explicitly or enable route-based inference on a member with route metadata.");
         }
 
-        private static string ResolveChannelId(ChannelAttribute attribute, string address, AsyncApiInferenceOptions inferenceOptions)
+        private static string ResolveChannelId(MemberInfo member, ChannelAttribute attribute, string address, AsyncApiInferenceOptions inferenceOptions)
         {
             if (!string.IsNullOrWhiteSpace(attribute.ChannelId))
             {
@@ -153,7 +158,15 @@ namespace Saunter.AttributeProvider
                 return AttributeProviderModelFactory.SanitizeComponentKey(inferenceOptions.ChannelIdGenerator(address));
             }
 
-            throw new InvalidOperationException($"Channel id is missing for address '{address}'. Set [Channel(\"channelId\", \"{address}\")] explicitly or enable channel id inference.");
+            throw new InvalidOperationException(
+                $"Channel id is missing for address '{address}' on member '{FormatMember(member)}'. Set [Channel(\"channelId\", \"{address}\")] explicitly or enable channel id inference.");
+        }
+
+        private static string FormatMember(MemberInfo member)
+        {
+            return member.DeclaringType is null
+                ? member.Name
+                : $"{member.DeclaringType.FullName}.{member.Name}";
         }
 
         private static bool TryResolveRouteTemplate(MemberInfo member, out string template)

@@ -30,6 +30,8 @@ Scope:
   - See [AttributeMessageResolver.cs](src/Saunter/AttributeProvider/AttributeMessageResolver.cs) and [AttributeMessageResolverTests.cs](test/Saunter.Tests/AttributeProvider/UnitTests/AttributeMessageResolverTests.cs).
 - Re-validation against the AsyncAPI 3.0.0 spec found two still-open compliance gaps that were not called out explicitly in the previous audit: the generator still honors prototype `Asyncapi` values that start with `2.`, and reply validation does not enforce the spec rule that a reply channel's own `address` must be `null` or absent when `reply.address` is authored.
   - See [AttributeDocumentProvider.cs](src/Saunter/AttributeProvider/AttributeDocumentProvider.cs#L45-L56) and [AsyncApiDocumentValidator.cs](src/Saunter/AttributeProvider/AsyncApiDocumentValidator.cs#L46-L88).
+- Error reporting for document generation conflicts is more actionable now. Channel/address conflicts, parameter conflicts, duplicate operation ids, duplicate message/schema descriptors, and several channel/header inference failures now include the conflicting ids and a summary of the competing definitions instead of generic failure text.
+  - See [AsyncApiChannelUnion.cs](src/Saunter/SharedKernel/AsyncApiChannelUnion.cs), [AttributeDocumentProvider.cs](src/Saunter/AttributeProvider/AttributeDocumentProvider.cs), [AttributeMessageResolver.cs](src/Saunter/AttributeProvider/AttributeMessageResolver.cs), and [AttributeChannelBuilder.cs](src/Saunter/AttributeProvider/AttributeChannelBuilder.cs).
 
 ## Summary Table
 
