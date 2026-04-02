@@ -4,7 +4,7 @@
     <TargetFramework>$(SaunterAnalyzersTargetFramework)</TargetFramework>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
-    <AssemblyName>Saunter.Analyzers</AssemblyName>
+    <AssemblyName>Apollo.Saunter.Analyzers</AssemblyName>
     <IsPackable>false</IsPackable>
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>

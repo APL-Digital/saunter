@@ -4,8 +4,8 @@
     <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
     <Nullable>enable</Nullable>
     <IsPackable>true</IsPackable>
-    <PackageId>Saunter</PackageId>
-    <Title>Saunter</Title>
+    <PackageId>Apollo.Saunter</PackageId>
+    <Title>Apollo.Saunter</Title>
     <PackageIcon>logo.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Authors>AsyncAPI Initiative</Authors>
