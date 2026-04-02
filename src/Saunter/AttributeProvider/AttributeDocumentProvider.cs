@@ -291,6 +291,11 @@ namespace Saunter.AttributeProvider
 
         private static string FormatMember(MemberInfo member)
         {
+            if (member is Type type)
+            {
+                return type.FullName ?? type.Name;
+            }
+
             return member.DeclaringType is null
                 ? member.Name
                 : $"{member.DeclaringType.FullName}.{member.Name}";

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Saunter.AttributeProvider.Attributes;
 using Saunter.AttributeProvider.Descriptors;
 using Saunter.Options;
+using Saunter.Tests.AttributeProvider.DocumentGenerationTests;
 using Saunter.Tests.MarkerTypeTests;
 using Shouldly;
 using Xunit;
@@ -110,6 +111,18 @@ namespace Saunter.Tests.AttributeProvider.DocumentProviderTests
                 .Message.ShouldContain("preconfigured document operation");
         }
 
+        [Fact]
+        public void GetDocument_UsesFullTypeNameForClassLevelOperationConflictSources()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(ClassLevelConflictOne), typeof(ClassLevelConflictTwo));
+
+            var actual = () => documentProvider.GetDocument(null, options);
+
+            var error = Should.Throw<InvalidOperationException>(actual);
+            error.Message.ShouldContain(typeof(ClassLevelConflictOne).FullName!);
+            error.Message.ShouldContain(typeof(ClassLevelConflictTwo).FullName!);
+        }
+
         [AsyncApi]
         private class ConflictingPublishOne
         {
@@ -135,6 +148,20 @@ namespace Saunter.Tests.AttributeProvider.DocumentProviderTests
         private class ConflictPayload
         {
             public string Id { get; set; } = string.Empty;
+        }
+
+        [AsyncApi]
+        [Channel("class.level.one", "class.level.one")]
+        [SendOperation(typeof(ConflictPayload), OperationId = "ClassLevelConflict")]
+        private class ClassLevelConflictOne
+        {
+        }
+
+        [AsyncApi]
+        [Channel("class.level.two", "class.level.two")]
+        [SendOperation(typeof(ConflictPayload), OperationId = "ClassLevelConflict")]
+        private class ClassLevelConflictTwo
+        {
         }
 
         [AsyncApi]
