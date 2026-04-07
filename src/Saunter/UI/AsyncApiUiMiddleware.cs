@@ -1,16 +1,12 @@
 ﻿using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Net.Mime;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Saunter.DocumentMiddleware;
 using Saunter.Options;
@@ -20,41 +16,14 @@ namespace Saunter.UI
     internal class AsyncApiUiMiddleware
     {
         private readonly AsyncApiOptions _options;
-        private readonly StaticFileMiddleware _staticFiles;
-        private readonly Dictionary<string, StaticFileMiddleware> _namedStaticFiles;
+        private readonly IFileProvider _fileProvider;
+        private readonly FileExtensionContentTypeProvider _contentTypeProvider = new();
 
-        public AsyncApiUiMiddleware(RequestDelegate next, IOptions<AsyncApiOptions> options, IWebHostEnvironment env, ILoggerFactory loggerFactory)
+        public AsyncApiUiMiddleware(RequestDelegate next, IOptions<AsyncApiOptions> options)
         {
+            _ = next;
             _options = options.Value;
-            var fileProvider = new EmbeddedFileProvider(GetType().Assembly, GetType().Namespace);
-            var staticFileOptions = new StaticFileOptions
-            {
-                RequestPath = UiBaseRoute,
-                FileProvider = fileProvider,
-            };
-
-            _staticFiles = new StaticFileMiddleware(
-                next,
-                env,
-                Microsoft.Extensions.Options.Options.Create(staticFileOptions),
-                loggerFactory);
-
-            _namedStaticFiles = new Dictionary<string, StaticFileMiddleware>();
-
-            foreach (var namedApi in _options.NamedApis.Select(c => c.Key))
-            {
-                var namedStaticFileOptions = new StaticFileOptions
-                {
-                    RequestPath = UiBaseRoute.Replace("{document}", namedApi),
-                    FileProvider = fileProvider,
-                };
-
-                _namedStaticFiles.Add(namedApi, new StaticFileMiddleware(
-                    next,
-                    env,
-                    Microsoft.Extensions.Options.Options.Create(namedStaticFileOptions),
-                    loggerFactory));
-            }
+            _fileProvider = new EmbeddedFileProvider(GetType().Assembly, GetType().Namespace);
         }
 
         public async Task Invoke(HttpContext context)
@@ -87,20 +56,13 @@ namespace Saunter.UI
                 return;
             }
 
-            if (!context.TryGetDocument(out var documentName))
+            if (!TryGetRequestedAssetPath(context, out var assetPath))
             {
-                await _staticFiles.Invoke(context);
+                context.Response.StatusCode = StatusCodes.Status404NotFound;
             }
             else
             {
-                if (_namedStaticFiles.TryGetValue(documentName, out var files))
-                {
-                    await files.Invoke(context);
-                }
-                else
-                {
-                    await _staticFiles.Invoke(context);
-                }
+                await RespondWithEmbeddedAsset(context.Response, assetPath);
             }
         }
 
@@ -131,6 +93,28 @@ namespace Saunter.UI
             await response.WriteAsync(indexHtml.ToString(), Encoding.UTF8);
         }
 
+        private async Task RespondWithEmbeddedAsset(HttpResponse response, string assetPath)
+        {
+            var file = _fileProvider.GetFileInfo(assetPath);
+            if (!file.Exists)
+            {
+                response.StatusCode = StatusCodes.Status404NotFound;
+                return;
+            }
+
+            if (!_contentTypeProvider.TryGetContentType(assetPath, out var contentType))
+            {
+                contentType = MediaTypeNames.Application.Octet;
+            }
+
+            response.StatusCode = StatusCodes.Status200OK;
+            response.ContentType = contentType;
+            response.ContentLength = file.Length;
+
+            await using var stream = file.CreateReadStream();
+            await stream.CopyToAsync(response.Body);
+        }
+
         private bool IsRequestingUiBase(HttpRequest request)
         {
             return HttpMethods.IsGet(request.Method) && request.Path.IsMatchingRoute(UiBaseRoute);
@@ -139,6 +123,26 @@ namespace Saunter.UI
         private bool IsRequestingAsyncApiUi(HttpRequest request)
         {
             return HttpMethods.IsGet(request.Method) && request.Path.IsMatchingRoute(UiIndexRoute);
+        }
+
+        private static bool TryGetRequestedAssetPath(HttpContext context, out string assetPath)
+        {
+            if (!context.Request.RouteValues.TryGetValue("wildcard", out var wildcardValue)
+                || wildcardValue is not string wildcard
+                || string.IsNullOrWhiteSpace(wildcard))
+            {
+                assetPath = string.Empty;
+                return false;
+            }
+
+            assetPath = wildcard.Replace('\\', '/').TrimStart('/');
+            if (assetPath.Contains(".."))
+            {
+                assetPath = string.Empty;
+                return false;
+            }
+
+            return true;
         }
 
         private string UiIndexRoute => _options.Middleware.UiBaseRoute?.TrimEnd('/') + "/index.html";
