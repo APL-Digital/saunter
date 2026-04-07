@@ -26,12 +26,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: |
-            8.x
-            9.x
+      - name: Setup build
+        uses: ./.github/npm
       - name: Build solution and generate NuGet package
         run: dotnet pack ${{ inputs.PROJECT_ROOT_FOLDER }}${{ inputs.PROJECT_PATH }} --configuration Release --output ${{ inputs.NUGET_FOLDER }} --include-symbols -p:SymbolPackageFormat=snupkg
       - name: Push generated package to GitHub registry

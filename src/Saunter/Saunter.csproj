@@ -39,6 +39,15 @@
     <EmbeddedResource Include="../Saunter.UI/node_modules/@asyncapi/react-component/styles/default.min.css" LogicalName="Saunter.UI.default.min.css" Condition="Exists('../Saunter.UI/node_modules')" />
   </ItemGroup>
 
+  <Target Name="EnsureUiAssetsExistForPack" BeforeTargets="GenerateNuspec" Condition="'$(IsPackable)' == 'true'">
+    <Error
+      Condition="!Exists('..\Saunter.UI\node_modules\@asyncapi\react-component\browser\standalone\index.js')"
+      Text="AsyncAPI UI asset 'index.js' is missing. Run 'npm install' in src/Saunter.UI before packing Apollo.Saunter." />
+    <Error
+      Condition="!Exists('..\Saunter.UI\node_modules\@asyncapi\react-component\styles\default.min.css')"
+      Text="AsyncAPI UI asset 'default.min.css' is missing. Run 'npm install' in src/Saunter.UI before packing Apollo.Saunter." />
+  </Target>
+
   <ItemGroup>
     <None Include="../../assets/logo.png" Pack="true" PackagePath="/" />
     <None Include="../../README.md" Pack="true" PackagePath="/" />
