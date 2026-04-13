@@ -80,6 +80,26 @@ namespace Saunter.AttributeProvider
             return new AsyncApiMessageResolutionDescriptor(Array.Empty<string>(), Array.Empty<AsyncApiMessageDescriptor>(), Array.Empty<AsyncApiSchemaComponentDescriptor>());
         }
 
+        public AsyncApiMessageResolutionDescriptor ResolveReplyForOperation(MethodInfo method, OperationAttribute operationAttribute, AsyncApiInferenceOptions inferenceOptions)
+        {
+            return ResolveReply(operationAttribute, inferenceOptions);
+        }
+
+        public AsyncApiMessageResolutionDescriptor ResolveReplyForOperation(TypeInfo type, OperationAttribute operationAttribute, AsyncApiInferenceOptions inferenceOptions)
+        {
+            return ResolveReply(operationAttribute, inferenceOptions);
+        }
+
+        private AsyncApiMessageResolutionDescriptor ResolveReply(OperationAttribute operationAttribute, AsyncApiInferenceOptions inferenceOptions)
+        {
+            if (operationAttribute.ReplyMessagePayloadType is not null)
+            {
+                return GenerateMessageFromType(operationAttribute.ReplyMessagePayloadType.GetTypeInfo(), inferenceOptions);
+            }
+
+            return new AsyncApiMessageResolutionDescriptor(Array.Empty<string>(), Array.Empty<AsyncApiMessageDescriptor>(), Array.Empty<AsyncApiSchemaComponentDescriptor>());
+        }
+
         private AsyncApiMessageResolutionDescriptor GenerateMessagesFromAttributes(IEnumerable<MessageAttribute> messageAttributes, AsyncApiInferenceOptions inferenceOptions)
         {
             var messageDescriptors = new List<AsyncApiMessageDescriptor>();

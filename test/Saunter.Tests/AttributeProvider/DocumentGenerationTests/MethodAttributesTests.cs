@@ -182,6 +182,29 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             channel.Tags.Select(tag => tag.Name).ShouldBe(new[] { "billing", "events" }, ignoreOrder: true);
         }
 
+        [Fact]
+        public void GenerateDocument_GeneratesDistinctReplyChannelAndMessage()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(RequestReplyPublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            document.ShouldNotBeNull();
+
+            var requestChannel = document.AssertAndGetChannel("orders.create", "orders.create");
+            document.AssertChannelMessages(requestChannel, "createOrderRequest");
+
+            var replyChannel = document.AssertAndGetChannel("orders.create.reply", null);
+            document.AssertChannelMessages(replyChannel, "createOrderAccepted");
+
+            var receive = document.AssertAndGetOperation("CreateOrder", AsyncApiAction.Receive);
+            document.AssertByMessage(receive, "createOrderRequest");
+            receive.Reply.ShouldNotBeNull();
+            receive.Reply.ChannelId.ShouldBe("orders.create.reply");
+            receive.Reply.MessageIds.Single().ShouldBe("createOrderAccepted");
+            receive.Reply.AddressLocation.ShouldBe("$message.header#/replyTo");
+        }
+
         [AsyncApi]
         [Channel("asw.tenant_service.tenants_history", "asw.tenant_service.tenants_history", Description = "Tenant events.")]
         [SendOperation(OperationId = "TenantMessagePublisher", Summary = "Send domains events about tenants.")]
@@ -301,6 +324,16 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             {
             }
         }
+
+        [AsyncApi]
+        public class RequestReplyPublisher
+        {
+            [Channel("orders.create", "orders.create")]
+            [ReceiveOperation(typeof(CreateOrderRequest), OperationId = "CreateOrder", Reply = "orders.create.reply", ReplyMessagePayloadType = typeof(CreateOrderAccepted), ReplyAddressLocation = "$message.header#/replyTo")]
+            public void Consume()
+            {
+            }
+        }
     }
 
     public class AnyTenantCreated : IEvent { }
@@ -317,6 +350,16 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
     public class ConsumeContextPayload
     {
         public Guid Id { get; set; }
+    }
+
+    public class CreateOrderRequest
+    {
+        public Guid OrderId { get; set; }
+    }
+
+    public class CreateOrderAccepted
+    {
+        public Guid OrderId { get; set; }
     }
 
     public interface IEvent { }

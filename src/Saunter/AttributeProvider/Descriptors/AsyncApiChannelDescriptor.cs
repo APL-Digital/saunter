@@ -6,7 +6,7 @@ namespace Saunter.AttributeProvider.Descriptors
 {
     public sealed record AsyncApiChannelDescriptor(
         string Id,
-        string Address,
+        string? Address,
         string? Title,
         string? Summary,
         string? Description,

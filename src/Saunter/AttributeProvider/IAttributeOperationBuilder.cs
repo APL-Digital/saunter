@@ -7,6 +7,6 @@ namespace Saunter.AttributeProvider
 {
     internal interface IAttributeOperationBuilder
     {
-        AsyncApiOperationDescriptor Build(MemberInfo member, OperationAttribute operationAttribute, string channelId, IReadOnlyList<string> messageIds);
+        AsyncApiOperationDescriptor Build(MemberInfo member, OperationAttribute operationAttribute, string channelId, IReadOnlyList<string> messageIds, IReadOnlyList<string>? replyMessageIds = null);
     }
 }
