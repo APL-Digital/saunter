@@ -6,6 +6,8 @@ using ByteBard.AsyncAPI.Models.Interfaces;
 using MassTransit;
 using Microsoft.AspNetCore.Mvc;
 using Saunter.AttributeProvider.Attributes;
+using Saunter.AttributeProvider.Descriptors;
+using Saunter.Options.Filters;
 using Shouldly;
 using Xunit;
 
@@ -210,7 +212,7 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         {
             ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(ReplyWithoutAddressPublisher));
 
-            var document = documentProvider.GetDocument(null, options);
+            var document = documentProvider.GetDocument("reply-without-address", options);
 
             document.ShouldNotBeNull();
 
@@ -222,6 +224,34 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             receive.Reply.ChannelId.ShouldBe("orders.reply-without-address.reply");
             receive.Reply.MessageIds.ShouldBe(["createOrderAccepted"]);
             receive.Reply.AddressLocation.ShouldBeNull();
+        }
+
+        [Fact]
+        public void GenerateDocument_UsesFilteredReplyMessageIdsWhenSynthesizingReplyChannel()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(RequestReplyPublisher));
+            options.AddOperationFilter<ReplaceReplyMessageIdsOperationFilter>();
+
+            var document = documentProvider.GetDocument(null, options);
+
+            var replyChannel = document.AssertAndGetChannel("orders.create.reply", null);
+            document.AssertChannelMessages(replyChannel, "createOrderRequest");
+
+            var receive = document.AssertAndGetOperation("CreateOrder", AsyncApiAction.Receive);
+            receive.Reply.ShouldNotBeNull();
+            receive.Reply.MessageIds.ShouldBe(["createOrderRequest"]);
+        }
+
+        [Fact]
+        public void GenerateDocument_AppliesChannelFiltersToSynthesizedReplyChannels()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(RequestReplyPublisher));
+            options.AddAsyncApiChannelFilter<ReplyChannelTaggingFilter>();
+
+            var document = documentProvider.GetDocument(null, options);
+
+            var replyChannel = document.AssertAndGetChannel("orders.create.reply", null);
+            replyChannel.Tags.Select(tag => tag.Name).ShouldContain("filtered-reply-channel");
         }
 
         [Fact]
@@ -380,8 +410,8 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             }
         }
 
-        [AsyncApi]
-        public class ReplyWithoutAddressPublisher
+        [AsyncApi("reply-without-address")]
+        private class ReplyWithoutAddressPublisher
         {
             [Channel("orders.reply-without-address", "orders.reply-without-address")]
             [ReceiveOperation(typeof(CreateOrderRequest), OperationId = "ReplyWithoutAddress", Reply = "orders.reply-without-address.reply", ReplyMessagePayloadType = typeof(CreateOrderAccepted))]
@@ -407,6 +437,28 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             [ReceiveOperation(typeof(CreateOrderRequest), Reply = "orders.conflicting-reply.reply", ReplyChannelAddress = "orders.conflicting-reply.reply", ReplyAddressLocation = "$message.header#/replyTo")]
             public void Consume()
             {
+            }
+        }
+
+        private class ReplaceReplyMessageIdsOperationFilter : IOperationFilter
+        {
+            public void Apply(AsyncApiOperationDescriptor operation, OperationFilterContext context)
+            {
+                if (context.Member.Name != nameof(RequestReplyPublisher.Consume) || operation.Reply is null)
+                {
+                    return;
+                }
+
+                operation.Reply.MessageIds.Clear();
+                operation.Reply.MessageIds.Add("createOrderRequest");
+            }
+        }
+
+        private class ReplyChannelTaggingFilter : IChannelFilter
+        {
+            public void Apply(AsyncApiChannelDescriptor channel, ChannelFilterContext context)
+            {
+                channel.Tags.Add(new AsyncApiTag { Name = "filtered-reply-channel" });
             }
         }
     }

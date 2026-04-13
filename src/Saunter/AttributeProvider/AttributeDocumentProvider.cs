@@ -152,8 +152,10 @@ namespace Saunter.AttributeProvider
                         operation,
                         item.Method);
 
-                    if (TryCreateReplyChannel(channelItem, pair.Key, replyMessageIds, out var replyChannel))
+                    if (TryCreateReplyChannel(channelItem, pair.Key, operation, out var replyChannel))
                     {
+                        ApplyChannelFilters(options, item.Method, channel, replyChannel);
+
                         yield return new GeneratedOperation(
                             replyChannel.Id,
                             replyChannel,
@@ -209,8 +211,10 @@ namespace Saunter.AttributeProvider
                         operation,
                         item.Type);
 
-                    if (TryCreateReplyChannel(channelItem, pair.Key, replyMessageIds, out var replyChannel))
+                    if (TryCreateReplyChannel(channelItem, pair.Key, operation, out var replyChannel))
                     {
+                        ApplyChannelFilters(options, item.Type, channel, replyChannel);
+
                         yield return new GeneratedOperation(
                             replyChannel.Id,
                             replyChannel,
@@ -343,18 +347,19 @@ namespace Saunter.AttributeProvider
         private static bool TryCreateReplyChannel(
             AsyncApiChannelDescriptor sourceChannel,
             OperationAttribute operationAttribute,
-            IReadOnlyList<string> replyMessageIds,
+            AsyncApiOperationDescriptor operation,
             out AsyncApiChannelDescriptor replyChannel)
         {
-            if (string.IsNullOrWhiteSpace(operationAttribute.Reply))
+            if (string.IsNullOrWhiteSpace(operation.Reply?.ChannelId))
             {
                 replyChannel = default!;
                 return false;
             }
 
+            var replyMessageIds = operation.Reply.MessageIds;
             string? replyChannelAddress = null;
             if (string.IsNullOrWhiteSpace(operationAttribute.ReplyChannelAddress)
-                && string.IsNullOrWhiteSpace(operationAttribute.ReplyAddressLocation))
+                && string.IsNullOrWhiteSpace(operation.Reply.AddressLocation))
             {
                 if (replyMessageIds.Count == 0)
                 {
@@ -362,13 +367,13 @@ namespace Saunter.AttributeProvider
                     return false;
                 }
             }
-            else if (string.IsNullOrWhiteSpace(operationAttribute.ReplyAddressLocation))
+            else if (string.IsNullOrWhiteSpace(operation.Reply.AddressLocation))
             {
                 replyChannelAddress = operationAttribute.ReplyChannelAddress;
             }
 
             replyChannel = new AsyncApiChannelDescriptor(
-                operationAttribute.Reply,
+                operation.Reply.ChannelId,
                 replyChannelAddress,
                 null,
                 null,
