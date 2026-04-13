@@ -10,5 +10,9 @@ namespace Saunter.AttributeProvider
         AsyncApiMessageResolutionDescriptor ResolveForOperation(MethodInfo method, OperationAttribute operationAttribute, AsyncApiInferenceOptions inferenceOptions);
 
         AsyncApiMessageResolutionDescriptor ResolveForOperation(TypeInfo type, OperationAttribute operationAttribute, AsyncApiInferenceOptions inferenceOptions);
+
+        AsyncApiMessageResolutionDescriptor ResolveReplyForOperation(MethodInfo method, OperationAttribute operationAttribute, AsyncApiInferenceOptions inferenceOptions);
+
+        AsyncApiMessageResolutionDescriptor ResolveReplyForOperation(TypeInfo type, OperationAttribute operationAttribute, AsyncApiInferenceOptions inferenceOptions);
     }
 }

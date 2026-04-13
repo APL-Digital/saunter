@@ -84,6 +84,21 @@ namespace Saunter.AttributeProvider
                 {
                     throw new InvalidOperationException($"Operation '{operationId}' reply references unknown channel '{operation.Reply.ChannelId}'. Add the reply channel or remove the Reply reference.");
                 }
+
+                var replyChannel = document.Channels[operation.Reply.ChannelId];
+                if (!string.IsNullOrWhiteSpace(operation.Reply.AddressLocation)
+                    && !string.IsNullOrWhiteSpace(replyChannel.Address))
+                {
+                    throw new InvalidOperationException($"Operation '{operationId}' reply uses reply.address but channel '{operation.Reply.ChannelId}' also defines address '{replyChannel.Address}'. When reply.address is present, the reply channel address must be null or absent.");
+                }
+
+                foreach (var replyMessageId in operation.Reply.MessageIds)
+                {
+                    if (!replyChannel.Messages.ContainsKey(replyMessageId))
+                    {
+                        throw new InvalidOperationException($"Operation '{operationId}' reply references unknown reply channel message '{replyMessageId}' on channel '{operation.Reply.ChannelId}'. Add it to the reply channel messages list or remove it from the reply.");
+                    }
+                }
             }
         }
     }

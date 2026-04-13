@@ -50,6 +50,91 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
         }
 
         [Fact]
+        public void Validate_ThrowsWhenReplyReferencesUnknownReplyChannelMessage()
+        {
+            var validator = new AsyncApiDocumentValidator();
+            var document = new AsyncApiDocumentDescriptor
+            {
+                Components = new AsyncApiComponentsDescriptor
+                {
+                    Messages =
+                    {
+                        ["orderCreated"] = new AsyncApiMessageDescriptor("orderCreated", "orderCreated", "Order Created", null, null, null, null, null, null, null, null, null, []),
+                        ["orderAccepted"] = new AsyncApiMessageDescriptor("orderAccepted", "orderAccepted", "Order Accepted", null, null, null, null, null, null, null, null, null, [])
+                    }
+                },
+                Channels =
+                {
+                    ["orders"] = new AsyncApiChannelDescriptor("orders", "orders", null, null, null, null, [], ["orderCreated"], []),
+                    ["orders.reply"] = new AsyncApiChannelDescriptor("orders.reply", "orders.reply", null, null, null, null, [], [], [])
+                },
+                Operations =
+                {
+                    ["publishOrder"] = new AsyncApiOperationDescriptor(
+                        AsyncApiAction.Send,
+                        "orders",
+                        null,
+                        null,
+                        null,
+                        null,
+                        ["orderCreated"],
+                        [],
+                        new AsyncApiOperationReplyDescriptor("orders.reply", null, null)
+                        {
+                            MessageIds = ["orderAccepted"]
+                        })
+                }
+            };
+
+            var actual = () => validator.Validate(document);
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("reply channel message");
+        }
+
+        [Fact]
+        public void Validate_ThrowsWhenReplyAddressTargetsChannelWithConcreteAddress()
+        {
+            var validator = new AsyncApiDocumentValidator();
+            var document = new AsyncApiDocumentDescriptor
+            {
+                Components = new AsyncApiComponentsDescriptor
+                {
+                    Messages =
+                    {
+                        ["orderCreated"] = new AsyncApiMessageDescriptor("orderCreated", "orderCreated", "Order Created", null, null, null, null, null, null, null, null, null, [])
+                    }
+                },
+                Channels =
+                {
+                    ["orders"] = new AsyncApiChannelDescriptor("orders", "orders", null, null, null, null, [], ["orderCreated"], []),
+                    ["orders.reply"] = new AsyncApiChannelDescriptor("orders.reply", "orders.reply", null, null, null, null, [], ["orderCreated"], [])
+                },
+                Operations =
+                {
+                    ["publishOrder"] = new AsyncApiOperationDescriptor(
+                        AsyncApiAction.Send,
+                        "orders",
+                        null,
+                        null,
+                        null,
+                        null,
+                        ["orderCreated"],
+                        [],
+                        new AsyncApiOperationReplyDescriptor("orders.reply", "$message.header#/replyTo", null)
+                        {
+                            MessageIds = ["orderCreated"]
+                        })
+                }
+            };
+
+            var actual = () => validator.Validate(document);
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("must be null or absent");
+        }
+
+        [Fact]
         public void Validate_ThrowsWhenOperationBindingReferenceIsUnknown()
         {
             var validator = new AsyncApiDocumentValidator();

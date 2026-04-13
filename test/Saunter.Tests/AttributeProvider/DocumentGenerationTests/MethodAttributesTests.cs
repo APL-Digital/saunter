@@ -6,6 +6,8 @@ using ByteBard.AsyncAPI.Models.Interfaces;
 using MassTransit;
 using Microsoft.AspNetCore.Mvc;
 using Saunter.AttributeProvider.Attributes;
+using Saunter.AttributeProvider.Descriptors;
+using Saunter.Options.Filters;
 using Shouldly;
 using Xunit;
 
@@ -182,6 +184,121 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             channel.Tags.Select(tag => tag.Name).ShouldBe(new[] { "billing", "events" }, ignoreOrder: true);
         }
 
+        [Fact]
+        public void GenerateDocument_GeneratesDistinctReplyChannelAndMessage()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(RequestReplyPublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            document.ShouldNotBeNull();
+
+            var requestChannel = document.AssertAndGetChannel("orders.create", "orders.create");
+            document.AssertChannelMessages(requestChannel, "createOrderRequest");
+
+            var replyChannel = document.AssertAndGetChannel("orders.create.reply", null);
+            document.AssertChannelMessages(replyChannel, "createOrderAccepted");
+
+            var receive = document.AssertAndGetOperation("CreateOrder", AsyncApiAction.Receive);
+            document.AssertByMessage(receive, "createOrderRequest");
+            receive.Reply.ShouldNotBeNull();
+            receive.Reply.ChannelId.ShouldBe("orders.create.reply");
+            receive.Reply.MessageIds.Single().ShouldBe("createOrderAccepted");
+            receive.Reply.AddressLocation.ShouldBe("$message.header#/replyTo");
+        }
+
+        [Fact]
+        public void GenerateDocument_GeneratesPlaceholderReplyChannelWhenReplyHasMessagesButNoAddressMetadata()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(ReplyWithoutAddressPublisher));
+
+            var document = documentProvider.GetDocument("reply-without-address", options);
+
+            document.ShouldNotBeNull();
+
+            var replyChannel = document.AssertAndGetChannel("orders.reply-without-address.reply", null);
+            document.AssertChannelMessages(replyChannel, "createOrderAccepted");
+
+            var receive = document.AssertAndGetOperation("ReplyWithoutAddress", AsyncApiAction.Receive);
+            receive.Reply.ShouldNotBeNull();
+            receive.Reply.ChannelId.ShouldBe("orders.reply-without-address.reply");
+            receive.Reply.MessageIds.ShouldBe(["createOrderAccepted"]);
+            receive.Reply.AddressLocation.ShouldBeNull();
+        }
+
+        [Fact]
+        public void GenerateDocument_UsesFilteredReplyMessageIdsWhenSynthesizingReplyChannel()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(RequestReplyPublisher));
+            options.AddOperationFilter<ReplaceReplyMessageIdsOperationFilter>();
+
+            var document = documentProvider.GetDocument(null, options);
+
+            var replyChannel = document.AssertAndGetChannel("orders.create.reply", null);
+            document.AssertChannelMessages(replyChannel, "createOrderRequest");
+
+            var receive = document.AssertAndGetOperation("CreateOrder", AsyncApiAction.Receive);
+            receive.Reply.ShouldNotBeNull();
+            receive.Reply.MessageIds.ShouldBe(["createOrderRequest"]);
+        }
+
+        [Fact]
+        public void GenerateDocument_AppliesChannelFiltersToSynthesizedReplyChannels()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(RequestReplyPublisher));
+            options.AddAsyncApiChannelFilter<ReplyChannelContextTaggingFilter>();
+
+            var document = documentProvider.GetDocument(null, options);
+
+            var replyChannel = document.AssertAndGetChannel("orders.create.reply", null);
+            replyChannel.Tags.Select(tag => tag.Name).ShouldContain("filtered-reply-channel");
+        }
+
+        [Fact]
+        public void GenerateDocument_UsesConfiguredReplyChannelAddressWhenSet()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(ReplyChannelAddressPublisher));
+
+            var document = documentProvider.GetDocument("static-reply-address", options);
+
+            document.ShouldNotBeNull();
+
+            var replyChannel = document.AssertAndGetChannel("orders.static-reply", "orders.static.reply.address");
+            document.AssertChannelMessages(replyChannel, "createOrderAccepted");
+
+            var receive = document.AssertAndGetOperation("StaticReplyAddress", AsyncApiAction.Receive);
+            receive.Reply.ShouldNotBeNull();
+            receive.Reply.ChannelId.ShouldBe("orders.static-reply");
+            receive.Reply.MessageIds.ShouldBe(["createOrderAccepted"]);
+            receive.Reply.AddressLocation.ShouldBeNull();
+        }
+
+        [Fact]
+        public void GenerateDocument_ThrowsWhenReplyAddressIsConfiguredWithoutReplyChannel()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(InvalidReplyAddressPublisher));
+
+            var actual = () => documentProvider.GetDocument("negative-reply-metadata", options);
+
+            var exception = Should.Throw<InvalidOperationException>(actual);
+            exception.Message.ShouldContain("InvalidReplyAddressPublisher");
+            exception.Message.ShouldContain("Consume");
+        }
+
+        [Fact]
+        public void GenerateDocument_ThrowsWhenReplyAddressAndReplyChannelAddressAreBothConfigured()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(ConflictingReplyMetadataPublisher));
+
+            var actual = () => documentProvider.GetDocument("negative-reply-metadata", options);
+
+            var exception = Should.Throw<InvalidOperationException>(actual);
+            exception.Message.ShouldContain("ConflictingReplyMetadataPublisher");
+            exception.Message.ShouldContain("Consume");
+            exception.Message.ShouldContain("ReplyChannelAddress");
+            exception.Message.ShouldContain("ReplyAddressLocation");
+        }
+
         [AsyncApi]
         [Channel("asw.tenant_service.tenants_history", "asw.tenant_service.tenants_history", Description = "Tenant events.")]
         [SendOperation(OperationId = "TenantMessagePublisher", Summary = "Send domains events about tenants.")]
@@ -301,6 +418,81 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             {
             }
         }
+
+        [AsyncApi]
+        public class RequestReplyPublisher
+        {
+            [Channel("orders.create", "orders.create")]
+            [ReceiveOperation(typeof(CreateOrderRequest), OperationId = "CreateOrder", Reply = "orders.create.reply", ReplyMessagePayloadType = typeof(CreateOrderAccepted), ReplyAddressLocation = "$message.header#/replyTo")]
+            public void Consume()
+            {
+            }
+        }
+
+        [AsyncApi("reply-without-address")]
+        private class ReplyWithoutAddressPublisher
+        {
+            [Channel("orders.reply-without-address", "orders.reply-without-address")]
+            [ReceiveOperation(typeof(CreateOrderRequest), OperationId = "ReplyWithoutAddress", Reply = "orders.reply-without-address.reply", ReplyMessagePayloadType = typeof(CreateOrderAccepted))]
+            public void Consume()
+            {
+            }
+        }
+
+        [AsyncApi("static-reply-address")]
+        private class ReplyChannelAddressPublisher
+        {
+            [Channel("orders.static-reply.request", "orders.static-reply.request")]
+            [ReceiveOperation(typeof(CreateOrderRequest), OperationId = "StaticReplyAddress", Reply = "orders.static-reply", ReplyChannelAddress = "orders.static.reply.address", ReplyMessagePayloadType = typeof(CreateOrderAccepted))]
+            public void Consume()
+            {
+            }
+        }
+
+        [AsyncApi("negative-reply-metadata")]
+        private class InvalidReplyAddressPublisher
+        {
+            [Channel("orders.invalid-reply", "orders.invalid-reply")]
+            [ReceiveOperation(typeof(CreateOrderRequest), ReplyAddressLocation = "$message.header#/replyTo")]
+            public void Consume()
+            {
+            }
+        }
+
+        [AsyncApi("negative-reply-metadata")]
+        private class ConflictingReplyMetadataPublisher
+        {
+            [Channel("orders.conflicting-reply", "orders.conflicting-reply")]
+            [ReceiveOperation(typeof(CreateOrderRequest), Reply = "orders.conflicting-reply.reply", ReplyChannelAddress = "orders.conflicting-reply.reply", ReplyAddressLocation = "$message.header#/replyTo")]
+            public void Consume()
+            {
+            }
+        }
+
+        private class ReplaceReplyMessageIdsOperationFilter : IOperationFilter
+        {
+            public void Apply(AsyncApiOperationDescriptor operation, OperationFilterContext context)
+            {
+                if (context.Member.Name != nameof(RequestReplyPublisher.Consume) || operation.Reply is null)
+                {
+                    return;
+                }
+
+                operation.Reply.MessageIds.Clear();
+                operation.Reply.MessageIds.Add("createOrderRequest");
+            }
+        }
+
+        private class ReplyChannelContextTaggingFilter : IChannelFilter
+        {
+            public void Apply(AsyncApiChannelDescriptor channel, ChannelFilterContext context)
+            {
+                if (context.Channel.ChannelId == "orders.create.reply")
+                {
+                    channel.Tags.Add(new AsyncApiTag { Name = "filtered-reply-channel" });
+                }
+            }
+        }
     }
 
     public class AnyTenantCreated : IEvent { }
@@ -317,6 +509,16 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
     public class ConsumeContextPayload
     {
         public Guid Id { get; set; }
+    }
+
+    public class CreateOrderRequest
+    {
+        public Guid OrderId { get; set; }
+    }
+
+    public class CreateOrderAccepted
+    {
+        public Guid OrderId { get; set; }
     }
 
     public interface IEvent { }

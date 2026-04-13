@@ -31,6 +31,24 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             operation.Reply.MessageIds.ShouldBe(["orderCreated"]);
         }
 
+        [Fact]
+        public void Build_UsesDistinctReplyMessageIdsWhenProvided()
+        {
+            var builder = new AttributeOperationBuilder();
+            var member = typeof(OperationFixture).GetMethod(nameof(OperationFixture.Publish))!;
+            var attribute = new SendOperationAttribute
+            {
+                Reply = "orders.reply",
+                ReplyAddressLocation = "$message.header#/replyTo",
+            };
+
+            var operation = builder.Build(member, attribute, "orders", ["orderCreated"], ["orderAccepted"]);
+
+            operation.MessageIds.ShouldBe(["orderCreated"]);
+            operation.Reply.ShouldNotBeNull();
+            operation.Reply.MessageIds.ShouldBe(["orderAccepted"]);
+        }
+
         private class OperationFixture
         {
             public void Publish()

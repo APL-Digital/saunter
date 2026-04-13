@@ -111,6 +111,8 @@ namespace Saunter.Tests.AsyncApi31
         public void OperationAttribute_ExposesReplyConfiguration()
         {
             typeof(OperationAttribute).GetProperty("Reply").ShouldNotBeNull();
+            typeof(OperationAttribute).GetProperty("ReplyChannelAddress").ShouldNotBeNull();
+            typeof(OperationAttribute).GetProperty("ReplyMessagePayloadType").ShouldNotBeNull();
         }
 
         [Theory]

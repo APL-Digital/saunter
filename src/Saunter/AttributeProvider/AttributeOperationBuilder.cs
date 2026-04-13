@@ -10,7 +10,7 @@ namespace Saunter.AttributeProvider
 {
     internal class AttributeOperationBuilder : IAttributeOperationBuilder
     {
-        public AsyncApiOperationDescriptor Build(MemberInfo member, OperationAttribute operationAttribute, string channelId, IReadOnlyList<string> messageIds)
+        public AsyncApiOperationDescriptor Build(MemberInfo member, OperationAttribute operationAttribute, string channelId, IReadOnlyList<string> messageIds, IReadOnlyList<string>? replyMessageIds = null)
         {
             return new AsyncApiOperationDescriptor(
                 operationAttribute.Action,
@@ -21,7 +21,7 @@ namespace Saunter.AttributeProvider
                 operationAttribute.BindingsRef,
                 messageIds.ToArray(),
                 operationAttribute.Tags ?? Array.Empty<string>(),
-                CreateOperationReply(operationAttribute, messageIds));
+                CreateOperationReply(operationAttribute, replyMessageIds ?? messageIds));
         }
 
         private static AsyncApiOperationReplyDescriptor? CreateOperationReply(OperationAttribute operationAttribute, IReadOnlyList<string> messageIds)

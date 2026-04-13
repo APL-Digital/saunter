@@ -73,6 +73,11 @@ namespace Saunter.AttributeProvider
                     clone.Channels[item.ChannelId] = _channelUnion.Union(clone.Channels[item.ChannelId], item.Channel);
                 }
 
+                if (item.OperationId is null || item.Operation is null)
+                {
+                    continue;
+                }
+
                 if (!clone.Operations.TryAdd(item.OperationId, item.Operation))
                 {
                     var existingOperation = clone.Operations[item.OperationId];
@@ -116,12 +121,17 @@ namespace Saunter.AttributeProvider
             foreach (var item in methodsWithChannelAttribute)
             {
                 var channel = item.Channel!;
-                var operationMessages = GetOperationAttributes(item.Method)
+                var operationAttributes = GetOperationAttributes(item.Method).ToArray();
+                var operationMessages = operationAttributes
                     .ToDictionary(
                         operationAttribute => operationAttribute,
                         operationAttribute => _messageResolver.ResolveForOperation(item.Method, operationAttribute, options.Inference));
+                var replyMessages = operationAttributes
+                    .ToDictionary(
+                        operationAttribute => operationAttribute,
+                        operationAttribute => _messageResolver.ResolveReplyForOperation(item.Method, operationAttribute, options.Inference));
 
-                RegisterMessageResolutions(components, operationMessages.Values);
+                RegisterMessageResolutions(components, operationMessages.Values.Concat(replyMessages.Values));
                 var channelItem = _channelBuilder.Build(item.Method, channel, UnionMessageIds(operationMessages.Values), options.Inference);
                 RegisterChannelParameters(components, channelItem);
 
@@ -129,7 +139,10 @@ namespace Saunter.AttributeProvider
 
                 foreach (var pair in operationMessages)
                 {
-                    var operation = _operationBuilder.Build(item.Method, pair.Key, channelItem.Id, pair.Value.MessageIds);
+                    var replyResolution = replyMessages[pair.Key];
+                    ValidateReplyConfiguration(item.Method, pair.Key);
+                    var replyMessageIds = GetReplyMessageIds(pair.Key, pair.Value, replyResolution);
+                    var operation = _operationBuilder.Build(item.Method, pair.Key, channelItem.Id, pair.Value.MessageIds, replyMessageIds);
                     ApplyOperationFilters(item.Method, options, pair.Key, operation);
 
                     yield return new GeneratedOperation(
@@ -138,6 +151,18 @@ namespace Saunter.AttributeProvider
                         GetOperationId(pair.Key, item.Method, pair.Key.Action, options),
                         operation,
                         item.Method);
+
+                    if (TryCreateReplyChannel(channelItem, pair.Key, operation, out var replyChannel))
+                    {
+                        ApplyChannelFilters(options, item.Method, replyChannel);
+
+                        yield return new GeneratedOperation(
+                            replyChannel.Id,
+                            replyChannel,
+                            null,
+                            null,
+                            item.Method);
+                    }
                 }
             }
         }
@@ -155,12 +180,17 @@ namespace Saunter.AttributeProvider
             foreach (var item in classesWithChannelAttribute)
             {
                 var channel = item.Channel!;
-                var operationMessages = GetOperationAttributes(item.Type)
+                var operationAttributes = GetOperationAttributes(item.Type).ToArray();
+                var operationMessages = operationAttributes
                     .ToDictionary(
                         operationAttribute => operationAttribute,
                         operationAttribute => _messageResolver.ResolveForOperation(item.Type, operationAttribute, options.Inference));
+                var replyMessages = operationAttributes
+                    .ToDictionary(
+                        operationAttribute => operationAttribute,
+                        operationAttribute => _messageResolver.ResolveReplyForOperation(item.Type, operationAttribute, options.Inference));
 
-                RegisterMessageResolutions(components, operationMessages.Values);
+                RegisterMessageResolutions(components, operationMessages.Values.Concat(replyMessages.Values));
                 var channelItem = _channelBuilder.Build(item.Type, channel, UnionMessageIds(operationMessages.Values), options.Inference);
                 RegisterChannelParameters(components, channelItem);
 
@@ -168,7 +198,10 @@ namespace Saunter.AttributeProvider
 
                 foreach (var pair in operationMessages)
                 {
-                    var operation = _operationBuilder.Build(item.Type, pair.Key, channelItem.Id, pair.Value.MessageIds);
+                    var replyResolution = replyMessages[pair.Key];
+                    ValidateReplyConfiguration(item.Type, pair.Key);
+                    var replyMessageIds = GetReplyMessageIds(pair.Key, pair.Value, replyResolution);
+                    var operation = _operationBuilder.Build(item.Type, pair.Key, channelItem.Id, pair.Value.MessageIds, replyMessageIds);
                     ApplyOperationFilters(item.Type, options, pair.Key, operation);
 
                     yield return new GeneratedOperation(
@@ -177,6 +210,18 @@ namespace Saunter.AttributeProvider
                         GetOperationId(pair.Key, item.Type, pair.Key.Action, options),
                         operation,
                         item.Type);
+
+                    if (TryCreateReplyChannel(channelItem, pair.Key, operation, out var replyChannel))
+                    {
+                        ApplyChannelFilters(options, item.Type, replyChannel);
+
+                        yield return new GeneratedOperation(
+                            replyChannel.Id,
+                            replyChannel,
+                            null,
+                            null,
+                            item.Type);
+                    }
                 }
             }
         }
@@ -190,6 +235,11 @@ namespace Saunter.AttributeProvider
                 var filter = ResolveFilter<IChannelFilter>(filterType);
                 filter.Apply(channelItem, context);
             }
+        }
+
+        private void ApplyChannelFilters(AsyncApiOptions options, MemberInfo member, AsyncApiChannelDescriptor channelItem)
+        {
+            ApplyChannelFilters(options, member, CreateChannelFilterAttribute(channelItem), channelItem);
         }
 
         private void ApplyOperationFilters(MemberInfo member, AsyncApiOptions options, OperationAttribute operationAttribute, AsyncApiOperationDescriptor operation)
@@ -251,6 +301,95 @@ namespace Saunter.AttributeProvider
                 .ToList();
         }
 
+        private static IReadOnlyList<string> GetReplyMessageIds(
+            OperationAttribute operationAttribute,
+            AsyncApiMessageResolutionDescriptor operationResolution,
+            AsyncApiMessageResolutionDescriptor replyResolution)
+        {
+            if (string.IsNullOrWhiteSpace(operationAttribute.Reply))
+            {
+                return Array.Empty<string>();
+            }
+
+            return replyResolution.MessageIds.Count > 0
+                ? replyResolution.MessageIds
+                : operationResolution.MessageIds;
+        }
+
+        private static void ValidateReplyConfiguration(MemberInfo member, OperationAttribute operationAttribute)
+        {
+            if (!string.IsNullOrWhiteSpace(operationAttribute.ReplyChannelAddress)
+                && !string.IsNullOrWhiteSpace(operationAttribute.ReplyAddressLocation))
+            {
+                throw new InvalidOperationException(
+                    $"Operation '{FormatMember(member)}' configures both ReplyChannelAddress and ReplyAddressLocation, but those settings are mutually exclusive. Remove one of them so the reply channel is either explicitly addressed or dynamically addressed.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(operationAttribute.Reply))
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(operationAttribute.ReplyChannelAddress))
+            {
+                throw new InvalidOperationException(
+                    $"Operation '{FormatMember(member)}' configures ReplyChannelAddress but no Reply channel id. Set OperationAttribute.Reply to the generated reply channel id.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(operationAttribute.ReplyAddressLocation))
+            {
+                throw new InvalidOperationException(
+                    $"Operation '{FormatMember(member)}' configures ReplyAddressLocation but no Reply channel id. Set OperationAttribute.Reply to the reply channel id or remove the reply address metadata.");
+            }
+
+            if (operationAttribute.ReplyMessagePayloadType is not null)
+            {
+                throw new InvalidOperationException(
+                    $"Operation '{FormatMember(member)}' configures ReplyMessagePayloadType but no Reply channel id. Set OperationAttribute.Reply to the reply channel id or remove the reply payload type.");
+            }
+        }
+
+        private static bool TryCreateReplyChannel(
+            AsyncApiChannelDescriptor sourceChannel,
+            OperationAttribute operationAttribute,
+            AsyncApiOperationDescriptor operation,
+            out AsyncApiChannelDescriptor replyChannel)
+        {
+            if (string.IsNullOrWhiteSpace(operation.Reply?.ChannelId))
+            {
+                replyChannel = default!;
+                return false;
+            }
+
+            var replyMessageIds = operation.Reply.MessageIds;
+            string? replyChannelAddress = null;
+            if (string.IsNullOrWhiteSpace(operationAttribute.ReplyChannelAddress)
+                && string.IsNullOrWhiteSpace(operation.Reply.AddressLocation))
+            {
+                if (replyMessageIds.Count == 0)
+                {
+                    replyChannel = default!;
+                    return false;
+                }
+            }
+            else if (string.IsNullOrWhiteSpace(operation.Reply.AddressLocation))
+            {
+                replyChannelAddress = operationAttribute.ReplyChannelAddress;
+            }
+
+            replyChannel = new AsyncApiChannelDescriptor(
+                operation.Reply.ChannelId,
+                replyChannelAddress,
+                null,
+                null,
+                null,
+                sourceChannel.BindingsRef,
+                sourceChannel.ServerNames,
+                replyMessageIds.ToArray(),
+                Array.Empty<AsyncApiParameterDescriptor>());
+            return true;
+        }
+
         private static IEnumerable<OperationAttribute> GetOperationAttributes(MemberInfo member)
         {
             var send = member.GetCustomAttribute<SendOperationAttribute>();
@@ -281,6 +420,26 @@ namespace Saunter.AttributeProvider
             return $"{member.DeclaringType?.Name ?? member.Name}.{member.Name}.{action.ToString().ToLowerInvariant()}";
         }
 
+        private static ChannelAttribute CreateChannelFilterAttribute(AsyncApiChannelDescriptor channel)
+        {
+            var attribute = channel.Address is null
+                ? new ChannelAttribute()
+                : new ChannelAttribute(channel.Id, channel.Address);
+
+            attribute.ChannelId = channel.Id;
+            attribute.Title = channel.Title;
+            attribute.Summary = channel.Summary;
+            attribute.Description = channel.Description;
+            attribute.BindingsRef = channel.BindingsRef;
+            attribute.Tags = channel.Tags
+                .Select(tag => tag.Name)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Cast<string>()
+                .ToArray();
+            attribute.Servers = channel.ServerNames.ToArray();
+            return attribute;
+        }
+
         private static TypeInfo[] GetAsyncApiTypes(AsyncApiOptions options, string? apiName)
         {
             return options
@@ -308,6 +467,6 @@ namespace Saunter.AttributeProvider
                 : $"[{string.Join(", ", values.Select(value => $"'{value}'"))}]";
         }
 
-        private readonly record struct GeneratedOperation(string ChannelId, AsyncApiChannelDescriptor Channel, string OperationId, AsyncApiOperationDescriptor Operation, MemberInfo SourceMember);
+        private readonly record struct GeneratedOperation(string ChannelId, AsyncApiChannelDescriptor Channel, string? OperationId, AsyncApiOperationDescriptor? Operation, MemberInfo SourceMember);
     }
 }
