@@ -89,7 +89,7 @@ Scope:
 | Operation `messages` | Optional | Supported | Emitted as refs to channel messages |
 | Operation `reply.channel` | Optional | Supported | Via `Reply` on [OperationAttribute.cs](src/Saunter/AttributeProvider/Attributes/OperationAttribute.cs#L24-L33) |
 | Operation `reply.address` | Optional | Supported | Via `ReplyAddressLocation` / `ReplyAddressDescription` |
-| Operation `reply.messages` | Optional | Supported | Distinct reply payloads can be authored through `ReplyMessagePayloadType`; the provider can also auto-create a reply channel for dynamic replies (`reply.address`) or when `ReplyChannelAddress` is supplied |
+| Operation `reply.messages` | Optional | Supported | Distinct reply payloads can be authored through `ReplyMessagePayloadType`; the provider can auto-create a reply channel for message-only replies (`Reply` plus reply message ids), for dynamic replies (`reply.address`), or when `ReplyChannelAddress` is supplied |
 | Message `headers` | Optional | Supported with validation | Headers schema must be object-like |
 | Message `payload` | Optional | Supported | Generated from CLR types |
 | Message `correlationId` | Optional | Supported | Reference-based surface via `MessageAttribute.CorrelationId` |

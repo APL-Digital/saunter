@@ -154,7 +154,7 @@ namespace Saunter.AttributeProvider
 
                     if (TryCreateReplyChannel(channelItem, pair.Key, operation, out var replyChannel))
                     {
-                        ApplyChannelFilters(options, item.Method, channel, replyChannel);
+                        ApplyChannelFilters(options, item.Method, replyChannel);
 
                         yield return new GeneratedOperation(
                             replyChannel.Id,
@@ -213,7 +213,7 @@ namespace Saunter.AttributeProvider
 
                     if (TryCreateReplyChannel(channelItem, pair.Key, operation, out var replyChannel))
                     {
-                        ApplyChannelFilters(options, item.Type, channel, replyChannel);
+                        ApplyChannelFilters(options, item.Type, replyChannel);
 
                         yield return new GeneratedOperation(
                             replyChannel.Id,
@@ -235,6 +235,11 @@ namespace Saunter.AttributeProvider
                 var filter = ResolveFilter<IChannelFilter>(filterType);
                 filter.Apply(channelItem, context);
             }
+        }
+
+        private void ApplyChannelFilters(AsyncApiOptions options, MemberInfo member, AsyncApiChannelDescriptor channelItem)
+        {
+            ApplyChannelFilters(options, member, CreateChannelFilterAttribute(channelItem), channelItem);
         }
 
         private void ApplyOperationFilters(MemberInfo member, AsyncApiOptions options, OperationAttribute operationAttribute, AsyncApiOperationDescriptor operation)
@@ -413,6 +418,26 @@ namespace Saunter.AttributeProvider
             }
 
             return $"{member.DeclaringType?.Name ?? member.Name}.{member.Name}.{action.ToString().ToLowerInvariant()}";
+        }
+
+        private static ChannelAttribute CreateChannelFilterAttribute(AsyncApiChannelDescriptor channel)
+        {
+            var attribute = channel.Address is null
+                ? new ChannelAttribute()
+                : new ChannelAttribute(channel.Id, channel.Address);
+
+            attribute.ChannelId = channel.Id;
+            attribute.Title = channel.Title;
+            attribute.Summary = channel.Summary;
+            attribute.Description = channel.Description;
+            attribute.BindingsRef = channel.BindingsRef;
+            attribute.Tags = channel.Tags
+                .Select(tag => tag.Name)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Cast<string>()
+                .ToArray();
+            attribute.Servers = channel.ServerNames.ToArray();
+            return attribute;
         }
 
         private static TypeInfo[] GetAsyncApiTypes(AsyncApiOptions options, string? apiName)

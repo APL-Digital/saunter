@@ -246,12 +246,31 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         public void GenerateDocument_AppliesChannelFiltersToSynthesizedReplyChannels()
         {
             ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(RequestReplyPublisher));
-            options.AddAsyncApiChannelFilter<ReplyChannelTaggingFilter>();
+            options.AddAsyncApiChannelFilter<ReplyChannelContextTaggingFilter>();
 
             var document = documentProvider.GetDocument(null, options);
 
             var replyChannel = document.AssertAndGetChannel("orders.create.reply", null);
             replyChannel.Tags.Select(tag => tag.Name).ShouldContain("filtered-reply-channel");
+        }
+
+        [Fact]
+        public void GenerateDocument_UsesConfiguredReplyChannelAddressWhenSet()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(ReplyChannelAddressPublisher));
+
+            var document = documentProvider.GetDocument("static-reply-address", options);
+
+            document.ShouldNotBeNull();
+
+            var replyChannel = document.AssertAndGetChannel("orders.static-reply", "orders.static.reply.address");
+            document.AssertChannelMessages(replyChannel, "createOrderAccepted");
+
+            var receive = document.AssertAndGetOperation("StaticReplyAddress", AsyncApiAction.Receive);
+            receive.Reply.ShouldNotBeNull();
+            receive.Reply.ChannelId.ShouldBe("orders.static-reply");
+            receive.Reply.MessageIds.ShouldBe(["createOrderAccepted"]);
+            receive.Reply.AddressLocation.ShouldBeNull();
         }
 
         [Fact]
@@ -420,6 +439,16 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             }
         }
 
+        [AsyncApi("static-reply-address")]
+        private class ReplyChannelAddressPublisher
+        {
+            [Channel("orders.static-reply.request", "orders.static-reply.request")]
+            [ReceiveOperation(typeof(CreateOrderRequest), OperationId = "StaticReplyAddress", Reply = "orders.static-reply", ReplyChannelAddress = "orders.static.reply.address", ReplyMessagePayloadType = typeof(CreateOrderAccepted))]
+            public void Consume()
+            {
+            }
+        }
+
         [AsyncApi("negative-reply-metadata")]
         private class InvalidReplyAddressPublisher
         {
@@ -454,11 +483,14 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             }
         }
 
-        private class ReplyChannelTaggingFilter : IChannelFilter
+        private class ReplyChannelContextTaggingFilter : IChannelFilter
         {
             public void Apply(AsyncApiChannelDescriptor channel, ChannelFilterContext context)
             {
-                channel.Tags.Add(new AsyncApiTag { Name = "filtered-reply-channel" });
+                if (context.Channel.ChannelId == "orders.create.reply")
+                {
+                    channel.Tags.Add(new AsyncApiTag { Name = "filtered-reply-channel" });
+                }
             }
         }
     }
