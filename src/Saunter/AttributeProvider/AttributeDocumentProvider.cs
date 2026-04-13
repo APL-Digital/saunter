@@ -320,6 +320,12 @@ namespace Saunter.AttributeProvider
                     $"Operation '{FormatMember(member)}' configures ReplyChannelAddress but no Reply channel id. Set OperationAttribute.Reply to the generated reply channel id.");
             }
 
+            if (!string.IsNullOrWhiteSpace(operationAttribute.ReplyAddressLocation))
+            {
+                throw new InvalidOperationException(
+                    $"Operation '{FormatMember(member)}' configures ReplyAddressLocation but no Reply channel id. Set OperationAttribute.Reply to the reply channel id or remove the reply address metadata.");
+            }
+
             if (operationAttribute.ReplyMessagePayloadType is not null)
             {
                 throw new InvalidOperationException(

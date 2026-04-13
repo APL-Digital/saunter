@@ -205,6 +205,18 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             receive.Reply.AddressLocation.ShouldBe("$message.header#/replyTo");
         }
 
+        [Fact]
+        public void GenerateDocument_ThrowsWhenReplyAddressIsConfiguredWithoutReplyChannel()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(InvalidReplyAddressPublisher));
+
+            var actual = () => documentProvider.GetDocument(null, options);
+
+            var exception = Should.Throw<InvalidOperationException>(actual);
+            exception.Message.ShouldContain("InvalidReplyAddressPublisher");
+            exception.Message.ShouldContain("Consume");
+        }
+
         [AsyncApi]
         [Channel("asw.tenant_service.tenants_history", "asw.tenant_service.tenants_history", Description = "Tenant events.")]
         [SendOperation(OperationId = "TenantMessagePublisher", Summary = "Send domains events about tenants.")]
@@ -330,6 +342,16 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         {
             [Channel("orders.create", "orders.create")]
             [ReceiveOperation(typeof(CreateOrderRequest), OperationId = "CreateOrder", Reply = "orders.create.reply", ReplyMessagePayloadType = typeof(CreateOrderAccepted), ReplyAddressLocation = "$message.header#/replyTo")]
+            public void Consume()
+            {
+            }
+        }
+
+        [AsyncApi]
+        public class InvalidReplyAddressPublisher
+        {
+            [Channel("orders.invalid-reply", "orders.invalid-reply")]
+            [ReceiveOperation(typeof(CreateOrderRequest), ReplyAddressLocation = "$message.header#/replyTo")]
             public void Consume()
             {
             }
