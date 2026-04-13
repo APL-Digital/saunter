@@ -309,6 +309,13 @@ namespace Saunter.AttributeProvider
 
         private static void ValidateReplyConfiguration(MemberInfo member, OperationAttribute operationAttribute)
         {
+            if (!string.IsNullOrWhiteSpace(operationAttribute.ReplyChannelAddress)
+                && !string.IsNullOrWhiteSpace(operationAttribute.ReplyAddressLocation))
+            {
+                throw new InvalidOperationException(
+                    $"Operation '{FormatMember(member)}' configures both ReplyChannelAddress and ReplyAddressLocation, but those settings are mutually exclusive. Remove one of them so the reply channel is either explicitly addressed or dynamically addressed.");
+            }
+
             if (!string.IsNullOrWhiteSpace(operationAttribute.Reply))
             {
                 return;
@@ -347,9 +354,11 @@ namespace Saunter.AttributeProvider
                 return false;
             }
 
-            var replyChannelAddress = !string.IsNullOrWhiteSpace(operationAttribute.ReplyAddressLocation)
-                ? null
-                : operationAttribute.ReplyChannelAddress;
+            string? replyChannelAddress = null;
+            if (string.IsNullOrWhiteSpace(operationAttribute.ReplyAddressLocation))
+            {
+                replyChannelAddress = operationAttribute.ReplyChannelAddress;
+            }
 
             replyChannel = new AsyncApiChannelDescriptor(
                 operationAttribute.Reply,

@@ -217,6 +217,20 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             exception.Message.ShouldContain("Consume");
         }
 
+        [Fact]
+        public void GenerateDocument_ThrowsWhenReplyAddressAndReplyChannelAddressAreBothConfigured()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(ConflictingReplyMetadataPublisher));
+
+            var actual = () => documentProvider.GetDocument(null, options);
+
+            var exception = Should.Throw<InvalidOperationException>(actual);
+            exception.Message.ShouldContain("ConflictingReplyMetadataPublisher");
+            exception.Message.ShouldContain("Consume");
+            exception.Message.ShouldContain("ReplyChannelAddress");
+            exception.Message.ShouldContain("ReplyAddressLocation");
+        }
+
         [AsyncApi]
         [Channel("asw.tenant_service.tenants_history", "asw.tenant_service.tenants_history", Description = "Tenant events.")]
         [SendOperation(OperationId = "TenantMessagePublisher", Summary = "Send domains events about tenants.")]
@@ -348,10 +362,20 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         }
 
         [AsyncApi]
-        public class InvalidReplyAddressPublisher
+        private class InvalidReplyAddressPublisher
         {
             [Channel("orders.invalid-reply", "orders.invalid-reply")]
             [ReceiveOperation(typeof(CreateOrderRequest), ReplyAddressLocation = "$message.header#/replyTo")]
+            public void Consume()
+            {
+            }
+        }
+
+        [AsyncApi]
+        private class ConflictingReplyMetadataPublisher
+        {
+            [Channel("orders.conflicting-reply", "orders.conflicting-reply")]
+            [ReceiveOperation(typeof(CreateOrderRequest), Reply = "orders.conflicting-reply.reply", ReplyChannelAddress = "orders.conflicting-reply.reply", ReplyAddressLocation = "$message.header#/replyTo")]
             public void Consume()
             {
             }
