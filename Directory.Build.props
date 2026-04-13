@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
     <SaunterAnalyzersTargetFramework>netstandard2.0</SaunterAnalyzersTargetFramework>
     <SaunterAnalyzersAssemblyName>Apollo.Saunter.Analyzers</SaunterAnalyzersAssemblyName>
     <SaunterRepositoryUrl>https://github.com/APL-Digital/saunter</SaunterRepositoryUrl>
