@@ -206,11 +206,30 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         }
 
         [Fact]
+        public void GenerateDocument_GeneratesPlaceholderReplyChannelWhenReplyHasMessagesButNoAddressMetadata()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(ReplyWithoutAddressPublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            document.ShouldNotBeNull();
+
+            var replyChannel = document.AssertAndGetChannel("orders.reply-without-address.reply", null);
+            document.AssertChannelMessages(replyChannel, "createOrderAccepted");
+
+            var receive = document.AssertAndGetOperation("ReplyWithoutAddress", AsyncApiAction.Receive);
+            receive.Reply.ShouldNotBeNull();
+            receive.Reply.ChannelId.ShouldBe("orders.reply-without-address.reply");
+            receive.Reply.MessageIds.ShouldBe(["createOrderAccepted"]);
+            receive.Reply.AddressLocation.ShouldBeNull();
+        }
+
+        [Fact]
         public void GenerateDocument_ThrowsWhenReplyAddressIsConfiguredWithoutReplyChannel()
         {
             ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(InvalidReplyAddressPublisher));
 
-            var actual = () => documentProvider.GetDocument(null, options);
+            var actual = () => documentProvider.GetDocument("negative-reply-metadata", options);
 
             var exception = Should.Throw<InvalidOperationException>(actual);
             exception.Message.ShouldContain("InvalidReplyAddressPublisher");
@@ -222,7 +241,7 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         {
             ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(ConflictingReplyMetadataPublisher));
 
-            var actual = () => documentProvider.GetDocument(null, options);
+            var actual = () => documentProvider.GetDocument("negative-reply-metadata", options);
 
             var exception = Should.Throw<InvalidOperationException>(actual);
             exception.Message.ShouldContain("ConflictingReplyMetadataPublisher");
@@ -362,6 +381,16 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         }
 
         [AsyncApi]
+        public class ReplyWithoutAddressPublisher
+        {
+            [Channel("orders.reply-without-address", "orders.reply-without-address")]
+            [ReceiveOperation(typeof(CreateOrderRequest), OperationId = "ReplyWithoutAddress", Reply = "orders.reply-without-address.reply", ReplyMessagePayloadType = typeof(CreateOrderAccepted))]
+            public void Consume()
+            {
+            }
+        }
+
+        [AsyncApi("negative-reply-metadata")]
         private class InvalidReplyAddressPublisher
         {
             [Channel("orders.invalid-reply", "orders.invalid-reply")]
@@ -371,7 +400,7 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             }
         }
 
-        [AsyncApi]
+        [AsyncApi("negative-reply-metadata")]
         private class ConflictingReplyMetadataPublisher
         {
             [Channel("orders.conflicting-reply", "orders.conflicting-reply")]

@@ -346,16 +346,23 @@ namespace Saunter.AttributeProvider
             IReadOnlyList<string> replyMessageIds,
             out AsyncApiChannelDescriptor replyChannel)
         {
-            if (string.IsNullOrWhiteSpace(operationAttribute.Reply)
-                || (string.IsNullOrWhiteSpace(operationAttribute.ReplyChannelAddress)
-                    && string.IsNullOrWhiteSpace(operationAttribute.ReplyAddressLocation)))
+            if (string.IsNullOrWhiteSpace(operationAttribute.Reply))
             {
                 replyChannel = default!;
                 return false;
             }
 
             string? replyChannelAddress = null;
-            if (string.IsNullOrWhiteSpace(operationAttribute.ReplyAddressLocation))
+            if (string.IsNullOrWhiteSpace(operationAttribute.ReplyChannelAddress)
+                && string.IsNullOrWhiteSpace(operationAttribute.ReplyAddressLocation))
+            {
+                if (replyMessageIds.Count == 0)
+                {
+                    replyChannel = default!;
+                    return false;
+                }
+            }
+            else if (string.IsNullOrWhiteSpace(operationAttribute.ReplyAddressLocation))
             {
                 replyChannelAddress = operationAttribute.ReplyChannelAddress;
             }
