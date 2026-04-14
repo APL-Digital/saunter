@@ -11,6 +11,7 @@ Start with one of these examples:
 
 - [examples/MassTransitMinimal](https://github.com/asyncapi/saunter/tree/main/examples/MassTransitMinimal) for the happy path and inferred defaults
 - [examples/MassTransitStreetlights](https://github.com/asyncapi/saunter/tree/main/examples/MassTransitStreetlights) for the advanced, spec-shaped MassTransit example
+- [examples/MassTransitUseCases](https://github.com/asyncapi/saunter/tree/main/examples/MassTransitUseCases) for a broader set of MassTransit + Saunter authoring patterns in one project
 - [examples/StreetlightsAPI](https://github.com/asyncapi/saunter/tree/main/examples/StreetlightsAPI) for the non-MassTransit Streetlights sample
 
 1. Install the Saunter package.
@@ -70,7 +71,7 @@ Start with one of these examples:
    - `channelId` from the channel address
    - `OperationId` from the member name
    - payload type from the method signature
-   - message id, name, and title from the payload type
+   - message key, name, and title from the payload type
 
    If two addresses infer the same `channelId`, override it explicitly:
 

@@ -77,10 +77,10 @@ namespace Saunter.AttributeProvider.Attributes
         public string? ExternalDocsDescription { get; set; }
 
         /// <summary>
-        /// Unique string used to identify the message. The id MUST be unique among all messages
-        /// described in the API. The messageId value is case-sensitive. Tools and libraries MAY
-        /// use the messageId to uniquely identify a message, therefore, it is RECOMMENDED to
-        /// follow common programming naming conventions.
+        /// Unique string used as the reusable AsyncAPI message key in channel and component maps.
+        /// The value is case-sensitive and MUST be unique among all messages described in the API.
+        /// This configures Saunter's authoring key; AsyncAPI 3.0.0 does not serialize a
+        /// separate <c>messageId</c> field on the Message Object.
         /// </summary>
         public string? MessageId { get; set; }
 

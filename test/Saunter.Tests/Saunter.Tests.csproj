@@ -30,6 +30,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\examples\MassTransitUseCases\MassTransitUseCases.csproj" />
     <ProjectReference Include="..\..\examples\MassTransitMinimal\MassTransitMinimal.csproj" />
     <ProjectReference Include="..\..\examples\MassTransitStreetlights\MassTransitStreetlights.csproj" />
     <ProjectReference Include="..\Saunter.Tests.MarkerTypeTests\Saunter.Tests.MarkerTypeTests.csproj" />

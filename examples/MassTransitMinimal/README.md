@@ -14,7 +14,7 @@ What is inferred automatically:
 - channel id from the channel address
 - operation id from the method name
 - payload type from the method signature
-- message id, name, and title from the payload type
+- message key, name, and title from the payload type
 
 ## Run
 
@@ -39,3 +39,4 @@ Open:
 4. `Contracts/OrderSubmitted.cs`
 
 If you want the advanced, spec-shaped example instead, see `examples/MassTransitStreetlights`.
+If you want a broader catalog of MassTransit authoring patterns, see `examples/MassTransitUseCases`.

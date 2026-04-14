@@ -48,6 +48,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Saunter.Analyzers", "src\Sa
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MassTransitMinimal", "examples\MassTransitMinimal\MassTransitMinimal.csproj", "{E476910B-678B-4F75-8AB0-87D1A66E1D37}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MassTransitUseCases", "examples\MassTransitUseCases\MassTransitUseCases.csproj", "{F515F4E2-325B-462D-B60C-B753D795644C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -154,6 +156,18 @@ Global
 		{E476910B-678B-4F75-8AB0-87D1A66E1D37}.Release|x64.Build.0 = Release|Any CPU
 		{E476910B-678B-4F75-8AB0-87D1A66E1D37}.Release|x86.ActiveCfg = Release|Any CPU
 		{E476910B-678B-4F75-8AB0-87D1A66E1D37}.Release|x86.Build.0 = Release|Any CPU
+		{F515F4E2-325B-462D-B60C-B753D795644C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F515F4E2-325B-462D-B60C-B753D795644C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F515F4E2-325B-462D-B60C-B753D795644C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F515F4E2-325B-462D-B60C-B753D795644C}.Debug|x64.Build.0 = Debug|Any CPU
+		{F515F4E2-325B-462D-B60C-B753D795644C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F515F4E2-325B-462D-B60C-B753D795644C}.Debug|x86.Build.0 = Debug|Any CPU
+		{F515F4E2-325B-462D-B60C-B753D795644C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F515F4E2-325B-462D-B60C-B753D795644C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F515F4E2-325B-462D-B60C-B753D795644C}.Release|x64.ActiveCfg = Release|Any CPU
+		{F515F4E2-325B-462D-B60C-B753D795644C}.Release|x64.Build.0 = Release|Any CPU
+		{F515F4E2-325B-462D-B60C-B753D795644C}.Release|x86.ActiveCfg = Release|Any CPU
+		{F515F4E2-325B-462D-B60C-B753D795644C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -169,6 +183,7 @@ Global
 		{A1C59860-3A06-4A80-9676-2D173C17435E} = {6ABD4842-47AF-49A5-B057-0EBA64416789}
 		{C8BA1794-D9AB-4AF3-B968-1B60565C5E78} = {28D4C365-FDED-49AE-A97D-36202E24A55A}
 		{E476910B-678B-4F75-8AB0-87D1A66E1D37} = {6ABD4842-47AF-49A5-B057-0EBA64416789}
+		{F515F4E2-325B-462D-B60C-B753D795644C} = {6ABD4842-47AF-49A5-B057-0EBA64416789}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {2F85D9DA-DBCF-4F13-8C42-5719F1469B2E}
