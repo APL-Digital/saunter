@@ -75,6 +75,7 @@ namespace Saunter.Tests.SharedKernel
             // Arrange
             AsyncApiSchemaGenerator generator = new();
             var type = typeof(Foo);
+            var barSchemaId = "saunter.Tests.SharedKernel.Bar";
 
             // Act
             var schema = generator.Generate(type);
@@ -82,7 +83,7 @@ namespace Saunter.Tests.SharedKernel
             // Assert
             schema.ShouldNotBeNull();
             schema.Value.All.Count.ShouldBe(4);
-            schema.Value.All.Select(x => x.Id).ShouldBe(new[] { "foo", "bar", "string", "decimal" }, ignoreOrder: true);
+            schema.Value.All.Select(x => x.Id).ShouldBe(new[] { "foo", barSchemaId, "string", "decimal" }, ignoreOrder: true);
             schema.Value.Root.Properties.Count.ShouldBe(7);
             schema.Value.Root.Required.ShouldBe(new[] { "id", "myUri", "bar", "helloWorld", "timestamp", "fooType" }, ignoreOrder: true);
 
@@ -103,7 +104,7 @@ namespace Saunter.Tests.SharedKernel
             schema.Value.Root.Properties.ShouldContainKey("bar");
             var bar = schema.Value.Root.Properties["bar"];
             bar.Type.ShouldBe(AsyncApiSchemaValueType.Object);
-            bar.Id.ShouldBe("bar");
+            bar.Id.ShouldBe(barSchemaId);
             bar.Format.ShouldBeNull();
             bar.Nullable.ShouldBeFalse();
             bar.Required.ShouldBe(new[] { "name" });
@@ -276,33 +277,41 @@ namespace Saunter.Tests.SharedKernel
         }
 
         [Fact]
-        public void AsyncApiSchemaGenerator_ThrowsWhenDifferentSchemasShareTheSameId()
+        public void AsyncApiSchemaGenerator_UsesDistinctIdsForNestedTypesWithSameSimpleName()
         {
             AsyncApiSchemaGenerator generator = new();
 
-            Action actual = () => { _ = generator.Generate(typeof(CollisionRoot)); };
+            var schema = generator.Generate(typeof(CollisionRoot));
 
-            Should.Throw<InvalidOperationException>(actual)
-                .Message.ShouldContain("Existing definition:");
+            schema.ShouldNotBeNull();
+            schema.Value.All.Select(component => component.Id).ShouldBe(
+                new[]
+                {
+                    "collisionRoot",
+                    "saunter.Tests.SharedKernel.Collisions.One.Duplicate",
+                    "saunter.Tests.SharedKernel.Collisions.Two.Duplicate",
+                },
+                ignoreOrder: true);
         }
 
         [Fact]
         public void AsyncApiSchemaGenerator_KeepsSharedObjectSchemaNonNullableForNullableUsages()
         {
             AsyncApiSchemaGenerator generator = new();
+            var barSchemaId = "saunter.Tests.SharedKernel.Bar";
 
             var schema = generator.Generate(typeof(FooWithNullableBar));
 
             schema.ShouldNotBeNull();
-            schema.Value.All.Single(component => component.Id == "bar").Nullable.ShouldBeFalse();
+            schema.Value.All.Single(component => component.Id == barSchemaId).Nullable.ShouldBeFalse();
 
             var requiredBar = schema.Value.Root.Properties["requiredBar"];
-            requiredBar.Id.ShouldBe("bar");
+            requiredBar.Id.ShouldBe(barSchemaId);
             requiredBar.Nullable.ShouldBeFalse();
 
             var optionalBar = schema.Value.Root.Properties["optionalBar"];
             optionalBar.Nullable.ShouldBeTrue();
-            optionalBar.AllOf.Single().Reference.ShouldBe("#/components/schemas/bar");
+            optionalBar.AllOf.Single().Reference.ShouldBe("#/components/schemas/saunter.Tests.SharedKernel.Bar");
         }
     }
 

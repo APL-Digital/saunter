@@ -14,7 +14,8 @@ namespace Saunter.SharedKernel
         public GeneratedSchemaDescriptors? Generate(Type? type)
         {
             var nullabilityInfoContext = new NullabilityInfoContext();
-            var generatedSchemas = GenerateBranch(type, new HashSet<Type>(), nullabilityInfoContext, isRoot: true);
+            var generationContext = new SchemaGenerationContext();
+            var generatedSchemas = GenerateBranch(type, new HashSet<Type>(), nullabilityInfoContext, generationContext, isRoot: true);
             if (generatedSchemas is null)
             {
                 return null;
@@ -35,7 +36,13 @@ namespace Saunter.SharedKernel
                     "building the generated schema set"));
         }
 
-        private static GeneratedSchemaDescriptors? GenerateBranch(Type? type, HashSet<Type> parents, NullabilityInfoContext nullabilityInfoContext, NullabilityInfo? nullabilityInfo = null, bool isRoot = false)
+        private static GeneratedSchemaDescriptors? GenerateBranch(
+            Type? type,
+            HashSet<Type> parents,
+            NullabilityInfoContext nullabilityInfoContext,
+            SchemaGenerationContext generationContext,
+            NullabilityInfo? nullabilityInfo = null,
+            bool isRoot = false)
         {
             if (type is null)
             {
@@ -52,11 +59,12 @@ namespace Saunter.SharedKernel
                 isNullable = true;
             }
 
-            var name = ToSchemaName(typeInfo);
+            var schemaType = MapJsonTypeToSchemaType(typeInfo);
+            var name = GetSchemaId(typeInfo, schemaType, generationContext, isRoot);
             var schema = new AsyncApiSchemaDescriptor
             {
                 Id = name,
-                Type = MapJsonTypeToSchemaType(typeInfo),
+                Type = schemaType,
             };
 
             if (schema.Type is not AsyncApiSchemaValueType.Object and not AsyncApiSchemaValueType.Array)
@@ -85,7 +93,7 @@ namespace Saunter.SharedKernel
             {
                 var itemSchemas = new List<AsyncApiSchemaDescriptor>();
                 var itemType = GetEnumerableItemType(typeInfo);
-                var generatedItemSchema = GenerateBranch(itemType, parents, nullabilityInfoContext, GetItemNullabilityInfo(nullabilityInfo));
+                var generatedItemSchema = GenerateBranch(itemType, parents, nullabilityInfoContext, generationContext, GetItemNullabilityInfo(nullabilityInfo));
                 if (generatedItemSchema is not null)
                 {
                     schema.Items = generatedItemSchema.Value.Root;
@@ -113,7 +121,7 @@ namespace Saunter.SharedKernel
                 }
 
                 var dictionarySchemas = new List<AsyncApiSchemaDescriptor> { schema };
-                var generatedValueSchema = GenerateBranch(dictionaryValueType, parents, nullabilityInfoContext, GetDictionaryValueNullabilityInfo(nullabilityInfo));
+                var generatedValueSchema = GenerateBranch(dictionaryValueType, parents, nullabilityInfoContext, generationContext, GetDictionaryValueNullabilityInfo(nullabilityInfo));
                 if (generatedValueSchema is not null)
                 {
                     schema.AdditionalProperties = generatedValueSchema.Value.Root;
@@ -140,7 +148,7 @@ namespace Saunter.SharedKernel
             foreach (var prop in properties)
             {
                 var propertyNullability = nullabilityInfoContext.Create(prop);
-                var generatedSchemas = GenerateBranch(prop.PropertyType, parents, nullabilityInfoContext, propertyNullability);
+                var generatedSchemas = GenerateBranch(prop.PropertyType, parents, nullabilityInfoContext, generationContext, propertyNullability);
                 if (generatedSchemas is null)
                 {
                     continue;
@@ -367,6 +375,60 @@ namespace Saunter.SharedKernel
             }
 
             return ToSchemaName(name, true);
+        }
+
+        private static string GetSchemaId(TypeInfo typeInfo, AsyncApiSchemaValueType? schemaType, SchemaGenerationContext generationContext, bool isRoot)
+        {
+            var type = typeInfo.AsType();
+            if (generationContext.AssignedSchemaIds.TryGetValue(type, out var existingId))
+            {
+                return existingId;
+            }
+
+            var schemaId = schemaType is AsyncApiSchemaValueType.Object or AsyncApiSchemaValueType.Array
+                ? (isRoot ? ToSchemaName(typeInfo) : ToQualifiedSchemaName(typeInfo))
+                : ToSchemaName(typeInfo);
+
+            generationContext.AssignedSchemaIds[type] = schemaId;
+            return schemaId;
+        }
+
+        private static string ToQualifiedSchemaName(TypeInfo typeInfo)
+        {
+            return ToSchemaName(GetQualifiedTypeName(typeInfo), true);
+        }
+
+        private static string GetQualifiedTypeName(TypeInfo typeInfo)
+        {
+            if (typeInfo.IsArray)
+            {
+                var elementType = typeInfo.GetElementType();
+                return elementType is null
+                    ? typeInfo.Name
+                    : $"{GetQualifiedTypeName(elementType.GetTypeInfo())}Array";
+            }
+
+            var baseName = typeInfo.Name;
+            if (typeInfo.IsGenericType)
+            {
+                var tickIndex = baseName.IndexOf('`');
+                baseName = tickIndex >= 0 ? baseName[..tickIndex] : baseName;
+                baseName += "Of" + string.Join("And", typeInfo.GenericTypeArguments.Select(argument => GetQualifiedTypeName(argument.GetTypeInfo())));
+            }
+
+            string? prefix = null;
+            if (typeInfo.DeclaringType is not null)
+            {
+                prefix = GetQualifiedTypeName(typeInfo.DeclaringType.GetTypeInfo());
+            }
+            else if (!string.IsNullOrWhiteSpace(typeInfo.Namespace))
+            {
+                prefix = typeInfo.Namespace;
+            }
+
+            return string.IsNullOrWhiteSpace(prefix)
+                ? baseName
+                : $"{prefix}.{baseName}";
         }
 
         private static AsyncApiSchemaDescriptor[] DeduplicateSchemas(IEnumerable<AsyncApiSchemaDescriptor> schemas, string context)
@@ -629,6 +691,11 @@ namespace Saunter.SharedKernel
             }
 
             return AsyncApiSchemaValueType.Object;
+        }
+
+        private sealed class SchemaGenerationContext
+        {
+            public IDictionary<Type, string> AssignedSchemaIds { get; } = new Dictionary<Type, string>();
         }
     }
 }

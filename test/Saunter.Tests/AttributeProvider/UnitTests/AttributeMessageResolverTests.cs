@@ -10,6 +10,8 @@ using Saunter.SharedKernel.Interfaces;
 using Shouldly;
 using Xunit;
 
+#nullable enable
+
 namespace Saunter.Tests.AttributeProvider.UnitTests
 {
     public class AttributeMessageResolverTests
@@ -155,6 +157,64 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             resolution.Schemas.ShouldContain(schema => schema.Id == "int32Nullable" && schema.Schema.Nullable);
         }
 
+        [Fact]
+        public void ResolveForOperation_TypeLevelInference_UsesDistinctNestedSchemaIdsAcrossMessages()
+        {
+            var resolver = new AttributeMessageResolver(new AsyncApiSchemaGenerator());
+
+            var resolution = resolver.ResolveForOperation(
+                typeof(NestedSchemaCollisionFixture).GetTypeInfo(),
+                new SendOperationAttribute(),
+                new AsyncApiInferenceOptions());
+
+            resolution.MessageIds.ShouldBe(["addItem", "addModifier"], ignoreOrder: true);
+
+            var addItemSchema = resolution.Schemas.Single(schema => schema.Id == "addItem").Schema;
+            var addModifierSchema = resolution.Schemas.Single(schema => schema.Id == "addModifier").Schema;
+
+            var addItemModifierId = GetReferencedSchemaId(addItemSchema.Properties["modifier"]);
+            var addModifierModifierId = GetReferencedSchemaId(addModifierSchema.Properties["modifier"]);
+            addItemModifierId.ShouldNotBeNull();
+            addModifierModifierId.ShouldNotBeNull();
+            addItemModifierId.ShouldNotBe(addModifierModifierId);
+            resolution.Schemas.ShouldContain(schema => schema.Id == addItemModifierId);
+            resolution.Schemas.ShouldContain(schema => schema.Id == addModifierModifierId);
+
+            var addItemModifierSchema = ResolveComponentSchema(resolution.Schemas, addItemSchema.Properties["modifier"]);
+            var addModifierSchemaComponent = ResolveComponentSchema(resolution.Schemas, addModifierSchema.Properties["modifier"]);
+            var addItemMetadataId = GetReferencedSchemaId(addItemModifierSchema.Properties["metadata"]);
+            var addModifierMetadataId = GetReferencedSchemaId(addModifierSchemaComponent.Properties["metadata"]);
+            addItemMetadataId.ShouldNotBeNull();
+            addModifierMetadataId.ShouldNotBeNull();
+            addItemMetadataId.ShouldNotBe(addModifierMetadataId);
+            resolution.Schemas.ShouldContain(schema => schema.Id == addItemMetadataId);
+            resolution.Schemas.ShouldContain(schema => schema.Id == addModifierMetadataId);
+
+            ResolveComponentSchema(resolution.Schemas, addItemModifierSchema.Properties["metadata"]).Properties["note"].Format.ShouldBe("string");
+            ResolveComponentSchema(resolution.Schemas, addModifierSchemaComponent.Properties["metadata"]).Properties["note"].Format.ShouldBe("string");
+        }
+
+        [Fact]
+        public void ResolveForOperation_TypeLevelInference_DeduplicatesSharedNestedClrTypeAcrossMessages()
+        {
+            var resolver = new AttributeMessageResolver(new AsyncApiSchemaGenerator());
+
+            var resolution = resolver.ResolveForOperation(
+                typeof(SharedNestedSchemaFixture).GetTypeInfo(),
+                new SendOperationAttribute(),
+                new AsyncApiInferenceOptions());
+
+            resolution.MessageIds.ShouldBe(["sharedMetadataOne", "sharedMetadataTwo"], ignoreOrder: true);
+
+            var firstPayload = resolution.Schemas.Single(schema => schema.Id == "sharedMetadataOne").Schema;
+            var secondPayload = resolution.Schemas.Single(schema => schema.Id == "sharedMetadataTwo").Schema;
+            var sharedMetadataId = GetReferencedSchemaId(firstPayload.Properties["metadata"]);
+
+            sharedMetadataId.ShouldNotBeNull();
+            GetReferencedSchemaId(secondPayload.Properties["metadata"]).ShouldBe(sharedMetadataId);
+            resolution.Schemas.Count(schema => schema.Id == sharedMetadataId).ShouldBe(1);
+        }
+
         private class MessageFixture
         {
             [Message(typeof(OrderCreated), MessageId = "order/created.v1", HeadersType = typeof(MessageHeaders), CorrelationId = "orderCorrelation", ContentType = "application/cloudevents+json", ExternalDocs = "https://example.com/messages/order-created")]
@@ -227,6 +287,28 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             }
         }
 
+        private class NestedSchemaCollisionFixture
+        {
+            public void Publish(global::Saunter.Tests.AttributeProvider.UnitTests.NestedSchemaCollisionSamples.AddItem.AddItem _)
+            {
+            }
+
+            public void PublishAgain(global::Saunter.Tests.AttributeProvider.UnitTests.NestedSchemaCollisionSamples.AddModifier.AddModifier _)
+            {
+            }
+        }
+
+        private class SharedNestedSchemaFixture
+        {
+            public void Publish(global::Saunter.Tests.AttributeProvider.UnitTests.SharedNestedSchemaSamples.SharedMetadataOne _)
+            {
+            }
+
+            public void PublishAgain(global::Saunter.Tests.AttributeProvider.UnitTests.SharedNestedSchemaSamples.SharedMetadataTwo _)
+            {
+            }
+        }
+
         private class SharedPayloadOne
         {
             public string Value { get; set; } = string.Empty;
@@ -244,7 +326,7 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
 
         private sealed class AllOfSchemaGenerator : IAsyncApiSchemaGenerator
         {
-            public GeneratedSchemaDescriptors? Generate(Type type)
+            public GeneratedSchemaDescriptors? Generate(Type? type)
             {
                 if (type == typeof(MessageHeaders))
                 {
@@ -266,7 +348,7 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
 
         private sealed class ConflictingSchemaGenerator : IAsyncApiSchemaGenerator
         {
-            public GeneratedSchemaDescriptors? Generate(Type type)
+            public GeneratedSchemaDescriptors? Generate(Type? type)
             {
                 if (type == typeof(SharedPayloadOne))
                 {
@@ -296,7 +378,7 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
 
         private sealed class BlankSchemaIdGenerator : IAsyncApiSchemaGenerator
         {
-            public GeneratedSchemaDescriptors? Generate(Type type)
+            public GeneratedSchemaDescriptors? Generate(Type? type)
             {
                 if (type == typeof(OrderCreated))
                 {
@@ -312,5 +394,81 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
                 return new AsyncApiSchemaGenerator().Generate(type);
             }
         }
+
+        private static string? GetReferencedSchemaId(AsyncApiSchemaDescriptor schema)
+        {
+            if (!string.IsNullOrWhiteSpace(schema.Id))
+            {
+                return schema.Id;
+            }
+
+            return schema.AllOf
+                .Select(item => item.Reference)
+                .FirstOrDefault(reference => reference?.StartsWith("#/components/schemas/", StringComparison.Ordinal) == true)?
+                ["#/components/schemas/".Length..];
+        }
+
+        private static AsyncApiSchemaDescriptor ResolveComponentSchema(
+            System.Collections.Generic.IReadOnlyList<Saunter.AttributeProvider.Descriptors.AsyncApiSchemaComponentDescriptor> schemas,
+            AsyncApiSchemaDescriptor schema)
+        {
+            var schemaId = GetReferencedSchemaId(schema);
+            schemaId.ShouldNotBeNull();
+            return schemas.Single(component => component.Id == schemaId).Schema;
+        }
+    }
+}
+
+namespace Saunter.Tests.AttributeProvider.UnitTests.NestedSchemaCollisionSamples.AddItem
+{
+    public class AddItem
+    {
+        public Modifier Modifier { get; set; } = null!;
+    }
+
+    public class Modifier
+    {
+        public Metadata Metadata { get; set; } = null!;
+    }
+
+    public class Metadata
+    {
+        public string Note { get; set; } = string.Empty;
+    }
+}
+
+namespace Saunter.Tests.AttributeProvider.UnitTests.NestedSchemaCollisionSamples.AddModifier
+{
+    public class AddModifier
+    {
+        public Modifier Modifier { get; set; } = null!;
+    }
+
+    public class Modifier
+    {
+        public Metadata Metadata { get; set; } = null!;
+    }
+
+    public class Metadata
+    {
+        public string Note { get; set; } = string.Empty;
+    }
+}
+
+namespace Saunter.Tests.AttributeProvider.UnitTests.SharedNestedSchemaSamples
+{
+    public class SharedMetadataOne
+    {
+        public SharedMetadata Metadata { get; set; } = null!;
+    }
+
+    public class SharedMetadataTwo
+    {
+        public SharedMetadata Metadata { get; set; } = null!;
+    }
+
+    public class SharedMetadata
+    {
+        public string Source { get; set; } = string.Empty;
     }
 }
