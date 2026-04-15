@@ -120,15 +120,22 @@ namespace Saunter.SharedKernel
                     return new(CreateUsageSchema(referenceSchema, isNullable), Array.Empty<AsyncApiSchemaDescriptor>());
                 }
 
-                var dictionarySchemas = new List<AsyncApiSchemaDescriptor> { schema };
-                var generatedValueSchema = GenerateBranch(dictionaryValueType, parents, nullabilityInfoContext, generationContext, GetDictionaryValueNullabilityInfo(nullabilityInfo));
-                if (generatedValueSchema is not null)
+                try
                 {
-                    schema.AdditionalProperties = generatedValueSchema.Value.Root;
-                    dictionarySchemas.AddRange(generatedValueSchema.Value.All);
-                }
+                    var dictionarySchemas = new List<AsyncApiSchemaDescriptor> { schema };
+                    var generatedValueSchema = GenerateBranch(dictionaryValueType, parents, nullabilityInfoContext, generationContext, GetDictionaryValueNullabilityInfo(nullabilityInfo));
+                    if (generatedValueSchema is not null)
+                    {
+                        schema.AdditionalProperties = generatedValueSchema.Value.Root;
+                        dictionarySchemas.AddRange(generatedValueSchema.Value.All);
+                    }
 
-                return new(CreateUsageSchema(schema, isNullable), DeduplicateSchemas(dictionarySchemas, $"building dictionary values for schema '{name}'"));
+                    return new(CreateUsageSchema(schema, isNullable), DeduplicateSchemas(dictionarySchemas, $"building dictionary values for schema '{name}'"));
+                }
+                finally
+                {
+                    parents.Remove(type);
+                }
             }
 
             if (!parents.Add(type))
@@ -140,31 +147,38 @@ namespace Saunter.SharedKernel
                 return new(CreateUsageSchema(referenceSchema, isNullable), Array.Empty<AsyncApiSchemaDescriptor>());
             }
 
-            var nestedSchemas = new List<AsyncApiSchemaDescriptor> { schema };
-            var properties = typeInfo.AsType()
-                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                .Where(p => p.GetMethod is not null && !p.GetMethod.IsStatic && p.GetIndexParameters().Length == 0);
-
-            foreach (var prop in properties)
+            try
             {
-                var propertyNullability = nullabilityInfoContext.Create(prop);
-                var generatedSchemas = GenerateBranch(prop.PropertyType, parents, nullabilityInfoContext, generationContext, propertyNullability);
-                if (generatedSchemas is null)
+                var nestedSchemas = new List<AsyncApiSchemaDescriptor> { schema };
+                var properties = typeInfo.AsType()
+                    .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(p => p.GetMethod is not null && !p.GetMethod.IsStatic && p.GetIndexParameters().Length == 0);
+
+                foreach (var prop in properties)
                 {
-                    continue;
+                    var propertyNullability = nullabilityInfoContext.Create(prop);
+                    var generatedSchemas = GenerateBranch(prop.PropertyType, parents, nullabilityInfoContext, generationContext, propertyNullability);
+                    if (generatedSchemas is null)
+                    {
+                        continue;
+                    }
+
+                    var propertyName = ToSchemaName(prop.Name, true);
+                    schema.Properties[propertyName] = generatedSchemas.Value.Root;
+                    if (IsRequiredProperty(prop, propertyNullability))
+                    {
+                        schema.Required.Add(propertyName);
+                    }
+
+                    nestedSchemas.AddRange(generatedSchemas.Value.All);
                 }
 
-                var propertyName = ToSchemaName(prop.Name, true);
-                schema.Properties[propertyName] = generatedSchemas.Value.Root;
-                if (IsRequiredProperty(prop, propertyNullability))
-                {
-                    schema.Required.Add(propertyName);
-                }
-
-                nestedSchemas.AddRange(generatedSchemas.Value.All);
+                return new(CreateUsageSchema(schema, isNullable), DeduplicateSchemas(nestedSchemas, $"building object properties for schema '{name}'"));
             }
-
-            return new(CreateUsageSchema(schema, isNullable), DeduplicateSchemas(nestedSchemas, $"building object properties for schema '{name}'"));
+            finally
+            {
+                parents.Remove(type);
+            }
         }
 
         private static AsyncApiSchemaDescriptor CreateUsageSchema(AsyncApiSchemaDescriptor schema, bool isNullable)
