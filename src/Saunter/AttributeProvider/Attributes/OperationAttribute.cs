@@ -33,6 +33,12 @@ namespace Saunter.AttributeProvider.Attributes
 
         public Type? ReplyMessagePayloadType { get; set; }
 
+        public string? ReplyMessageId { get; set; }
+
+        public string? ReplyMessageName { get; set; }
+
+        public string? ReplyMessageTitle { get; set; }
+
         public string[] Tags { get; protected set; } = Array.Empty<string>();
     }
 

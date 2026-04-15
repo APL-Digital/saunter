@@ -208,6 +208,28 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         }
 
         [Fact]
+        public void GenerateDocument_AllowsReplyMessageMetadataOverrides()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(ReplyMessageOverridePublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            document.ShouldNotBeNull();
+
+            var replyChannel = document.AssertAndGetChannel("orders.override.reply", null);
+            document.AssertChannelMessages(replyChannel, "customReplyMessage");
+
+            var receive = document.AssertAndGetOperation("ReplyMessageOverrides", AsyncApiAction.Receive);
+            receive.Reply.ShouldNotBeNull();
+            receive.Reply.ChannelId.ShouldBe("orders.override.reply");
+            receive.Reply.MessageIds.ShouldBe(["customReplyMessage"]);
+
+            var replyMessage = document.Components.Messages["customReplyMessage"];
+            replyMessage.Name.ShouldBe("Contracts:CreateOrderAccepted");
+            replyMessage.Title.ShouldBe("Create Order Accepted");
+        }
+
+        [Fact]
         public void GenerateDocument_GeneratesPlaceholderReplyChannelWhenReplyHasMessagesButNoAddressMetadata()
         {
             ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(ReplyWithoutAddressPublisher));
@@ -434,6 +456,16 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         {
             [Channel("orders.reply-without-address", "orders.reply-without-address")]
             [ReceiveOperation(typeof(CreateOrderRequest), OperationId = "ReplyWithoutAddress", Reply = "orders.reply-without-address.reply", ReplyMessagePayloadType = typeof(CreateOrderAccepted))]
+            public void Consume()
+            {
+            }
+        }
+
+        [AsyncApi]
+        private class ReplyMessageOverridePublisher
+        {
+            [Channel("orders.override", "orders.override")]
+            [ReceiveOperation(typeof(CreateOrderRequest), OperationId = "ReplyMessageOverrides", Reply = "orders.override.reply", ReplyMessagePayloadType = typeof(CreateOrderAccepted), ReplyMessageId = "customReplyMessage", ReplyMessageName = "Contracts:CreateOrderAccepted", ReplyMessageTitle = "Create Order Accepted")]
             public void Consume()
             {
             }

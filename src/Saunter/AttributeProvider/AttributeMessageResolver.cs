@@ -94,7 +94,12 @@ namespace Saunter.AttributeProvider
         {
             if (operationAttribute.ReplyMessagePayloadType is not null)
             {
-                return GenerateMessageFromType(operationAttribute.ReplyMessagePayloadType.GetTypeInfo(), inferenceOptions);
+                return GenerateMessageFromType(
+                    operationAttribute.ReplyMessagePayloadType.GetTypeInfo(),
+                    inferenceOptions,
+                    operationAttribute.ReplyMessageId,
+                    operationAttribute.ReplyMessageName,
+                    operationAttribute.ReplyMessageTitle);
             }
 
             return new AsyncApiMessageResolutionDescriptor(Array.Empty<string>(), Array.Empty<AsyncApiMessageDescriptor>(), Array.Empty<AsyncApiSchemaComponentDescriptor>());
@@ -131,10 +136,17 @@ namespace Saunter.AttributeProvider
                 resolutions.SelectMany(resolution => resolution.Schemas));
         }
 
-        private AsyncApiMessageResolutionDescriptor GenerateMessageFromType(TypeInfo payloadType, AsyncApiInferenceOptions inferenceOptions)
+        private AsyncApiMessageResolutionDescriptor GenerateMessageFromType(
+            TypeInfo payloadType,
+            AsyncApiInferenceOptions inferenceOptions,
+            string? explicitMessageId = null,
+            string? explicitMessageName = null,
+            string? explicitMessageTitle = null)
         {
             var payloadSchema = GetAsyncApiSchemaReference(payloadType);
-            var messageId = payloadSchema?.Id ?? AttributeProviderModelFactory.SanitizeComponentKey(inferenceOptions.MessageNameGenerator(payloadType.AsType()));
+            var messageId = explicitMessageId is string configuredMessageId
+                ? AttributeProviderModelFactory.SanitizeComponentKey(configuredMessageId)
+                : payloadSchema?.Id ?? AttributeProviderModelFactory.SanitizeComponentKey(inferenceOptions.MessageNameGenerator(payloadType.AsType()));
 
             if (string.IsNullOrWhiteSpace(messageId))
             {
@@ -143,8 +155,8 @@ namespace Saunter.AttributeProvider
 
             var message = new AsyncApiMessageDescriptor(
                 messageId,
-                inferenceOptions.MessageNameGenerator(payloadType.AsType()),
-                inferenceOptions.MessageTitleGenerator(payloadType.AsType()),
+                explicitMessageName ?? inferenceOptions.MessageNameGenerator(payloadType.AsType()),
+                explicitMessageTitle ?? inferenceOptions.MessageTitleGenerator(payloadType.AsType()),
                 null,
                 null,
                 payloadSchema?.Id,
