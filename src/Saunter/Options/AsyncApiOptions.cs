@@ -18,6 +18,8 @@ namespace Saunter.Options
 
         public IList<Type> AssemblyMarkerTypes { get; set; } = new List<Type>();
 
+        public Func<PropertyInfo, string>? PropertyNameSelector { get; set; }
+
         internal virtual IReadOnlyCollection<TypeInfo> AsyncApiSchemaTypes => AssemblyMarkerTypes
             .Select(t => t.Assembly)
             .Distinct()

@@ -4,6 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
+using System.Text.Json.Serialization;
+using Microsoft.Extensions.Options;
+using Saunter.Options;
 using Saunter.SharedKernel.Descriptors;
 using Saunter.SharedKernel.Interfaces;
 
@@ -11,6 +14,18 @@ namespace Saunter.SharedKernel
 {
     internal class AsyncApiSchemaGenerator : IAsyncApiSchemaGenerator
     {
+        private readonly Func<PropertyInfo, string> _propertyNameSelector;
+
+        public AsyncApiSchemaGenerator()
+            : this(Microsoft.Extensions.Options.Options.Create(new AsyncApiOptions()))
+        {
+        }
+
+        public AsyncApiSchemaGenerator(IOptions<AsyncApiOptions> options)
+        {
+            _propertyNameSelector = options.Value.PropertyNameSelector ?? DefaultPropertyNameSelector;
+        }
+
         public GeneratedSchemaDescriptors? Generate(Type? type)
         {
             var nullabilityInfoContext = new NullabilityInfoContext();
@@ -36,7 +51,7 @@ namespace Saunter.SharedKernel
                     "building the generated schema set"));
         }
 
-        private static GeneratedSchemaDescriptors? GenerateBranch(
+        private GeneratedSchemaDescriptors? GenerateBranch(
             Type? type,
             HashSet<Type> parents,
             NullabilityInfoContext nullabilityInfoContext,
@@ -163,7 +178,7 @@ namespace Saunter.SharedKernel
                         continue;
                     }
 
-                    var propertyName = ToSchemaName(prop.Name, true);
+                    var propertyName = ResolvePropertyName(prop);
                     schema.Properties[propertyName] = generatedSchemas.Value.Root;
                     if (IsRequiredProperty(prop, propertyNullability))
                     {
@@ -179,6 +194,24 @@ namespace Saunter.SharedKernel
             {
                 parents.Remove(type);
             }
+        }
+
+        private string ResolvePropertyName(PropertyInfo property)
+        {
+            var propertyName = _propertyNameSelector(property);
+            if (!string.IsNullOrWhiteSpace(propertyName))
+            {
+                return propertyName;
+            }
+
+            throw new InvalidOperationException(
+                $"The configured property name selector returned an empty name for '{property.DeclaringType?.FullName}.{property.Name}'.");
+        }
+
+        private static string DefaultPropertyNameSelector(PropertyInfo property)
+        {
+            return property.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name
+                ?? ToSchemaName(property.Name, true);
         }
 
         private static AsyncApiSchemaDescriptor CreateUsageSchema(AsyncApiSchemaDescriptor schema, bool isNullable)

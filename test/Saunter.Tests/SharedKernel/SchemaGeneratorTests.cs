@@ -3,6 +3,8 @@
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
+using System.Text.Json.Serialization;
+using Saunter.Options;
 using Saunter.SharedKernel;
 using Saunter.SharedKernel.Descriptors;
 using Shouldly;
@@ -313,6 +315,37 @@ namespace Saunter.Tests.SharedKernel
             optionalBar.Nullable.ShouldBeTrue();
             optionalBar.AllOf.Single().Reference.ShouldBe("#/components/schemas/saunter.Tests.SharedKernel.Bar");
         }
+
+        [Fact]
+        public void AsyncApiSchemaGenerator_UsesJsonPropertyNameAttribute_ForPropertyNames()
+        {
+            AsyncApiSchemaGenerator generator = new();
+
+            var schema = generator.Generate(typeof(JsonPropertyNameHeaders));
+
+            schema.ShouldNotBeNull();
+            schema.Value.Root.Properties.ShouldContainKey("X-Markus-Actor-External-Id");
+            schema.Value.Root.Properties.ShouldContainKey("X-Markus-Actor-System");
+            schema.Value.Root.Properties.ShouldNotContainKey("externalId");
+            schema.Value.Root.Properties.ShouldNotContainKey("system");
+        }
+
+        [Fact]
+        public void AsyncApiSchemaGenerator_UsesConfiguredPropertyNameSelector()
+        {
+            var options = Microsoft.Extensions.Options.Options.Create(new AsyncApiOptions
+            {
+                PropertyNameSelector = property => $"header-{property.Name}",
+            });
+            AsyncApiSchemaGenerator generator = new(options);
+
+            var schema = generator.Generate(typeof(JsonPropertyNameHeaders));
+
+            schema.ShouldNotBeNull();
+            schema.Value.Root.Properties.ShouldContainKey("header-ExternalId");
+            schema.Value.Root.Properties.ShouldContainKey("header-System");
+            schema.Value.Root.Properties.ShouldNotContainKey("X-Markus-Actor-External-Id");
+        }
     }
 
     public class Foo
@@ -357,6 +390,15 @@ namespace Saunter.Tests.SharedKernel
     {
         public Bar RequiredBar { get; set; } = null!;
         public Bar? OptionalBar { get; set; }
+    }
+
+    public class JsonPropertyNameHeaders
+    {
+        [JsonPropertyName("X-Markus-Actor-External-Id")]
+        public string? ExternalId { get; set; }
+
+        [JsonPropertyName("X-Markus-Actor-System")]
+        public bool? System { get; set; }
     }
 
     public class FooWithDictionary

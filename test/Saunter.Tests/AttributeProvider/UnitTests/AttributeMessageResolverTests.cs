@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json.Serialization;
 using Saunter.AttributeProvider;
 using Saunter.AttributeProvider.Attributes;
 using Saunter.Options;
@@ -65,6 +66,21 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             var resolution = resolver.ResolveForOperation(method, new SendOperationAttribute(), new AsyncApiInferenceOptions());
 
             resolution.Messages.Single().HeadersSchemaId.ShouldBe("messageHeaders");
+        }
+
+        [Fact]
+        public void ResolveForOperation_UsesJsonPropertyNameAttribute_ForHeaderSchemaProperties()
+        {
+            var resolver = new AttributeMessageResolver(new AsyncApiSchemaGenerator());
+            var method = typeof(MessageFixture).GetMethod(nameof(MessageFixture.PublishWithJsonNamedHeaders))!;
+
+            var resolution = resolver.ResolveForOperation(method, new SendOperationAttribute(), new AsyncApiInferenceOptions());
+
+            var schema = resolution.Schemas.Single(component => component.Id == "jsonNamedHeaders").Schema;
+            schema.Properties.ShouldContainKey("X-Markus-Actor-External-Id");
+            schema.Properties.ShouldContainKey("X-Markus-Actor-System");
+            schema.Properties.ShouldNotContainKey("externalId");
+            schema.Properties.ShouldNotContainKey("system");
         }
 
         [Fact]
@@ -227,6 +243,11 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
             {
             }
 
+            [Message(typeof(OrderCreated), HeadersType = typeof(JsonNamedHeaders))]
+            public void PublishWithJsonNamedHeaders()
+            {
+            }
+
             [Message(typeof(OrderCreated), MessageId = "orderCreated", Summary = "first")]
             [Message(typeof(OrderCreated), MessageId = "orderCreated", Summary = "second")]
             public void PublishWithConflictingMessageDescriptors()
@@ -257,6 +278,15 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
         private class MessageHeaders
         {
             public string CorrelationId { get; set; } = string.Empty;
+        }
+
+        private class JsonNamedHeaders
+        {
+            [JsonPropertyName("X-Markus-Actor-External-Id")]
+            public string? ExternalId { get; set; }
+
+            [JsonPropertyName("X-Markus-Actor-System")]
+            public bool? System { get; set; }
         }
 
         private class TypeLevelFixture

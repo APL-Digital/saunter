@@ -10,6 +10,8 @@ Scope:
 
 ## Notable Changes Since The Previous Audit
 
+- Re-validation on 2026-04-16 confirmed that schema generation now honors `System.Text.Json` property naming. `AsyncApiSchemaGenerator` uses `[JsonPropertyName]` by default and also exposes `AsyncApiOptions.PropertyNameSelector` so hosts can override schema/header property names without document-filter hacks.
+  - See [AsyncApiOptions.cs](src/Saunter/Options/AsyncApiOptions.cs), [AsyncApiSchemaGenerator.cs](src/Saunter/SharedKernel/AsyncApiSchemaGenerator.cs), and [SchemaGeneratorTests.cs](test/Saunter.Tests/SharedKernel/SchemaGeneratorTests.cs).
 - Re-validation on 2026-04-14 found a remaining AsyncAPI 3 terminology mismatch in the public authoring surface: `MessageAttribute.MessageId` is still exposed as a first-class property even though AsyncAPI 3.0.0's `Message Object` has no `messageId` field. Saunter interprets that value as the reusable message key in `channels.*.messages` and `components.messages`; output stays structurally valid, but the API naming remains v2-flavored.
   - See [MessageAttribute.cs](src/Saunter/AttributeProvider/Attributes/MessageAttribute.cs), [AttributeMessageResolver.cs](src/Saunter/AttributeProvider/AttributeMessageResolver.cs#L166-L196), [AsyncApiDescriptorMapper.cs](src/Saunter/AttributeProvider/AsyncApiDescriptorMapper.cs#L30-L52), and the AsyncAPI 3.0.0 `Message Object` section in the source spec.
 - Re-validation on 2026-04-13 found an additional version-enforcement gap: `AsyncApiDocumentWriter` still accepts arbitrary `3.x` version strings such as `3.1.0` and serializes them as AsyncAPI 3.0 instead of rejecting anything other than `3.0.0`.
@@ -97,7 +99,7 @@ Scope:
 | Operation `reply.channel` | Optional | Supported | Via `Reply` on [OperationAttribute.cs](src/Saunter/AttributeProvider/Attributes/OperationAttribute.cs#L24-L33) |
 | Operation `reply.address` | Optional | Supported | Via `ReplyAddressLocation` / `ReplyAddressDescription` |
 | Operation `reply.messages` | Optional | Supported | Distinct reply payloads can be authored through `ReplyMessagePayloadType`; reply messages can also override the generated message key/name/title through `ReplyMessageId`, `ReplyMessageName`, and `ReplyMessageTitle`; the provider can auto-create a reply channel for message-only replies (`Reply` plus reply message ids), for dynamic replies (`reply.address`), or when `ReplyChannelAddress` is supplied |
-| Message `headers` | Optional | Supported with validation | Headers schema must be object-like |
+| Message `headers` | Optional | Supported with validation | Headers schema must be object-like; property names now honor `[JsonPropertyName]` by default and can be overridden with `AsyncApiOptions.PropertyNameSelector` |
 | Message `payload` | Optional | Supported | Generated from CLR types |
 | Message `correlationId` | Optional | Supported | Reference-based surface via `MessageAttribute.CorrelationId` |
 | Message `contentType` | Optional | Supported | Via `MessageAttribute.ContentType` |

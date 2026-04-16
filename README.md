@@ -144,6 +144,9 @@ services.AddAsyncApiSchemaGeneration(options =>
     options.AssemblyMarkerTypes = new[] { typeof(Startup) };
     options.AddAsyncApiChannelFilter<MyAsyncApiChannelFilter>();
     options.AddOperationFilter<MyOperationFilter>();
+    options.PropertyNameSelector = property =>
+        property.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name
+        ?? property.Name;
     options.Middleware.Route = "/asyncapi/asyncapi.json";
     options.Middleware.UiBaseRoute = "/asyncapi/ui/";
     options.Middleware.UiTitle = "My AsyncAPI Documentation";
@@ -159,6 +162,7 @@ Default inference decisions:
 
 - inferred operation ids preserve the member name casing by default
 - inferred channel ids use the configured `ChannelIdGenerator`
+- schema property names honor `[JsonPropertyName]` by default; `PropertyNameSelector` can override that globally
 - richer channel tag metadata can be declared with `[ChannelTag(...)]`
 - channel parameters can now carry `DefaultValue` and `Examples`
 - Saunter packages ship the built-in analyzers automatically
