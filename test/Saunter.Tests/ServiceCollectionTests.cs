@@ -133,6 +133,34 @@ namespace Saunter.Tests
         }
 
         [Fact]
+        public void ConfigureAsyncApiDocument_AssignsIndependentRoutesWithoutMutatingGlobalMiddlewareRoutes()
+        {
+            var services = new ServiceCollection();
+
+            services.AddAsyncApiSchemaGeneration(options =>
+            {
+                options.Middleware.Route = "/asyncapi/asyncapi.json";
+                options.Middleware.UiBaseRoute = "/asyncapi/ui/";
+            });
+            services.ConfigureAsyncApiDocument("orders", document =>
+            {
+                document.AttributeDocumentName = "v1";
+                document.Middleware.UiTitle = "Orders UI";
+            });
+
+            using var sp = services.BuildServiceProvider();
+            var options = sp.GetRequiredService<IOptions<AsyncApiOptions>>().Value;
+
+            options.Middleware.Route.ShouldBe("/asyncapi/asyncapi.json");
+            options.Middleware.UiBaseRoute.ShouldBe("/asyncapi/ui/");
+            options.Documents.ShouldContainKey("orders");
+            options.Documents["orders"].AttributeDocumentName.ShouldBe("v1");
+            options.Documents["orders"].Middleware.Route.ShouldBe("/asyncapi/orders/asyncapi.json");
+            options.Documents["orders"].Middleware.UiBaseRoute.ShouldBe("/asyncapi/orders/ui");
+            options.Documents["orders"].Middleware.UiTitle.ShouldBe("Orders UI");
+        }
+
+        [Fact]
         public void GetDocument_CreatesConfiguredFilterWithoutExplicitFilterRegistration()
         {
             var services = new ServiceCollection();

@@ -52,6 +52,29 @@ namespace Saunter.Tests.UI
             context.Response.StatusCode.ShouldBe(StatusCodes.Status404NotFound);
         }
 
+        [Fact]
+        public async Task Invoke_ServesHtmlWithAbsoluteDocumentAndAssetUrls()
+        {
+            var middleware = CreateMiddleware();
+            var context = new DefaultHttpContext();
+            context.Request.Method = HttpMethods.Get;
+            context.Request.Path = "/asyncapi/default/ui/index.html";
+            context.Request.RouteValues["document"] = "default";
+            context.Response.Body = new MemoryStream();
+
+            await middleware.Invoke(context);
+
+            context.Response.StatusCode.ShouldBe(StatusCodes.Status200OK);
+            context.Response.Body.Position = 0;
+
+            using var reader = new StreamReader(context.Response.Body, Encoding.UTF8);
+            var body = await reader.ReadToEndAsync();
+
+            body.ShouldContain("/asyncapi/default/asyncapi.json");
+            body.ShouldContain("/asyncapi/default/ui/default.min.css");
+            body.ShouldContain("/asyncapi/default/ui/index.js");
+        }
+
         private static AsyncApiUiMiddleware CreateMiddleware()
         {
             var options = Microsoft.Extensions.Options.Options.Create(new AsyncApiOptions());

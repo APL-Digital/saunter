@@ -54,5 +54,24 @@ namespace Saunter
 
             return services;
         }
+
+        public static IServiceCollection ConfigureAsyncApiDocument(this IServiceCollection services, string documentName, Action<AsyncApiDocumentRegistration> setupAction)
+        {
+            services.Configure<AsyncApiOptions>(options =>
+            {
+                var document = options.Documents.GetOrAdd(documentName, CreateDocumentRegistration);
+                setupAction(document);
+            });
+
+            return services;
+        }
+
+        private static AsyncApiDocumentRegistration CreateDocumentRegistration(string documentName)
+        {
+            var document = new AsyncApiDocumentRegistration(documentName);
+            document.Middleware.Route = $"/asyncapi/{documentName}/asyncapi.json";
+            document.Middleware.UiBaseRoute = $"/asyncapi/{documentName}/ui";
+            return document;
+        }
     }
 }

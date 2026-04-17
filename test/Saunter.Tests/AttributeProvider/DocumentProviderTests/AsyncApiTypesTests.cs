@@ -184,6 +184,50 @@ namespace Saunter.Tests.AttributeProvider.DocumentProviderTests
             schemas[addModifierMetadataId]!["properties"]!["note"].ShouldNotBeNull();
         }
 
+        [Fact]
+        public void GetDocument_CanSplitSameAttributeDocumentNameIntoMultipleConfiguredDocuments()
+        {
+            var services = new ServiceCollection();
+
+            services.AddFakeLogging();
+            services.AddAsyncApiSchemaGeneration(o =>
+            {
+                o.AssemblyMarkerTypes = new[] { typeof(OrdersV1Publisher), typeof(InvoicesV1Publisher) };
+            });
+            services.ConfigureAsyncApiDocument("orders-v1", document =>
+            {
+                document.AttributeDocumentName = "v1";
+                document.TypeFilter = type => type.AsType() == typeof(OrdersV1Publisher);
+                document.Document.Info = new AsyncApiInfoDescriptor
+                {
+                    Title = "Orders",
+                    Version = "1.0.0"
+                };
+            });
+            services.ConfigureAsyncApiDocument("invoices-v1", document =>
+            {
+                document.AttributeDocumentName = "v1";
+                document.TypeFilter = type => type.AsType() == typeof(InvoicesV1Publisher);
+                document.Document.Info = new AsyncApiInfoDescriptor
+                {
+                    Title = "Invoices",
+                    Version = "1.0.0"
+                };
+            });
+
+            using var serviceprovider = services.BuildServiceProvider();
+
+            var documentProvider = serviceprovider.GetRequiredService<IAsyncApiDocumentProvider>();
+            var options = serviceprovider.GetRequiredService<IOptions<AsyncApiOptions>>().Value;
+            var ordersDocument = documentProvider.GetDocument("orders-v1", options);
+            var invoicesDocument = documentProvider.GetDocument("invoices-v1", options);
+
+            ordersDocument.Operations.ShouldContainKey("PublishOrderCreated");
+            ordersDocument.Operations.ShouldNotContainKey("PublishInvoiceCreated");
+            invoicesDocument.Operations.ShouldContainKey("PublishInvoiceCreated");
+            invoicesDocument.Operations.ShouldNotContainKey("PublishOrderCreated");
+        }
+
         [AsyncApi]
         private class ConflictingPublishOne
         {
@@ -209,6 +253,28 @@ namespace Saunter.Tests.AttributeProvider.DocumentProviderTests
         private class ConflictPayload
         {
             public string Id { get; set; } = string.Empty;
+        }
+
+        [AsyncApi("v1")]
+        private class OrdersV1Publisher
+        {
+            [Channel("orders.created", "orders.created")]
+            [SendOperation]
+            [Message(typeof(ConflictPayload))]
+            public void PublishOrderCreated()
+            {
+            }
+        }
+
+        [AsyncApi("v1")]
+        private class InvoicesV1Publisher
+        {
+            [Channel("invoices.created", "invoices.created")]
+            [SendOperation]
+            [Message(typeof(ConflictPayload))]
+            public void PublishInvoiceCreated()
+            {
+            }
         }
 
         [AsyncApi]

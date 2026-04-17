@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Immutable;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -45,8 +46,8 @@ namespace Saunter.AttributeProvider
             ArgumentNullException.ThrowIfNull(options);
 
             var asyncApiTypes = GetAsyncApiTypes(options, documentName);
-            var sourceDocument = documentName is not null && options.NamedApis.TryGetValue(documentName, out var namedDocument)
-                ? namedDocument
+            var sourceDocument = TryGetConfiguredDocument(options, documentName, out var configuredDocument)
+                ? configuredDocument
                 : options.AsyncApi;
             var clone = _cloner.ClonePrototype(sourceDocument);
 
@@ -442,10 +443,44 @@ namespace Saunter.AttributeProvider
 
         private static TypeInfo[] GetAsyncApiTypes(AsyncApiOptions options, string? apiName)
         {
-            return options
-                .AsyncApiSchemaTypes
-                .Where(t => t.GetCustomAttribute<AsyncApiAttribute>()?.DocumentName == apiName)
+            var registration = apiName is not null && options.Documents.TryGetValue(apiName, out var configuredDocument)
+                ? configuredDocument
+                : null;
+            var markerTypes = registration is not null && registration.MarkerTypes.Count > 0
+                ? registration.MarkerTypes
+                : null;
+            var sourceTypes = markerTypes
+                is null
+                ? options.AsyncApiSchemaTypes
+                : markerTypes
+                    .Select(t => t.Assembly)
+                    .Distinct()
+                    .SelectMany(a => a.DefinedTypes)
+                    .ToImmutableHashSet();
+            var attributeDocumentName = registration?.AttributeDocumentName ?? apiName;
+
+            return sourceTypes
+                .Where(t => t.GetCustomAttribute<AsyncApiAttribute>()?.DocumentName == attributeDocumentName)
+                .Where(t => registration?.TypeFilter?.Invoke(t) ?? true)
                 .ToArray();
+        }
+
+        private static bool TryGetConfiguredDocument(AsyncApiOptions options, string? documentName, out AsyncApiDocumentDescriptor document)
+        {
+            if (documentName is not null && options.Documents.TryGetValue(documentName, out var configuredDocument))
+            {
+                document = configuredDocument.Document;
+                return true;
+            }
+
+            if (documentName is not null && options.NamedApis.TryGetValue(documentName, out var namedDocument))
+            {
+                document = namedDocument;
+                return true;
+            }
+
+            document = default!;
+            return false;
         }
 
         private static string FormatMember(MemberInfo member)

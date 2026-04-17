@@ -218,15 +218,70 @@ services.AddAsyncApiSchemaGeneration(options =>
 ```csharp
 services.AddAsyncApiSchemaGeneration(options =>
 {
-    options.AssemblyMarkerTypes = new[] { typeof(FooMessageBus) };
+    options.AssemblyMarkerTypes = new[] { typeof(FleetPublisher), typeof(ConfigPublisher) };
 });
 
-services.ConfigureNamedAsyncApi("Foo", asyncApi =>
+services.ConfigureAsyncApiDocument("fleet", document =>
 {
-    asyncApi.Asyncapi = "3.0.0";
-    asyncApi.Info = new AsyncApiInfoDescriptor { Title = "Foo API", Version = "1.0.0" };
+    document.AttributeDocumentName = "v1";
+    document.MarkerTypes.Add(typeof(FleetPublisher));
+    document.Middleware.Route = "/asyncapi/fleet/asyncapi.json";
+    document.Middleware.UiBaseRoute = "/asyncapi/fleet/ui";
+    document.Middleware.UiTitle = "Fleet API";
+    document.Document.Asyncapi = "3.0.0";
+    document.Document.Info = new AsyncApiInfoDescriptor { Title = "Fleet API", Version = "1.0.0" };
+});
+
+services.ConfigureAsyncApiDocument("markus-config", document =>
+{
+    document.AttributeDocumentName = "v1";
+    document.MarkerTypes.Add(typeof(ConfigPublisher));
+    document.Middleware.Route = "/asyncapi/markus-config/asyncapi.json";
+    document.Middleware.UiBaseRoute = "/asyncapi/markus-config/ui";
+    document.Middleware.UiTitle = "Markus.Config Messaging API";
+    document.Document.Asyncapi = "3.0.0";
+    document.Document.Info = new AsyncApiInfoDescriptor { Title = "Markus.Config Messaging API", Version = "1.0.0" };
 });
 ```
+
+Use `ConfigureAsyncApiDocument(...)` when you need independent hosted documents with their own:
+
+- route
+- UI base route
+- title
+- marker type set
+- type filter
+
+This is the preferred model when:
+
+- two hosted documents reuse the same `[AsyncApi("...")]` document name
+- one process co-hosts multiple messaging boundaries
+- you need stable, non-templated URLs such as `/asyncapi/fleet/ui`
+
+You can also split a single attribute document name into multiple hosted documents with `TypeFilter`:
+
+```csharp
+services.AddAsyncApiSchemaGeneration(options =>
+{
+    options.AssemblyMarkerTypes = new[] { typeof(OrdersV1Publisher), typeof(InvoicesV1Publisher) };
+});
+
+services.ConfigureAsyncApiDocument("orders-v1", document =>
+{
+    document.AttributeDocumentName = "v1";
+    document.TypeFilter = type => type.AsType() == typeof(OrdersV1Publisher);
+});
+
+services.ConfigureAsyncApiDocument("invoices-v1", document =>
+{
+    document.AttributeDocumentName = "v1";
+    document.TypeFilter = type => type.AsType() == typeof(InvoicesV1Publisher);
+});
+```
+
+Saunter still supports `ConfigureNamedAsyncApi(...)` for the legacy model where the route template contains `{document}` and the hosted document key matches the `[AsyncApi("...")]` document name. Prefer `ConfigureAsyncApiDocument(...)` for new work.
+
+The built-in UI now renders absolute asset and document URLs, so `/asyncapi/foo/ui` works without relying on a trailing slash redirect.
 
 ## Breaking Changes
 
