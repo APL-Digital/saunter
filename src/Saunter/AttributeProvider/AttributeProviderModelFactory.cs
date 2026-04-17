@@ -35,6 +35,17 @@ namespace Saunter.AttributeProvider
             return new AsyncApiBindingsReference<TBinding>($"#/components/{componentName}/{bindingsRef}");
         }
 
+        public static AsyncApiBindings<TBinding> ResolveBindings<TBinding>(string? bindingsRef, AsyncApiBindings<TBinding>? bindings, string componentName)
+            where TBinding : IBinding
+        {
+            if (!string.IsNullOrWhiteSpace(bindingsRef))
+            {
+                return CreateBindingsReference<TBinding>(bindingsRef, componentName);
+            }
+
+            return bindings ?? new AsyncApiBindings<TBinding>();
+        }
+
         public static AsyncApiMultiFormatSchema? CreateSchemaWrapper(AsyncApiJsonSchema? schema)
         {
             if (schema is null)

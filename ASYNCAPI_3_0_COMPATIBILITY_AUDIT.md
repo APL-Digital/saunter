@@ -10,6 +10,8 @@ Scope:
 
 ## Notable Changes Since The Previous Audit
 
+- Re-validation on 2026-04-17 confirmed that Saunter now supports inline bindings on direct document descriptors for channels, operations, and component messages in addition to the existing `BindingsRef` path. The use-cases example now includes a document-authored AMQP sample that exercises inline channel, operation, and message bindings.
+  - See [AsyncApiChannelDescriptor.cs](src/Saunter/AttributeProvider/Descriptors/AsyncApiChannelDescriptor.cs), [AsyncApiOperationDescriptor.cs](src/Saunter/AttributeProvider/Descriptors/AsyncApiOperationDescriptor.cs), [AsyncApiMessageDescriptor.cs](src/Saunter/AttributeProvider/Descriptors/AsyncApiMessageDescriptor.cs), [AsyncApiDescriptorMapper.cs](src/Saunter/AttributeProvider/AsyncApiDescriptorMapper.cs), and [CommerceAsyncApiDocument.cs](examples/MassTransitUseCases/AsyncApi/CommerceAsyncApiDocument.cs).
 - Re-validation on 2026-04-17 confirmed that Saunter now models AsyncAPI 3 server bindings end-to-end. `AsyncApiServerDescriptor` exposes `Bindings` and `BindingsRef`, `AsyncApiComponentsDescriptor` exposes `serverBindings`, the validator checks unknown server-binding refs, and Saunter now ships a minimal `AMQPServerBinding` helper so AsyncAPI AMQP server bindings can serialize as `amqp: {}`.
   - See [AsyncApiServerDescriptor.cs](src/Saunter/Descriptors/AsyncApiServerDescriptor.cs), [AsyncApiComponentsDescriptor.cs](src/Saunter/Descriptors/AsyncApiComponentsDescriptor.cs), [AsyncApiDocumentValidator.cs](src/Saunter/AttributeProvider/AsyncApiDocumentValidator.cs), [AMQPServerBinding.cs](src/Saunter/Bindings/AMQP/AMQPServerBinding.cs), and [DocumentWriterTests.cs](test/Saunter.Tests/SharedKernel/DocumentWriterTests.cs).
 - Re-validation on 2026-04-16 confirmed that schema generation now honors `System.Text.Json` property naming. `AsyncApiSchemaGenerator` uses `[JsonPropertyName]` by default and also exposes `AsyncApiOptions.PropertyNameSelector` so hosts can override schema/header property names without document-filter hacks.
@@ -88,14 +90,14 @@ Scope:
 | Channel `parameters` | Conditional | Supported | Includes `enum`, `default`, `description`, `examples`, and `location` |
 | Channel `tags` | Optional | Supported | Rich tag objects are supported through `ChannelTagAttribute`; plain string tags also work |
 | Channel `externalDocs` | Optional | Missing | Not modeled |
-| Channel `bindings` | Optional | Supported | Via `BindingsRef` |
+| Channel `bindings` | Optional | Supported | Via `BindingsRef` on attribute-driven channels and either inline `Bindings` or `BindingsRef` on direct document descriptors |
 | Operation `action` | Required | Supported | In [OperationAttribute.cs](src/Saunter/AttributeProvider/Attributes/OperationAttribute.cs#L7-L75) |
 | Operation `channel` | Required | Supported | Always emitted as a channel ref |
 | Operation `title` / `summary` / `description` | Optional | Supported | Built in [AttributeOperationBuilder.cs](src/Saunter/AttributeProvider/AttributeOperationBuilder.cs#L13-L25) |
 | Operation `security` | Optional | Missing as authored surface | Mapper emits an empty list instead of a modeled value |
 | Operation `tags` | Optional | Partially supported | Name-only tags; no first-class rich tag or ref surface |
 | Operation `externalDocs` | Optional | Missing | Not modeled |
-| Operation `bindings` | Optional | Supported | Via `BindingsRef` |
+| Operation `bindings` | Optional | Supported | Via `BindingsRef` on attribute-driven operations and either inline `Bindings` or `BindingsRef` on direct document descriptors |
 | Operation `traits` | Optional | Partially supported | Trait refs can exist on descriptors and be validated, but there is no first-class attribute property |
 | Operation `messages` | Optional | Supported | Emitted as refs to channel messages |
 | Operation `reply.channel` | Optional | Supported | Via `Reply` on [OperationAttribute.cs](src/Saunter/AttributeProvider/Attributes/OperationAttribute.cs#L24-L33) |
@@ -109,7 +111,7 @@ Scope:
 | Message authoring key (`MessageAttribute.MessageId`) | Not a Message Object field in AsyncAPI 3.0.0 | Risky terminology | Saunter uses it as the reusable message map key, not as a serialized Message Object property |
 | Message `tags` | Optional | Partially supported | Name-only tags; no rich tag object or ref surface |
 | Message `externalDocs` | Optional | Supported | Via `MessageAttribute.ExternalDocs` |
-| Message `bindings` | Optional | Supported | Via `BindingsRef` |
+| Message `bindings` | Optional | Supported | Via `BindingsRef` on attribute-driven messages and either inline `Bindings` or `BindingsRef` on direct document component messages |
 | Message `examples` | Optional | Missing | Mapper initializes an empty list |
 | Message `traits` | Optional | Missing | Mapper initializes an empty list |
 | Parameter `enum` | Optional | Supported | Enum values inferred from enum-typed channel parameters |

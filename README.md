@@ -169,7 +169,7 @@ Default inference decisions:
 
 ## Bindings
 
-Bindings can be referenced from `ChannelAttribute` and `OperationAttribute` through `BindingsRef`.
+Bindings can be referenced from attributes through `BindingsRef`, and document descriptors can also declare bindings inline on servers, channels, operations, and component messages.
 
 ```csharp
 using ByteBard.AsyncAPI.Bindings.AMQP;
@@ -177,6 +177,7 @@ using ByteBard.AsyncAPI.Bindings.Http;
 using ByteBard.AsyncAPI.Models;
 using ByteBard.AsyncAPI.Models.Interfaces;
 using Saunter.Bindings.AMQP;
+using Saunter.AttributeProvider.Descriptors;
 
 services.AddAsyncApiSchemaGeneration(options =>
 {
@@ -201,6 +202,20 @@ services.AddAsyncApiSchemaGeneration(options =>
                 ["sharedRabbitMq"] = new()
                 {
                     new AMQPServerBinding()
+                }
+            },
+            Messages =
+            {
+                ["signupMessage"] = new AsyncApiMessageDescriptor("signupMessage", "signupMessage", "Signup event", null, null, "signupPayload", null, null, null, null, null, null, [])
+                {
+                    Bindings = new()
+                    {
+                        new AMQPMessageBinding
+                        {
+                            ContentEncoding = "gzip",
+                            MessageType = "user.signup",
+                        }
+                    }
                 }
             },
             ChannelBindings =
@@ -229,12 +244,30 @@ services.AddAsyncApiSchemaGeneration(options =>
                     }
                 }
             }
+        },
+        Channels =
+        {
+            ["routedChannel"] = new AsyncApiChannelDescriptor("routedChannel", "user.signup", null, null, null, null, ["rabbitmq"], ["signupMessage"], [])
+            {
+                Bindings = new()
+                {
+                    new AMQPChannelBinding
+                    {
+                        Is = ChannelType.RoutingKey,
+                        Exchange = new()
+                        {
+                            Name = "user.events",
+                            Type = ExchangeType.Topic,
+                        }
+                    }
+                }
+            }
         }
     };
 });
 ```
 
-`AsyncApiServerDescriptor` also supports `BindingsRef` when you want to reference `components/serverBindings` instead of declaring bindings inline.
+`AsyncApiServerDescriptor` supports both inline `Bindings` and `BindingsRef`. Attribute-based `Channel`, `Operation`, and `Message` annotations still use `BindingsRef`; inline bindings for those shapes are currently a document-descriptor feature.
 
 ## Multiple AsyncAPI Documents
 

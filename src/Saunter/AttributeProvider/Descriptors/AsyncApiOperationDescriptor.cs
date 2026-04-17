@@ -15,8 +15,16 @@ namespace Saunter.AttributeProvider.Descriptors
         IReadOnlyList<string> Tags,
         AsyncApiOperationReplyDescriptor? Reply)
     {
+        private AsyncApiBindings<IOperationBinding> _bindings = new();
+
         public IList<string> TraitReferences { get; } = new List<string>();
 
-        public AsyncApiBindings<IOperationBinding> Bindings => AttributeProvider.AttributeProviderModelFactory.CreateBindingsReference<IOperationBinding>(BindingsRef, "operationBindings");
+        public AsyncApiBindings<IOperationBinding> InlineBindings => _bindings;
+
+        public AsyncApiBindings<IOperationBinding> Bindings
+        {
+            get => global::Saunter.AttributeProvider.AttributeProviderModelFactory.ResolveBindings<IOperationBinding>(BindingsRef, _bindings, "operationBindings");
+            init => _bindings = value ?? new AsyncApiBindings<IOperationBinding>();
+        }
     }
 }

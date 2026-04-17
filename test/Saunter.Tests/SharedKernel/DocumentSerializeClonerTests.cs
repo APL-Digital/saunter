@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using ByteBard.AsyncAPI.Bindings.AMQP;
 using ByteBard.AsyncAPI.Models;
 using ByteBard.AsyncAPI.Models.Interfaces;
 using Microsoft.Extensions.Logging.Testing;
@@ -87,6 +88,12 @@ namespace Saunter.Tests.SharedKernel
                     Messages =
                     {
                         ["message"] = new AsyncApiMessageDescriptor("message", "message", "message", null, null, "payload", null, null, null, null, null, null, [])
+                        {
+                            Bindings = new AsyncApiBindings<IMessageBinding>
+                            {
+                                new AMQPMessageBinding { MessageType = "message.created" }
+                            }
+                        }
                     },
                     ServerBindings =
                     {
@@ -99,10 +106,22 @@ namespace Saunter.Tests.SharedKernel
                 Channels =
                 {
                     ["channel"] = new AsyncApiChannelDescriptor("channel", "channel", null, null, "description channel", null, ["one"], ["message"], [])
+                    {
+                        Bindings = new AsyncApiBindings<IChannelBinding>
+                        {
+                            new AMQPChannelBinding { Is = ChannelType.Queue }
+                        }
+                    }
                 },
                 Operations =
                 {
                     ["operation"] = new AsyncApiOperationDescriptor(ByteBard.AsyncAPI.Models.AsyncApiAction.Send, "channel", null, "my summary", null, null, ["message"], [], null)
+                    {
+                        Bindings = new AsyncApiBindings<IOperationBinding>
+                        {
+                            new AMQPOperationBinding { Ack = true }
+                        }
+                    }
                 }
             };
 
@@ -123,6 +142,9 @@ namespace Saunter.Tests.SharedKernel
             Assert.Equal("server docs", result.Servers["one"].ExternalDocsDescription);
             Assert.Equal("rabbitmq", result.Servers["one"].BindingsRef);
             Assert.True(result.Components.ServerBindings.ContainsKey("rabbitmq"));
+            Assert.True(result.Components.Messages["message"].Bindings.ContainsKey("amqp"));
+            Assert.True(result.Channels["channel"].Bindings.ContainsKey("amqp"));
+            Assert.True(result.Operations["operation"].Bindings.ContainsKey("amqp"));
         }
 
         [Fact]

@@ -1,4 +1,6 @@
 ﻿using System;
+using ByteBard.AsyncAPI.Models;
+using ByteBard.AsyncAPI.Models.Interfaces;
 
 namespace Saunter.AttributeProvider
 {
@@ -11,8 +13,7 @@ namespace Saunter.AttributeProvider
                 var serverName = serverPair.Key;
                 var server = serverPair.Value;
 
-                if (!string.IsNullOrWhiteSpace(server.BindingsRef)
-                    && server.Bindings is { Count: > 0 })
+                if (HasBindingsConflict(server.BindingsRef, server.Bindings))
                 {
                     throw new InvalidOperationException($"Server '{serverName}' sets both Bindings and BindingsRef. Use only one server bindings source.");
                 }
@@ -41,6 +42,11 @@ namespace Saunter.AttributeProvider
                     }
                 }
 
+                if (HasBindingsConflict(channel.BindingsRef, channel.InlineBindings))
+                {
+                    throw new InvalidOperationException($"Channel '{channel.Id}' sets both Bindings and BindingsRef. Use only one channel bindings source.");
+                }
+
                 if (!string.IsNullOrWhiteSpace(channel.BindingsRef) && !document.Components.ChannelBindings.ContainsKey(channel.BindingsRef))
                 {
                     throw new InvalidOperationException($"Channel '{channel.Id}' references unknown channel binding '{channel.BindingsRef}'. Add it to components/channelBindings or remove the BindingsRef.");
@@ -52,6 +58,11 @@ namespace Saunter.AttributeProvider
                 if (!string.IsNullOrWhiteSpace(message.CorrelationIdRef) && !document.Components.CorrelationIds.ContainsKey(message.CorrelationIdRef))
                 {
                     throw new InvalidOperationException($"Message '{message.Id}' references unknown correlation id '{message.CorrelationIdRef}'. Add it to components/correlationIds or remove the CorrelationId reference.");
+                }
+
+                if (HasBindingsConflict(message.BindingsRef, message.InlineBindings))
+                {
+                    throw new InvalidOperationException($"Message '{message.Id}' sets both Bindings and BindingsRef. Use only one message bindings source.");
                 }
 
                 if (!string.IsNullOrWhiteSpace(message.BindingsRef) && !document.Components.MessageBindings.ContainsKey(message.BindingsRef))
@@ -77,6 +88,11 @@ namespace Saunter.AttributeProvider
                     {
                         throw new InvalidOperationException($"Operation '{operationId}' references unknown channel message '{messageId}' on channel '{operation.ChannelId}'. Add it to the channel messages list or remove it from the operation.");
                     }
+                }
+
+                if (HasBindingsConflict(operation.BindingsRef, operation.InlineBindings))
+                {
+                    throw new InvalidOperationException($"Operation '{operationId}' sets both Bindings and BindingsRef. Use only one operation bindings source.");
                 }
 
                 if (!string.IsNullOrWhiteSpace(operation.BindingsRef) && !document.Components.OperationBindings.ContainsKey(operation.BindingsRef))
@@ -117,6 +133,13 @@ namespace Saunter.AttributeProvider
                     }
                 }
             }
+        }
+
+        private static bool HasBindingsConflict<TBinding>(string? bindingsRef, AsyncApiBindings<TBinding>? bindings)
+            where TBinding : IBinding
+        {
+            return !string.IsNullOrWhiteSpace(bindingsRef)
+                && bindings is { Count: > 0 };
         }
     }
 }

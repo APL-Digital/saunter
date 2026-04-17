@@ -61,7 +61,13 @@ namespace Saunter.SharedKernel
             return new AsyncApiComponentsDescriptor
             {
                 Schemas = (components.Schemas ?? new Dictionary<string, AsyncApiSchemaDescriptor>()).ToDictionary(pair => pair.Key, pair => CloneSchema(pair.Value)),
-                Messages = (components.Messages ?? new Dictionary<string, AsyncApiMessageDescriptor>()).ToDictionary(pair => pair.Key, pair => pair.Value with { Tags = pair.Value.Tags.ToArray() }),
+                Messages = (components.Messages ?? new Dictionary<string, AsyncApiMessageDescriptor>()).ToDictionary(
+                    pair => pair.Key,
+                    pair => pair.Value with
+                    {
+                        Tags = pair.Value.Tags.ToArray(),
+                        Bindings = pair.Value.InlineBindings is null ? new AsyncApiBindings<IMessageBinding>() : CloneBindings(pair.Value.InlineBindings),
+                    }),
                 Parameters = (components.Parameters ?? new Dictionary<string, AsyncApiParameterDescriptor>()).ToDictionary(pair => pair.Key, pair => pair.Value with { EnumValues = pair.Value.EnumValues.ToArray(), Examples = pair.Value.Examples.ToArray() }),
                 ServerBindings = (components.ServerBindings ?? new Dictionary<string, AsyncApiBindings<IServerBinding>>()).ToDictionary(pair => pair.Key, pair => CloneBindings(pair.Value)),
                 OperationBindings = (components.OperationBindings ?? new Dictionary<string, AsyncApiBindings<IOperationBinding>>()).ToDictionary(pair => pair.Key, pair => CloneBindings(pair.Value)),
@@ -106,6 +112,7 @@ namespace Saunter.SharedKernel
         {
             return channel with
             {
+                Bindings = channel.InlineBindings is null ? new AsyncApiBindings<IChannelBinding>() : CloneBindings(channel.InlineBindings),
                 ServerNames = channel.ServerNames.ToArray(),
                 MessageIds = channel.MessageIds.ToArray(),
                 Parameters = channel.Parameters.Select(parameter => parameter with { EnumValues = parameter.EnumValues.ToArray(), Examples = parameter.Examples.ToArray() }).ToArray(),
@@ -116,6 +123,7 @@ namespace Saunter.SharedKernel
         {
             var clone = operation with
             {
+                Bindings = operation.InlineBindings is null ? new AsyncApiBindings<IOperationBinding>() : CloneBindings(operation.InlineBindings),
                 MessageIds = operation.MessageIds.ToArray(),
                 Tags = operation.Tags.ToArray(),
             };

@@ -1,9 +1,11 @@
 ﻿using System;
+using ByteBard.AsyncAPI.Bindings.AMQP;
 using ByteBard.AsyncAPI.Bindings.Kafka;
 using ByteBard.AsyncAPI.Models;
 using MassTransitUseCases.AsyncApi;
 using Saunter;
 using Saunter.Bindings.AMQP;
+using Saunter.SharedKernel.Descriptors;
 
 namespace MassTransitUseCases.AsyncApi;
 
@@ -82,6 +84,38 @@ internal static class CommerceAsyncApiDocument
             },
             Components = new AsyncApiComponentsDescriptor
             {
+                Schemas =
+                {
+                    ["signupMessagePayload"] = CreateSignupPayloadSchema("signupMessagePayload"),
+                    ["queuedSignupMessagePayload"] = CreateSignupPayloadSchema("queuedSignupMessagePayload"),
+                },
+                Messages =
+                {
+                    ["signupMessage"] = new("signupMessage", "signupMessage", "Signup event", null, null, "signupMessagePayload", null, null, null, null, null, null, [])
+                    {
+                        Bindings = new()
+                        {
+                            new AMQPMessageBinding
+                            {
+                                ContentEncoding = "gzip",
+                                MessageType = "user.signup",
+                                BindingVersion = "0.3.0",
+                            }
+                        }
+                    },
+                    ["queuedSignupMessage"] = new("queuedSignupMessage", "queuedSignupMessage", "Queued signup event", null, null, "queuedSignupMessagePayload", null, null, null, null, null, null, [])
+                    {
+                        Bindings = new()
+                        {
+                            new AMQPMessageBinding
+                            {
+                                ContentEncoding = "gzip",
+                                MessageType = "user.signup.queued",
+                                BindingVersion = "0.3.0",
+                            }
+                        }
+                    }
+                },
                 ServerBindings =
                 {
                     ["rabbitmqAmqpServer"] = new()
@@ -138,7 +172,86 @@ internal static class CommerceAsyncApiDocument
                         Description = "Username and password used to authenticate with RabbitMQ.",
                     }
                 }
+            },
+            Channels =
+            {
+                ["routedChannel"] = new("routedChannel", "user.signup", null, null, "Document-authored AMQP routing-key example.", null, ["rabbitmq"], ["signupMessage"], [])
+                {
+                    Bindings = new()
+                    {
+                        new AMQPChannelBinding
+                        {
+                            Is = ChannelType.RoutingKey,
+                            Exchange = new Exchange
+                            {
+                                Name = "user.events",
+                                Type = ExchangeType.Topic,
+                                Durable = true,
+                                AutoDelete = false,
+                                Vhost = "/",
+                            },
+                            BindingVersion = "0.3.0",
+                        }
+                    }
+                },
+                ["queueChannel"] = new("queueChannel", "signup.queue", null, null, "Document-authored AMQP queue example.", null, ["rabbitmq"], ["queuedSignupMessage"], [])
+                {
+                    Bindings = new()
+                    {
+                        new AMQPChannelBinding
+                        {
+                            Is = ChannelType.Queue,
+                            Queue = new Queue
+                            {
+                                Name = "signup.queue",
+                                Durable = true,
+                                Exclusive = false,
+                                AutoDelete = false,
+                                Vhost = "/",
+                            },
+                            BindingVersion = "0.3.0",
+                        }
+                    }
+                }
+            },
+            Operations =
+            {
+                ["receiveSignup"] = new(AsyncApiAction.Receive, "routedChannel", null, null, "Document-authored AMQP receive binding example.", null, ["signupMessage"], [], null)
+                {
+                    Bindings = new()
+                    {
+                        new AMQPOperationBinding
+                        {
+                            Expiration = 60000,
+                            UserId = "guest",
+                            Cc = { "user.audit" },
+                            Priority = 5,
+                            DeliveryMode = DeliveryMode.Persistent,
+                            Mandatory = true,
+                            Bcc = { "internal.audit" },
+                            Timestamp = true,
+                            Ack = true,
+                            BindingVersion = "0.3.0",
+                        }
+                    }
+                },
+                ["sendQueuedSignup"] = new(AsyncApiAction.Send, "queueChannel", null, null, "Document-authored AMQP send example without operation bindings.", null, ["queuedSignupMessage"], [], null)
             }
         };
+    }
+
+    private static AsyncApiSchemaDescriptor CreateSignupPayloadSchema(string id)
+    {
+        var schema = new AsyncApiSchemaDescriptor
+        {
+            Id = id,
+            Type = AsyncApiSchemaValueType.Object,
+        };
+        schema.Properties["userId"] = new AsyncApiSchemaDescriptor
+        {
+            Type = AsyncApiSchemaValueType.String,
+        };
+
+        return schema;
     }
 }

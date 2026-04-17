@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text.Json.Nodes;
+using ByteBard.AsyncAPI.Bindings.AMQP;
 using ByteBard.AsyncAPI.Models;
 using ByteBard.AsyncAPI.Models.Interfaces;
 using Saunter.Bindings.AMQP;
@@ -164,6 +165,136 @@ namespace Saunter.Tests.SharedKernel
         }
 
         [Fact]
+        public void WriteJson_SerializesInlineAmqpChannelOperationAndMessageBindings()
+        {
+            var writer = new AsyncApiDocumentWriter(new AsyncApiDocumentMapper(new global::Saunter.AttributeProvider.AsyncApiDescriptorMapper(new AsyncApiSchemaMapper())));
+            var document = new AsyncApiDocumentDescriptor
+            {
+                Asyncapi = "3.0.0",
+                Info = new AsyncApiInfoDescriptor
+                {
+                    Title = "Minimal AMQP Feature Coverage",
+                    Version = "1.0.0"
+                },
+                Servers =
+                {
+                    ["rabbitmq"] = new AsyncApiServerDescriptor
+                    {
+                        Host = "localhost:5672",
+                        Protocol = "amqp"
+                    }
+                },
+                Components = new AsyncApiComponentsDescriptor
+                {
+                    Schemas =
+                    {
+                        ["signupPayload"] = CreatePayloadSchema("signupPayload"),
+                        ["queuedSignupPayload"] = CreatePayloadSchema("queuedSignupPayload"),
+                    },
+                    Messages =
+                    {
+                        ["signupMessage"] = new global::Saunter.AttributeProvider.Descriptors.AsyncApiMessageDescriptor("signupMessage", "signupMessage", "Signup event", null, null, "signupPayload", null, null, null, null, null, null, [])
+                        {
+                            Bindings = new AsyncApiBindings<IMessageBinding>
+                            {
+                                new AMQPMessageBinding
+                                {
+                                    ContentEncoding = "gzip",
+                                    MessageType = "user.signup",
+                                    BindingVersion = "0.3.0",
+                                }
+                            }
+                        },
+                        ["queuedSignupMessage"] = new global::Saunter.AttributeProvider.Descriptors.AsyncApiMessageDescriptor("queuedSignupMessage", "queuedSignupMessage", "Queued signup event", null, null, "queuedSignupPayload", null, null, null, null, null, null, [])
+                        {
+                            Bindings = new AsyncApiBindings<IMessageBinding>
+                            {
+                                new AMQPMessageBinding
+                                {
+                                    ContentEncoding = "gzip",
+                                    MessageType = "user.signup.queued",
+                                    BindingVersion = "0.3.0",
+                                }
+                            }
+                        },
+                    }
+                },
+                Channels =
+                {
+                    ["routedChannel"] = new global::Saunter.AttributeProvider.Descriptors.AsyncApiChannelDescriptor("routedChannel", "user.signup", null, null, null, null, ["rabbitmq"], ["signupMessage"], [])
+                    {
+                        Bindings = new AsyncApiBindings<IChannelBinding>
+                        {
+                            new AMQPChannelBinding
+                            {
+                                Is = ChannelType.RoutingKey,
+                                Exchange = new Exchange
+                                {
+                                    Name = "user.events",
+                                    Type = ExchangeType.Topic,
+                                    Durable = true,
+                                    AutoDelete = false,
+                                    Vhost = "/",
+                                },
+                                BindingVersion = "0.3.0",
+                            }
+                        }
+                    },
+                    ["queueChannel"] = new global::Saunter.AttributeProvider.Descriptors.AsyncApiChannelDescriptor("queueChannel", "signup.queue", null, null, null, null, ["rabbitmq"], ["queuedSignupMessage"], [])
+                    {
+                        Bindings = new AsyncApiBindings<IChannelBinding>
+                        {
+                            new AMQPChannelBinding
+                            {
+                                Is = ChannelType.Queue,
+                                Queue = new Queue
+                                {
+                                    Name = "signup.queue",
+                                    Durable = true,
+                                    Exclusive = false,
+                                    AutoDelete = false,
+                                    Vhost = "/",
+                                },
+                                BindingVersion = "0.3.0",
+                            }
+                        }
+                    }
+                },
+                Operations =
+                {
+                    ["receiveSignup"] = new global::Saunter.AttributeProvider.Descriptors.AsyncApiOperationDescriptor(AsyncApiAction.Receive, "routedChannel", null, null, null, null, ["signupMessage"], [], null)
+                    {
+                        Bindings = new AsyncApiBindings<IOperationBinding>
+                        {
+                            new AMQPOperationBinding
+                            {
+                                Expiration = 60000,
+                                UserId = "guest",
+                                Cc = { "user.audit" },
+                                Priority = 5,
+                                DeliveryMode = DeliveryMode.Persistent,
+                                Mandatory = true,
+                                Bcc = { "internal.audit" },
+                                Timestamp = true,
+                                Ack = true,
+                                BindingVersion = "0.3.0",
+                            }
+                        }
+                    },
+                    ["sendQueuedSignup"] = new global::Saunter.AttributeProvider.Descriptors.AsyncApiOperationDescriptor(AsyncApiAction.Send, "queueChannel", null, null, null, null, ["queuedSignupMessage"], [], null)
+                }
+            };
+
+            var root = JsonNode.Parse(writer.WriteJson(document))!;
+
+            root["channels"]!["routedChannel"]!["bindings"]!["amqp"]!["is"]!.GetValue<string>().ShouldBe("routingKey");
+            root["channels"]!["queueChannel"]!["bindings"]!["amqp"]!["queue"]!["name"]!.GetValue<string>().ShouldBe("signup.queue");
+            root["operations"]!["receiveSignup"]!["bindings"]!["amqp"]!["deliveryMode"]!.GetValue<int>().ShouldBe(2);
+            root["components"]!["messages"]!["signupMessage"]!["bindings"]!["amqp"]!["messageType"]!.GetValue<string>().ShouldBe("user.signup");
+            root["components"]!["messages"]!["queuedSignupMessage"]!["bindings"]!["amqp"]!["messageType"]!.GetValue<string>().ShouldBe("user.signup.queued");
+        }
+
+        [Fact]
         public void WriteJson_ThrowsForUnsupportedAsyncApiVersion()
         {
             var writer = new AsyncApiDocumentWriter(new AsyncApiDocumentMapper(new global::Saunter.AttributeProvider.AsyncApiDescriptorMapper(new AsyncApiSchemaMapper())));
@@ -181,6 +312,21 @@ namespace Saunter.Tests.SharedKernel
 
             Should.Throw<InvalidOperationException>(actual)
                 .Message.ShouldContain("Unsupported AsyncAPI version");
+        }
+
+        private static AsyncApiSchemaDescriptor CreatePayloadSchema(string id)
+        {
+            var schema = new AsyncApiSchemaDescriptor
+            {
+                Id = id,
+                Type = AsyncApiSchemaValueType.Object,
+            };
+            schema.Properties["userId"] = new AsyncApiSchemaDescriptor
+            {
+                Type = AsyncApiSchemaValueType.String,
+            };
+
+            return schema;
         }
     }
 }

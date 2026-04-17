@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using ByteBard.AsyncAPI.Bindings.AMQP;
 using ByteBard.AsyncAPI.Models;
+using ByteBard.AsyncAPI.Models.Interfaces;
 using Saunter.AttributeProvider.Descriptors;
 using Saunter.SharedKernel;
 using Shouldly;
@@ -155,6 +157,43 @@ namespace Saunter.Tests.SharedKernel
             var actual = channelUnion.Union(source, additional);
 
             actual.BindingsRef.ShouldBe("additionalBinding");
+        }
+
+        [Fact]
+        public void AsyncApiChannelUnion_OnUnion_PreservesInlineBindingsWhenAdditionalHasNone()
+        {
+            var source = new AsyncApiChannelDescriptor("orders", "foo", null, null, null, null, [], [], [])
+            {
+                Bindings = new AsyncApiBindings<IChannelBinding>
+                {
+                    new AMQPChannelBinding { Is = ChannelType.Queue }
+                }
+            };
+            var additional = new AsyncApiChannelDescriptor("orders", "foo", null, null, null, null, [], [], []);
+
+            var channelUnion = new AsyncApiChannelUnion();
+            var actual = channelUnion.Union(source, additional);
+
+            actual.Bindings.ShouldContainKey("amqp");
+        }
+
+        [Fact]
+        public void AsyncApiChannelUnion_OnUnion_ThrowsWhenInlineBindingsConflictWithBindingReference()
+        {
+            var source = new AsyncApiChannelDescriptor("orders", "foo", null, null, null, null, [], [], [])
+            {
+                Bindings = new AsyncApiBindings<IChannelBinding>
+                {
+                    new AMQPChannelBinding { Is = ChannelType.Queue }
+                }
+            };
+            var additional = new AsyncApiChannelDescriptor("orders", "foo", null, null, null, "ordersBinding", [], [], []);
+
+            var channelUnion = new AsyncApiChannelUnion();
+            var actual = () => channelUnion.Union(source, additional);
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("inline bindings");
         }
 
         [Fact]

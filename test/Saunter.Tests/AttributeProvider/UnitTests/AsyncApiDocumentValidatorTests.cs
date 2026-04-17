@@ -1,4 +1,5 @@
 ﻿using System;
+using ByteBard.AsyncAPI.Bindings.AMQP;
 using ByteBard.AsyncAPI.Models;
 using Saunter.AttributeProvider;
 using Saunter.AttributeProvider.Descriptors;
@@ -207,6 +208,103 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
 
             Should.Throw<InvalidOperationException>(actual)
                 .Message.ShouldContain("operation binding");
+        }
+
+        [Fact]
+        public void Validate_ThrowsWhenChannelSetsBindingsAndBindingsRef()
+        {
+            var validator = new AsyncApiDocumentValidator();
+            var document = new AsyncApiDocumentDescriptor
+            {
+                Channels =
+                {
+                    ["orders"] = new AsyncApiChannelDescriptor("orders", "orders", null, null, null, "ordersBinding", [], [], [])
+                    {
+                        Bindings = new AsyncApiBindings<ByteBard.AsyncAPI.Models.Interfaces.IChannelBinding>
+                        {
+                            new AMQPChannelBinding { Is = ChannelType.Queue }
+                        }
+                    }
+                },
+                Components = new AsyncApiComponentsDescriptor
+                {
+                    ChannelBindings =
+                    {
+                        ["ordersBinding"] = new AsyncApiBindings<ByteBard.AsyncAPI.Models.Interfaces.IChannelBinding>()
+                    }
+                }
+            };
+
+            var actual = () => validator.Validate(document);
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("both Bindings and BindingsRef");
+        }
+
+        [Fact]
+        public void Validate_ThrowsWhenMessageSetsBindingsAndBindingsRef()
+        {
+            var validator = new AsyncApiDocumentValidator();
+            var document = new AsyncApiDocumentDescriptor
+            {
+                Components = new AsyncApiComponentsDescriptor
+                {
+                    Messages =
+                    {
+                        ["orderCreated"] = new AsyncApiMessageDescriptor("orderCreated", "orderCreated", "Order Created", null, null, null, null, null, null, null, null, "orderCreatedBinding", [])
+                        {
+                            Bindings = new AsyncApiBindings<ByteBard.AsyncAPI.Models.Interfaces.IMessageBinding>
+                            {
+                                new AMQPMessageBinding { MessageType = "order.created" }
+                            }
+                        }
+                    },
+                    MessageBindings =
+                    {
+                        ["orderCreatedBinding"] = new AsyncApiBindings<ByteBard.AsyncAPI.Models.Interfaces.IMessageBinding>()
+                    }
+                }
+            };
+
+            var actual = () => validator.Validate(document);
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("both Bindings and BindingsRef");
+        }
+
+        [Fact]
+        public void Validate_ThrowsWhenOperationSetsBindingsAndBindingsRef()
+        {
+            var validator = new AsyncApiDocumentValidator();
+            var document = new AsyncApiDocumentDescriptor
+            {
+                Channels =
+                {
+                    ["orders"] = new AsyncApiChannelDescriptor("orders", "orders", null, null, null, null, [], [], [])
+                },
+                Operations =
+                {
+                    ["publishOrder"] = new AsyncApiOperationDescriptor(AsyncApiAction.Send, "orders", null, null, null, "ordersBinding", [], [], null)
+                    {
+                        Bindings = new AsyncApiBindings<ByteBard.AsyncAPI.Models.Interfaces.IOperationBinding>
+                        {
+                            new AMQPOperationBinding { Ack = true }
+                        }
+                    }
+                },
+                Components = new AsyncApiComponentsDescriptor
+                {
+                    OperationBindings =
+                    {
+                        ["ordersBinding"] = new AsyncApiBindings<ByteBard.AsyncAPI.Models.Interfaces.IOperationBinding>()
+                    }
+                }
+            };
+
+            var actual = () => validator.Validate(document);
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("both Bindings and BindingsRef");
         }
 
         [Fact]

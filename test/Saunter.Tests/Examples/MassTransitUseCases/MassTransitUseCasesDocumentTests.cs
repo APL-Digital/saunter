@@ -33,6 +33,8 @@ namespace Saunter.Tests.Examples.MassTransitUseCases
             document.Servers.ShouldContainKey("rabbitmq");
             document.Servers["rabbitmq"].BindingsRef.ShouldBe("rabbitmqAmqpServer");
             document.Components.ServerBindings.ShouldContainKey("rabbitmqAmqpServer");
+            document.Components.Messages.ShouldContainKey("signupMessage");
+            document.Components.Messages.ShouldContainKey("queuedSignupMessage");
 
             var catalogChannel = document.AssertAndGetChannel("pricesChanged", "catalog.prices.changed");
             var catalogSend = document.AssertAndGetOperation("Publish", ByteBard.AsyncAPI.Models.AsyncApiAction.Send);
@@ -89,6 +91,15 @@ namespace Saunter.Tests.Examples.MassTransitUseCases
             searchChannel.BindingsRef.ShouldBe("searchIndexKafkaTopic");
             searchOperation.BindingsRef.ShouldBe("searchIndexKafkaProducer");
             document.Components.Messages["searchIndexSyncRequested"].BindingsRef.ShouldBe("searchIndexKafkaMessage");
+
+            var routedChannel = document.AssertAndGetChannel("routedChannel", "user.signup");
+            var queueChannel = document.AssertAndGetChannel("queueChannel", "signup.queue");
+            var receiveSignup = document.AssertAndGetOperation("receiveSignup", ByteBard.AsyncAPI.Models.AsyncApiAction.Receive);
+            var sendQueuedSignup = document.AssertAndGetOperation("sendQueuedSignup", ByteBard.AsyncAPI.Models.AsyncApiAction.Send);
+            document.AssertChannelMessages(routedChannel, "signupMessage");
+            document.AssertChannelMessages(queueChannel, "queuedSignupMessage");
+            document.AssertByMessage(receiveSignup, "signupMessage");
+            document.AssertByMessage(sendQueuedSignup, "queuedSignupMessage");
 
             var exportChannel = document.AssertAndGetChannel("catalogExportLifecycle", "catalog/exports/lifecycle");
             var exportOperation = document.AssertAndGetOperation("PublishCatalogExportLifecycle", ByteBard.AsyncAPI.Models.AsyncApiAction.Send);
@@ -167,6 +178,10 @@ namespace Saunter.Tests.Examples.MassTransitUseCases
             var root = JsonNode.Parse(json)!;
             root["servers"]!["rabbitmq"]!["bindings"]!["$ref"]!.GetValue<string>().ShouldBe("#/components/serverBindings/rabbitmqAmqpServer");
             ((JsonObject)root["components"]!["serverBindings"]!["rabbitmqAmqpServer"]!["amqp"]!).Count.ShouldBe(0);
+            root["channels"]!["routedChannel"]!["bindings"]!["amqp"]!["exchange"]!["name"]!.GetValue<string>().ShouldBe("user.events");
+            root["channels"]!["queueChannel"]!["bindings"]!["amqp"]!["queue"]!["name"]!.GetValue<string>().ShouldBe("signup.queue");
+            root["operations"]!["receiveSignup"]!["bindings"]!["amqp"]!["deliveryMode"]!.GetValue<int>().ShouldBe(2);
+            root["components"]!["messages"]!["signupMessage"]!["bindings"]!["amqp"]!["messageType"]!.GetValue<string>().ShouldBe("user.signup");
         }
     }
 }

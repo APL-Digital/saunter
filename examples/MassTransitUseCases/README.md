@@ -14,6 +14,7 @@ It is not the minimal getting-started path. Start with `examples/MassTransitMini
 - `FulfillmentCommandSender` + `PickPackRequestedConsumer`: direct send-to-endpoint command flow instead of publish/subscribe.
 - `SearchIndexSyncPublisher`: reusable AsyncAPI channel, operation, and message binding references.
 - `AsyncApi/CommerceAsyncApiDocument.cs`: reusable AMQP server binding reference on the documented RabbitMQ server.
+- `AsyncApi/CommerceAsyncApiDocument.cs`: direct document-authored AMQP channel, operation, and message bindings without `BindingsRef`.
 - `CatalogExportLifecyclePublisher`: one producer method that can emit multiple message variants on one channel.
 - `PricingQuoteRequester` + `PricingQuoteConsumer`: request/reply with a statically documented reply channel address.
 - `ICustomerPreferenceChangedConsumer` + `CustomerPreferenceChangedConsumer`: interface-based receive-side annotations.
@@ -54,4 +55,4 @@ Open:
 
 ## Notes
 
-The sample runs on MassTransit's in-memory transport so it works locally without external infrastructure. The generated AsyncAPI document also includes a RabbitMQ-style server entry to show richer server metadata, an AsyncAPI AMQP server binding, and channel-level server references.
+The sample runs on MassTransit's in-memory transport so it works locally without external infrastructure. The generated AsyncAPI document also includes a RabbitMQ-style server entry to show richer server metadata, an AsyncAPI AMQP server binding, channel-level server references, and direct document-authored AMQP channel/operation/message bindings.

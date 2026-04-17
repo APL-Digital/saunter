@@ -127,12 +127,7 @@ namespace Saunter.SharedKernel
 
         private static AsyncApiBindings<IServerBinding> CreateServerBindings(AsyncApiServerDescriptor server)
         {
-            if (!string.IsNullOrWhiteSpace(server.BindingsRef))
-            {
-                return AttributeProviderModelFactory.CreateBindingsReference<IServerBinding>(server.BindingsRef, "serverBindings");
-            }
-
-            return server.Bindings ?? new AsyncApiBindings<IServerBinding>();
+            return AttributeProviderModelFactory.ResolveBindings<IServerBinding>(server.BindingsRef, server.Bindings, "serverBindings");
         }
     }
 }

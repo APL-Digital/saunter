@@ -387,7 +387,10 @@ namespace Saunter.AttributeProvider
                 sourceChannel.BindingsRef,
                 sourceChannel.ServerNames,
                 replyMessageIds.ToArray(),
-                Array.Empty<AsyncApiParameterDescriptor>());
+                Array.Empty<AsyncApiParameterDescriptor>())
+            {
+                Bindings = sourceChannel.InlineBindings,
+            };
             return true;
         }
 

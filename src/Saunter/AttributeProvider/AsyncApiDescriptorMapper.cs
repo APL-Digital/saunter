@@ -51,7 +51,7 @@ namespace Saunter.AttributeProvider
                     Examples = new List<AsyncApiMessageExample>(),
                     Traits = new List<AsyncApiMessageTrait>(),
                     Extensions = new Dictionary<string, IAsyncApiExtension>(),
-                    Bindings = AttributeProviderModelFactory.CreateBindingsReference<IMessageBinding>(message.BindingsRef, "messageBindings"),
+                    Bindings = message.Bindings,
                 };
             }
         }
@@ -92,7 +92,7 @@ namespace Saunter.AttributeProvider
                     parameter => (AsyncApiParameter)new AsyncApiParameterReference($"#/components/parameters/{parameter.Name}")),
                 Tags = descriptor.Tags.ToList(),
                 Extensions = new Dictionary<string, IAsyncApiExtension>(),
-                Bindings = AttributeProviderModelFactory.CreateBindingsReference<IChannelBinding>(descriptor.BindingsRef, "channelBindings"),
+                Bindings = descriptor.Bindings,
             };
         }
 
@@ -161,7 +161,7 @@ namespace Saunter.AttributeProvider
                 Traits = new List<AsyncApiOperationTrait>(),
                 Reply = CreateReply(descriptor.Reply),
                 Extensions = new Dictionary<string, IAsyncApiExtension>(),
-                Bindings = AttributeProviderModelFactory.CreateBindingsReference<IOperationBinding>(descriptor.BindingsRef, "operationBindings"),
+                Bindings = descriptor.Bindings,
             };
 
             foreach (var traitReference in descriptor.TraitReferences)

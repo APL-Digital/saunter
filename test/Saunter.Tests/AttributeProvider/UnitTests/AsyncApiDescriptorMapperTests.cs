@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using ByteBard.AsyncAPI.Bindings.AMQP;
 using ByteBard.AsyncAPI.Models;
 using Saunter.AttributeProvider;
 using Saunter.AttributeProvider.Descriptors;
@@ -184,6 +185,107 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
 
             components.Schemas.ShouldNotBeNull();
             components.Schemas.ShouldContainKey("orderCreatedPayload");
+        }
+
+        [Fact]
+        public void MapAndRegister_UsesInlineBindingsWhenBindingsRefIsMissing()
+        {
+            var mapper = new AsyncApiDescriptorMapper(new AsyncApiSchemaMapper());
+            var components = new AsyncApiComponents();
+            var resolution = new AsyncApiMessageResolutionDescriptor(
+                ["signupMessage"],
+                [
+                    new AsyncApiMessageDescriptor(
+                        "signupMessage",
+                        "signupMessage",
+                        "Signup message",
+                        null,
+                        null,
+                        "signupPayload",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        [])
+                    {
+                        Bindings = new()
+                        {
+                            new AMQPMessageBinding
+                            {
+                                ContentEncoding = "gzip",
+                                MessageType = "user.signup",
+                                BindingVersion = "0.3.0",
+                            }
+                        }
+                    }
+                ],
+                [
+                    new AsyncApiSchemaComponentDescriptor("signupPayload", new AsyncApiSchemaDescriptor { Id = "signupPayload", Type = AsyncApiSchemaValueType.Object }),
+                ]);
+            var channelDescriptor = new AsyncApiChannelDescriptor(
+                "signup",
+                "user.signup",
+                null,
+                null,
+                null,
+                null,
+                [],
+                ["signupMessage"],
+                [])
+            {
+                Bindings = new()
+                {
+                    new AMQPChannelBinding
+                    {
+                        Is = ChannelType.RoutingKey,
+                        Exchange = new Exchange
+                        {
+                            Name = "user.events",
+                            Type = ExchangeType.Topic,
+                            Durable = true,
+                            AutoDelete = false,
+                            Vhost = "/",
+                        },
+                        BindingVersion = "0.3.0",
+                    }
+                }
+            };
+            var operationDescriptor = new AsyncApiOperationDescriptor(
+                AsyncApiAction.Receive,
+                "signup",
+                null,
+                null,
+                null,
+                null,
+                ["signupMessage"],
+                [],
+                null)
+            {
+                Bindings = new()
+                {
+                    new AMQPOperationBinding
+                    {
+                        Expiration = 60000,
+                        UserId = "guest",
+                        Priority = 5,
+                        DeliveryMode = DeliveryMode.Persistent,
+                        Mandatory = true,
+                        Timestamp = true,
+                        Ack = true,
+                        BindingVersion = "0.3.0",
+                    }
+                }
+            };
+
+            mapper.RegisterMessageResolution(components, resolution);
+            var channel = mapper.MapChannel(components, channelDescriptor);
+            var operation = mapper.MapOperation(operationDescriptor);
+
+            components.Messages["signupMessage"].Bindings["amqp"].ShouldBeOfType<AMQPMessageBinding>();
+            channel.Bindings["amqp"].ShouldBeOfType<AMQPChannelBinding>();
+            operation.Bindings["amqp"].ShouldBeOfType<AMQPOperationBinding>();
         }
     }
 }

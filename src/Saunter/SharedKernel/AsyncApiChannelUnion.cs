@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using ByteBard.AsyncAPI.Models;
+using ByteBard.AsyncAPI.Models.Interfaces;
 using Saunter.AttributeProvider.Descriptors;
 using Saunter.SharedKernel.Interfaces;
 
@@ -28,6 +30,13 @@ namespace Saunter.SharedKernel
                     $"Existing definition: {FormatChannel(source)}. Incoming definition: {FormatChannel(additional)}.");
             }
 
+            if (HasBindingConflict(source, additional))
+            {
+                throw new InvalidOperationException(
+                    $"Channel '{source.Id}' has conflicting inline bindings definitions. " +
+                    $"Existing definition: {FormatChannel(source)}. Incoming definition: {FormatChannel(additional)}.");
+            }
+
             var merged = new AsyncApiChannelDescriptor(
                 source.Id,
                 FirstNonBlank(source.Address, additional.Address) ?? source.Address,
@@ -37,7 +46,10 @@ namespace Saunter.SharedKernel
                 FirstNonBlank(source.BindingsRef, additional.BindingsRef),
                 MergeStrings(source.ServerNames, additional.ServerNames),
                 MergeStrings(source.MessageIds, additional.MessageIds),
-                MergeParameters(source.Id, source.Parameters, additional.Parameters));
+                MergeParameters(source.Id, source.Parameters, additional.Parameters))
+            {
+                Bindings = MergeBindings(source.InlineBindings, additional.InlineBindings),
+            };
 
             foreach (var tag in MergeTags(source.Tags, additional.Tags))
             {
@@ -52,6 +64,43 @@ namespace Saunter.SharedKernel
             return !string.IsNullOrWhiteSpace(source)
                 ? source
                 : !string.IsNullOrWhiteSpace(additional) ? additional : null;
+        }
+
+        private static bool HasBindingConflict(AsyncApiChannelDescriptor source, AsyncApiChannelDescriptor additional)
+        {
+            var sourceHasRef = !string.IsNullOrWhiteSpace(source.BindingsRef);
+            var additionalHasRef = !string.IsNullOrWhiteSpace(additional.BindingsRef);
+            var sourceHasBindings = source.InlineBindings.Count > 0;
+            var additionalHasBindings = additional.InlineBindings.Count > 0;
+
+            if ((sourceHasRef && additionalHasBindings) || (sourceHasBindings && additionalHasRef))
+            {
+                return true;
+            }
+
+            if (!sourceHasBindings || !additionalHasBindings)
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(source.InlineBindings, additional.InlineBindings))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static AsyncApiBindings<IChannelBinding> MergeBindings(AsyncApiBindings<IChannelBinding> source, AsyncApiBindings<IChannelBinding> additional)
+        {
+            if (source.Count > 0)
+            {
+                return source;
+            }
+
+            return additional.Count > 0
+                ? additional
+                : new AsyncApiBindings<IChannelBinding>();
         }
 
         private static IReadOnlyList<string> MergeStrings(IReadOnlyList<string> source, IReadOnlyList<string> additional)

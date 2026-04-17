@@ -1,4 +1,6 @@
 ﻿using System.Collections.Generic;
+using ByteBard.AsyncAPI.Models;
+using ByteBard.AsyncAPI.Models.Interfaces;
 
 namespace Saunter.AttributeProvider.Descriptors
 {
@@ -15,5 +17,16 @@ namespace Saunter.AttributeProvider.Descriptors
         string? ExternalDocsUrl,
         string? ExternalDocsDescription,
         string? BindingsRef,
-        IReadOnlyList<string> Tags);
+        IReadOnlyList<string> Tags)
+    {
+        private AsyncApiBindings<IMessageBinding> _bindings = new();
+
+        public AsyncApiBindings<IMessageBinding> InlineBindings => _bindings;
+
+        public AsyncApiBindings<IMessageBinding> Bindings
+        {
+            get => global::Saunter.AttributeProvider.AttributeProviderModelFactory.ResolveBindings<IMessageBinding>(BindingsRef, _bindings, "messageBindings");
+            init => _bindings = value ?? new AsyncApiBindings<IMessageBinding>();
+        }
+    }
 }
