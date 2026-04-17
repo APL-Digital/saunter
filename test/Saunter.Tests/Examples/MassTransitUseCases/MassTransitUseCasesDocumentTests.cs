@@ -1,9 +1,11 @@
 ﻿#nullable enable
 using System.Linq;
+using System.Text.Json.Nodes;
 using MassTransitUseCases.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Saunter.Options;
+using Saunter.SharedKernel.Interfaces;
 using Saunter.Tests.AttributeProvider.DocumentGenerationTests;
 using Shouldly;
 using Xunit;
@@ -22,12 +24,15 @@ namespace Saunter.Tests.Examples.MassTransitUseCases
             using var serviceProvider = services.BuildServiceProvider();
             var options = serviceProvider.GetRequiredService<IOptions<AsyncApiOptions>>().Value;
             var provider = serviceProvider.GetRequiredService<IAsyncApiDocumentProvider>();
+            var writer = serviceProvider.GetRequiredService<IAsyncApiDocumentWriter>();
 
             var document = provider.GetDocument(null, options);
 
             document.Info.Title.ShouldBe("MassTransit Use Cases");
             document.Servers.ShouldContainKey("inmemory");
             document.Servers.ShouldContainKey("rabbitmq");
+            document.Servers["rabbitmq"].BindingsRef.ShouldBe("rabbitmqAmqpServer");
+            document.Components.ServerBindings.ShouldContainKey("rabbitmqAmqpServer");
 
             var catalogChannel = document.AssertAndGetChannel("pricesChanged", "catalog.prices.changed");
             var catalogSend = document.AssertAndGetOperation("Publish", ByteBard.AsyncAPI.Models.AsyncApiAction.Send);
@@ -157,6 +162,11 @@ namespace Saunter.Tests.Examples.MassTransitUseCases
             var partnerOperation = document.AssertAndGetOperation("PublishPartnerExportRequested", ByteBard.AsyncAPI.Models.AsyncApiAction.Send);
             document.AssertChannelMessages(partnerChannel, "partnerExportRequested");
             document.AssertByMessage(partnerOperation, "partnerExportRequested");
+
+            var json = writer.WriteJson(document);
+            var root = JsonNode.Parse(json)!;
+            root["servers"]!["rabbitmq"]!["bindings"]!["$ref"]!.GetValue<string>().ShouldBe("#/components/serverBindings/rabbitmqAmqpServer");
+            ((JsonObject)root["components"]!["serverBindings"]!["rabbitmqAmqpServer"]!["amqp"]!).Count.ShouldBe(0);
         }
     }
 }

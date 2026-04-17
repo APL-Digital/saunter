@@ -63,6 +63,7 @@ namespace Saunter.SharedKernel
                 Schemas = (components.Schemas ?? new Dictionary<string, AsyncApiSchemaDescriptor>()).ToDictionary(pair => pair.Key, pair => CloneSchema(pair.Value)),
                 Messages = (components.Messages ?? new Dictionary<string, AsyncApiMessageDescriptor>()).ToDictionary(pair => pair.Key, pair => pair.Value with { Tags = pair.Value.Tags.ToArray() }),
                 Parameters = (components.Parameters ?? new Dictionary<string, AsyncApiParameterDescriptor>()).ToDictionary(pair => pair.Key, pair => pair.Value with { EnumValues = pair.Value.EnumValues.ToArray(), Examples = pair.Value.Examples.ToArray() }),
+                ServerBindings = (components.ServerBindings ?? new Dictionary<string, AsyncApiBindings<IServerBinding>>()).ToDictionary(pair => pair.Key, pair => CloneBindings(pair.Value)),
                 OperationBindings = (components.OperationBindings ?? new Dictionary<string, AsyncApiBindings<IOperationBinding>>()).ToDictionary(pair => pair.Key, pair => CloneBindings(pair.Value)),
                 MessageBindings = (components.MessageBindings ?? new Dictionary<string, AsyncApiBindings<IMessageBinding>>()).ToDictionary(pair => pair.Key, pair => CloneBindings(pair.Value)),
                 ChannelBindings = (components.ChannelBindings ?? new Dictionary<string, AsyncApiBindings<IChannelBinding>>()).ToDictionary(pair => pair.Key, pair => CloneBindings(pair.Value)),
@@ -77,9 +78,16 @@ namespace Saunter.SharedKernel
             return new AsyncApiServerDescriptor
             {
                 Host = server.Host,
+                PathName = server.PathName,
                 Description = server.Description,
                 Protocol = server.Protocol,
                 ProtocolVersion = server.ProtocolVersion,
+                Title = server.Title,
+                Summary = server.Summary,
+                ExternalDocs = server.ExternalDocs,
+                ExternalDocsDescription = server.ExternalDocsDescription,
+                BindingsRef = server.BindingsRef,
+                Bindings = server.Bindings is null ? new AsyncApiBindings<IServerBinding>() : CloneBindings(server.Bindings),
                 Tags = server.Tags.ToList(),
                 Security = server.Security.ToList(),
                 Variables = server.Variables.ToDictionary(

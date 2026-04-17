@@ -28,6 +28,59 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
         }
 
         [Fact]
+        public void Validate_ThrowsWhenServerBindingReferenceIsUnknown()
+        {
+            var validator = new AsyncApiDocumentValidator();
+            var document = new AsyncApiDocumentDescriptor
+            {
+                Servers =
+                {
+                    ["rabbitmq"] = new AsyncApiServerDescriptor
+                    {
+                        BindingsRef = "missing"
+                    }
+                }
+            };
+
+            var actual = () => validator.Validate(document);
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("server binding");
+        }
+
+        [Fact]
+        public void Validate_ThrowsWhenServerSetsBindingsAndBindingsRef()
+        {
+            var validator = new AsyncApiDocumentValidator();
+            var document = new AsyncApiDocumentDescriptor
+            {
+                Servers =
+                {
+                    ["rabbitmq"] = new AsyncApiServerDescriptor
+                    {
+                        BindingsRef = "rabbitmq",
+                        Bindings = new AsyncApiBindings<ByteBard.AsyncAPI.Models.Interfaces.IServerBinding>
+                        {
+                            new global::Saunter.Bindings.AMQP.AMQPServerBinding()
+                        }
+                    }
+                },
+                Components = new AsyncApiComponentsDescriptor
+                {
+                    ServerBindings =
+                    {
+                        ["rabbitmq"] = new AsyncApiBindings<ByteBard.AsyncAPI.Models.Interfaces.IServerBinding>()
+                    }
+                }
+            };
+
+            var actual = () => validator.Validate(document);
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("both Bindings and BindingsRef");
+        }
+
+        [Fact]
         public void Validate_ThrowsWhenReplyReferencesUnknownChannel()
         {
             var validator = new AsyncApiDocumentValidator();

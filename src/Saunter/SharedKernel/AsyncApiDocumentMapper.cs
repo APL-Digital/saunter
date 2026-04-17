@@ -33,6 +33,7 @@ namespace Saunter.SharedKernel
                     Schemas = new Dictionary<string, AsyncApiMultiFormatSchema>(),
                     Messages = new Dictionary<string, AsyncApiMessage>(),
                     Parameters = new Dictionary<string, AsyncApiParameter>(),
+                    ServerBindings = new Dictionary<string, AsyncApiBindings<IServerBinding>>(components.ServerBindings ?? new Dictionary<string, AsyncApiBindings<IServerBinding>>()),
                     OperationBindings = new Dictionary<string, AsyncApiBindings<IOperationBinding>>(components.OperationBindings ?? new Dictionary<string, AsyncApiBindings<IOperationBinding>>()),
                     MessageBindings = new Dictionary<string, AsyncApiBindings<IMessageBinding>>(components.MessageBindings ?? new Dictionary<string, AsyncApiBindings<IMessageBinding>>()),
                     ChannelBindings = new Dictionary<string, AsyncApiBindings<IChannelBinding>>(components.ChannelBindings ?? new Dictionary<string, AsyncApiBindings<IChannelBinding>>()),
@@ -91,11 +92,16 @@ namespace Saunter.SharedKernel
             var mapped = new AsyncApiServer
             {
                 Host = server.Host,
+                PathName = server.PathName,
                 Description = server.Description,
                 Protocol = server.Protocol,
                 ProtocolVersion = server.ProtocolVersion,
+                Title = server.Title,
+                Summary = server.Summary,
+                ExternalDocs = AttributeProviderModelFactory.CreateExternalDocs(server.ExternalDocs, server.ExternalDocsDescription),
                 Tags = server.Tags.ToList(),
                 Security = server.Security.ToList(),
+                Bindings = CreateServerBindings(server),
             };
 
             foreach (var pair in server.Variables)
@@ -117,6 +123,16 @@ namespace Saunter.SharedKernel
             }
 
             return mapped;
+        }
+
+        private static AsyncApiBindings<IServerBinding> CreateServerBindings(AsyncApiServerDescriptor server)
+        {
+            if (!string.IsNullOrWhiteSpace(server.BindingsRef))
+            {
+                return AttributeProviderModelFactory.CreateBindingsReference<IServerBinding>(server.BindingsRef, "serverBindings");
+            }
+
+            return server.Bindings ?? new AsyncApiBindings<IServerBinding>();
         }
     }
 }

@@ -3,6 +3,7 @@ using ByteBard.AsyncAPI.Bindings.Kafka;
 using ByteBard.AsyncAPI.Models;
 using MassTransitUseCases.AsyncApi;
 using Saunter;
+using Saunter.Bindings.AMQP;
 
 namespace MassTransitUseCases.AsyncApi;
 
@@ -51,6 +52,7 @@ internal static class CommerceAsyncApiDocument
                     Protocol = "amqps",
                     ProtocolVersion = "0-9-1",
                     Description = "Modeled broker topology for the documented use cases.",
+                    BindingsRef = "rabbitmqAmqpServer",
                     Variables =
                     {
                         ["region"] = new AsyncApiServerVariableDescriptor
@@ -80,6 +82,13 @@ internal static class CommerceAsyncApiDocument
             },
             Components = new AsyncApiComponentsDescriptor
             {
+                ServerBindings =
+                {
+                    ["rabbitmqAmqpServer"] = new()
+                    {
+                        new AMQPServerBinding()
+                    }
+                },
                 ChannelBindings =
                 {
                     ["searchIndexKafkaTopic"] = new()

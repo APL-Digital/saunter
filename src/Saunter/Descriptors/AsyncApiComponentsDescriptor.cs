@@ -14,6 +14,8 @@ namespace Saunter
 
         public IDictionary<string, AsyncApiParameterDescriptor> Parameters { get; set; } = new Dictionary<string, AsyncApiParameterDescriptor>();
 
+        public IDictionary<string, AsyncApiBindings<IServerBinding>> ServerBindings { get; set; } = new Dictionary<string, AsyncApiBindings<IServerBinding>>();
+
         public IDictionary<string, AsyncApiBindings<IOperationBinding>> OperationBindings { get; set; } = new Dictionary<string, AsyncApiBindings<IOperationBinding>>();
 
         public IDictionary<string, AsyncApiBindings<IMessageBinding>> MessageBindings { get; set; } = new Dictionary<string, AsyncApiBindings<IMessageBinding>>();

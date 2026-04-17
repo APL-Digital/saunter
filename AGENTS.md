@@ -53,3 +53,5 @@ If CodeRabbit CLI is installed then run a local review after code is written.
 The project needs to be AsyncAPI Spec version 3.0.0
 check the asyncapi spec from https://github.com/asyncapi/spec/blob/v3.0.0/spec/asyncapi.md
 Validate it against the current solution and update the ASYNCAPI_3_0_COMPATIBILITY_AUDIT file with new findings
+
+When example-worthy AsyncAPI authoring patterns are added, removed, or changed, update `examples/MassTransitUseCases` so it remains a living reference project for current Saunter capabilities. Keep its document, producers, consumers, README, and tests aligned with the supported patterns as the project evolves.

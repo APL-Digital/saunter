@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Text.Json.Nodes;
+using ByteBard.AsyncAPI.Models;
+using ByteBard.AsyncAPI.Models.Interfaces;
+using Saunter.Bindings.AMQP;
 using Saunter.SharedKernel;
 using Saunter.SharedKernel.Descriptors;
 using Shouldly;
@@ -114,6 +117,50 @@ namespace Saunter.Tests.SharedKernel
             var json = writer.WriteJson(document);
 
             json.ShouldContain("\"asyncapi\": \"3.0.0\"");
+        }
+
+        [Fact]
+        public void WriteJson_MapsServerFieldsAndAmqpBindings()
+        {
+            var writer = new AsyncApiDocumentWriter(new AsyncApiDocumentMapper(new global::Saunter.AttributeProvider.AsyncApiDescriptorMapper(new AsyncApiSchemaMapper())));
+            var document = new AsyncApiDocumentDescriptor
+            {
+                Asyncapi = "3.0.0",
+                Info = new AsyncApiInfoDescriptor
+                {
+                    Title = "test",
+                    Version = "1.0.0"
+                },
+                Servers =
+                {
+                    ["rabbitmq"] = new AsyncApiServerDescriptor
+                    {
+                        Host = "rabbitmq.example.com:5671",
+                        PathName = "/production",
+                        Protocol = "amqps",
+                        ProtocolVersion = "0-9-1",
+                        Title = "RabbitMQ",
+                        Summary = "Primary broker",
+                        Description = "TLS-enabled RabbitMQ broker.",
+                        ExternalDocs = "https://example.com/docs/rabbitmq",
+                        ExternalDocsDescription = "RabbitMQ deployment guide",
+                        Bindings = new AsyncApiBindings<IServerBinding>
+                        {
+                            new AMQPServerBinding()
+                        }
+                    }
+                }
+            };
+
+            var json = writer.WriteJson(document);
+            var server = JsonNode.Parse(json)!["servers"]!["rabbitmq"]!;
+
+            server["host"]!.GetValue<string>().ShouldBe("rabbitmq.example.com:5671");
+            server["pathname"]!.GetValue<string>().ShouldBe("/production");
+            server["protocol"]!.GetValue<string>().ShouldBe("amqps");
+            server["protocolVersion"]!.GetValue<string>().ShouldBe("0-9-1");
+            server["description"]!.GetValue<string>().ShouldBe("TLS-enabled RabbitMQ broker.");
+            ((JsonObject)server["bindings"]!["amqp"]!).Count.ShouldBe(0);
         }
 
         [Fact]

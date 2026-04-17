@@ -6,6 +6,23 @@ namespace Saunter.AttributeProvider
     {
         public void Validate(AsyncApiDocumentDescriptor document)
         {
+            foreach (var serverPair in document.Servers)
+            {
+                var serverName = serverPair.Key;
+                var server = serverPair.Value;
+
+                if (!string.IsNullOrWhiteSpace(server.BindingsRef)
+                    && server.Bindings is { Count: > 0 })
+                {
+                    throw new InvalidOperationException($"Server '{serverName}' sets both Bindings and BindingsRef. Use only one server bindings source.");
+                }
+
+                if (!string.IsNullOrWhiteSpace(server.BindingsRef) && !document.Components.ServerBindings.ContainsKey(server.BindingsRef))
+                {
+                    throw new InvalidOperationException($"Server '{serverName}' references unknown server binding '{server.BindingsRef}'. Add it to components/serverBindings or remove the BindingsRef.");
+                }
+            }
+
             foreach (var channel in document.Channels.Values)
             {
                 foreach (var messageId in channel.Messages.Values)

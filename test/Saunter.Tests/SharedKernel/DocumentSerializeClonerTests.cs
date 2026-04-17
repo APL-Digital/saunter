@@ -1,6 +1,9 @@
 ﻿using System.Collections.Generic;
+using ByteBard.AsyncAPI.Models;
+using ByteBard.AsyncAPI.Models.Interfaces;
 using Microsoft.Extensions.Logging.Testing;
 using Saunter.AttributeProvider.Descriptors;
+using Saunter.Bindings.AMQP;
 using Saunter.SharedKernel;
 using Saunter.SharedKernel.Descriptors;
 using Xunit;
@@ -49,9 +52,15 @@ namespace Saunter.Tests.SharedKernel
                     ["one"] = new AsyncApiServerDescriptor
                     {
                         Host = "hellowa",
+                        PathName = "/events",
                         Description = "server desc",
                         Protocol = "kafka",
                         ProtocolVersion = "0.0.1",
+                        Title = "server title",
+                        Summary = "server summary",
+                        ExternalDocs = "https://example.com/servers/one",
+                        ExternalDocsDescription = "server docs",
+                        BindingsRef = "rabbitmq",
                         Tags = { new() { Name = "kafka tag" } },
                         Variables =
                         {
@@ -78,6 +87,13 @@ namespace Saunter.Tests.SharedKernel
                     Messages =
                     {
                         ["message"] = new AsyncApiMessageDescriptor("message", "message", "message", null, null, "payload", null, null, null, null, null, null, [])
+                    },
+                    ServerBindings =
+                    {
+                        ["rabbitmq"] = new AsyncApiBindings<IServerBinding>
+                        {
+                            new AMQPServerBinding()
+                        }
                     }
                 },
                 Channels =
@@ -100,6 +116,13 @@ namespace Saunter.Tests.SharedKernel
             Assert.Equal(prototype.Operations.Count, result.Operations.Count);
             Assert.Equal(prototype.Components.Messages.Count, result.Components.Messages.Count);
             Assert.Equal(prototype.Components.Schemas.Count, result.Components.Schemas.Count);
+            Assert.Equal("/events", result.Servers["one"].PathName);
+            Assert.Equal("server title", result.Servers["one"].Title);
+            Assert.Equal("server summary", result.Servers["one"].Summary);
+            Assert.Equal("https://example.com/servers/one", result.Servers["one"].ExternalDocs);
+            Assert.Equal("server docs", result.Servers["one"].ExternalDocsDescription);
+            Assert.Equal("rabbitmq", result.Servers["one"].BindingsRef);
+            Assert.True(result.Components.ServerBindings.ContainsKey("rabbitmq"));
         }
 
         [Fact]

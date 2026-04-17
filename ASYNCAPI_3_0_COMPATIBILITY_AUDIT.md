@@ -10,6 +10,8 @@ Scope:
 
 ## Notable Changes Since The Previous Audit
 
+- Re-validation on 2026-04-17 confirmed that Saunter now models AsyncAPI 3 server bindings end-to-end. `AsyncApiServerDescriptor` exposes `Bindings` and `BindingsRef`, `AsyncApiComponentsDescriptor` exposes `serverBindings`, the validator checks unknown server-binding refs, and Saunter now ships a minimal `AMQPServerBinding` helper so AsyncAPI AMQP server bindings can serialize as `amqp: {}`.
+  - See [AsyncApiServerDescriptor.cs](src/Saunter/Descriptors/AsyncApiServerDescriptor.cs), [AsyncApiComponentsDescriptor.cs](src/Saunter/Descriptors/AsyncApiComponentsDescriptor.cs), [AsyncApiDocumentValidator.cs](src/Saunter/AttributeProvider/AsyncApiDocumentValidator.cs), [AMQPServerBinding.cs](src/Saunter/Bindings/AMQP/AMQPServerBinding.cs), and [DocumentWriterTests.cs](test/Saunter.Tests/SharedKernel/DocumentWriterTests.cs).
 - Re-validation on 2026-04-16 confirmed that schema generation now honors `System.Text.Json` property naming. `AsyncApiSchemaGenerator` uses `[JsonPropertyName]` by default and also exposes `AsyncApiOptions.PropertyNameSelector` so hosts can override schema/header property names without document-filter hacks.
   - See [AsyncApiOptions.cs](src/Saunter/Options/AsyncApiOptions.cs), [AsyncApiSchemaGenerator.cs](src/Saunter/SharedKernel/AsyncApiSchemaGenerator.cs), and [SchemaGeneratorTests.cs](test/Saunter.Tests/SharedKernel/SchemaGeneratorTests.cs).
 - Re-validation on 2026-04-14 found a remaining AsyncAPI 3 terminology mismatch in the public authoring surface: `MessageAttribute.MessageId` is still exposed as a first-class property even though AsyncAPI 3.0.0's `Message Object` has no `messageId` field. Saunter interprets that value as the reusable message key in `channels.*.messages` and `components.messages`; output stays structurally valid, but the API naming remains v2-flavored.
@@ -47,10 +49,10 @@ Scope:
 
 | Status | Areas |
 |---|---|
-| Supported | Root `asyncapi`, `id`, `defaultContentType`; root `info.title`, `info.version`, `info.description`, `info.contact`, `info.license`, `info.termsOfService`; server `host`, `description`, `protocol`, `protocolVersion`, `variables`, `security`, `tags`; server variable `default`, `description`, `enum`, `examples`; channel `address` (string form), `messages`, `title`, `summary`, `description`, `servers`, `parameters`, `tags`, `bindings`; operation `action`, `channel`, `title`, `summary`, `description`, `bindings`, `messages`, `reply.channel`, `reply.address`; message `headers`, `payload`, `correlationId`, `contentType`, `name`, `title`, `summary`, `description`, `externalDocs`, `bindings`; parameter `enum`, `default`, `description`, `examples`, `location`; components `schemas`, `messages`, `parameters`, `correlationIds`, `securitySchemes`, `operationBindings`, `messageBindings`, `channelBindings`, `operationTraits`; schema primitives, objects, arrays, enums, refs, `required`, `items`, `additionalProperties`, `oneOf`, `allOf`, nullable output normalization, nullable root wrapper components |
+| Supported | Root `asyncapi`, `id`, `defaultContentType`; root `info.title`, `info.version`, `info.description`, `info.contact`, `info.license`, `info.termsOfService`; server `host`, `pathname`, `description`, `protocol`, `protocolVersion`, `variables`, `security`, `tags`, `bindings`; server variable `default`, `description`, `enum`, `examples`; channel `address` (string form), `messages`, `title`, `summary`, `description`, `servers`, `parameters`, `tags`, `bindings`; operation `action`, `channel`, `title`, `summary`, `description`, `bindings`, `messages`, `reply.channel`, `reply.address`; message `headers`, `payload`, `correlationId`, `contentType`, `name`, `title`, `summary`, `description`, `externalDocs`, `bindings`; parameter `enum`, `default`, `description`, `examples`, `location`; components `schemas`, `messages`, `parameters`, `correlationIds`, `securitySchemes`, `serverBindings`, `operationBindings`, `messageBindings`, `channelBindings`, `operationTraits`; schema primitives, objects, arrays, enums, refs, `required`, `items`, `additionalProperties`, `oneOf`, `allOf`, nullable output normalization, nullable root wrapper components |
 | Partially Supported | Root `info`; root `servers`; root `channels`; root `operations`; root `components`; server object overall; channel `address` null case; channel object overall; operation `traits`; operation object overall; operation tags as name-only tags; message tags as name-only tags; message object overall; schema object overall; validation coverage |
-| Missing | `info.tags`, `info.externalDocs`; server `pathname`, `title`, `summary`, `externalDocs`, `bindings`; channel `externalDocs`; operation `security`, `externalDocs`; message `examples`, `traits`; components `channels`, `operations`, `servers`, `serverVariables`, `replies`, `replyAddresses`, `externalDocs`, `tags`, `messageTraits`, `serverBindings`; Multi Format Schema authoring surface; YAML output; most advanced JSON Schema keywords |
-| Incorrect / Risky | `defaultContentType` is still auto-injected as `application/json`; the document provider still accepts prototype `Asyncapi` values beginning with `2.` instead of enforcing 3.0.0-only output; the writer still accepts arbitrary `3.x` values instead of enforcing `3.0.0`; public authoring still exposes `MessageAttribute.MessageId` even though AsyncAPI 3 `Message Object` has no `messageId` field; operation `security` is emitted as an empty list rather than intentionally authored; reusable component maps only expose concrete descriptors, not general reference-object authoring; null-address channels are awkward to author intentionally; many AsyncAPI invariants still are not validated |
+| Missing | `info.tags`, `info.externalDocs`; server `title`, `summary`, `externalDocs`; channel `externalDocs`; operation `security`, `externalDocs`; message `examples`, `traits`; components `channels`, `operations`, `servers`, `serverVariables`, `replies`, `replyAddresses`, `externalDocs`, `tags`, `messageTraits`; Multi Format Schema authoring surface; YAML output; most advanced JSON Schema keywords |
+| Incorrect / Risky | `defaultContentType` is still auto-injected as `application/json`; the document provider still accepts prototype `Asyncapi` values beginning with `2.` instead of enforcing 3.0.0-only output; the writer still accepts arbitrary `3.x` values instead of enforcing `3.0.0`; public authoring still exposes `MessageAttribute.MessageId` even though AsyncAPI 3 `Message Object` has no `messageId` field; operation `security` is emitted as an empty list rather than intentionally authored; reusable component maps only expose concrete descriptors, not general reference-object authoring; null-address channels are awkward to author intentionally; the current ByteBard server serializer still omits authored server `title`, `summary`, and `externalDocs`; many AsyncAPI invariants still are not validated |
 
 ## Compatibility Matrix
 
@@ -71,13 +73,13 @@ Scope:
 | Server `description` | Optional | Supported | In [AsyncApiServerDescriptor.cs](src/Saunter/Descriptors/AsyncApiServerDescriptor.cs#L6-L21) |
 | Server `protocol` | Required | Supported | In [AsyncApiServerDescriptor.cs](src/Saunter/Descriptors/AsyncApiServerDescriptor.cs#L6-L21) |
 | Server `protocolVersion` | Optional | Supported | In [AsyncApiServerDescriptor.cs](src/Saunter/Descriptors/AsyncApiServerDescriptor.cs#L6-L21) |
-| Server `pathname` | Optional | Missing | Not modeled |
-| Server `title` / `summary` | Optional | Missing | Not modeled |
+| Server `pathname` | Optional | Supported | Modeled on the descriptor and serialized by the current ByteBard writer |
+| Server `title` / `summary` | Optional | Partially supported | Modeled on the descriptor and mapped into the ByteBard server model, but the current ByteBard v3 serializer does not emit them |
 | Server `variables` | Optional | Supported | Variable descriptor includes `default`, `description`, `enum`, and `examples` |
 | Server `security` | Optional | Supported | Concrete security schemes only on the descriptor surface |
 | Server `tags` | Optional | Supported | Stored as tag objects on the descriptor |
-| Server `externalDocs` | Optional | Missing | Not modeled |
-| Server `bindings` | Optional | Missing | Neither server-level bindings nor `components.serverBindings` are modeled |
+| Server `externalDocs` | Optional | Partially supported | Modeled on the descriptor and mapped into the ByteBard server model, but the current ByteBard v3 serializer does not emit it |
+| Server `bindings` | Optional | Supported | Inline `Bindings`, reusable `BindingsRef`, and `components.serverBindings` are modeled |
 | Server variable `default` / `description` / `enum` / `examples` | Optional | Supported | See [AsyncApiServerDescriptor.cs](src/Saunter/Descriptors/AsyncApiServerDescriptor.cs#L23-L32) |
 | Channel `address` | Optional (`string \| null`) | Partially supported | String addresses are supported; there is no clean authored null-address path |
 | Channel `messages` | Optional | Supported | Emitted in [AsyncApiDescriptorMapper.cs](src/Saunter/AttributeProvider/AsyncApiDescriptorMapper.cs#L77-L93) |
@@ -127,7 +129,7 @@ Scope:
 | Components `replies` / `replyAddresses` | Optional | Missing | Not modeled |
 | Components `externalDocs` / `tags` | Optional | Missing | Not modeled |
 | Components `messageTraits` | Optional | Missing | Not modeled |
-| Components `serverBindings` | Optional | Missing | Not modeled |
+| Components `serverBindings` | Optional | Supported | Modeled in [AsyncApiComponentsDescriptor.cs](src/Saunter/Descriptors/AsyncApiComponentsDescriptor.cs#L9-L30) |
 | Schema primitives / objects / arrays / enums / refs | Core | Supported | Generated in [AsyncApiSchemaGenerator.cs](src/Saunter/SharedKernel/AsyncApiSchemaGenerator.cs#L14-L512) |
 | Schema `required`, `items`, `additionalProperties`, `oneOf`, `allOf` | Core subset | Supported | Mapped in [AsyncApiSchemaMapper.cs](src/Saunter/SharedKernel/AsyncApiSchemaMapper.cs#L10-L55) |
 | Schema nullability | Core subset | Supported with normalization | Serialized for AsyncAPI 3 as `oneOf` + `null`, without the legacy `nullable` keyword |
@@ -165,7 +167,7 @@ Scope:
 
 - `Info Object` remains partial. Core metadata is mapped, but `info.tags` and `info.externalDocs` still have no descriptor fields and therefore no normal authoring surface.
   - See [AsyncApiInfoDescriptor.cs](src/Saunter/Descriptors/AsyncApiInfoDescriptor.cs#L5-L35) and [AsyncApiDocumentMapper.cs](src/Saunter/SharedKernel/AsyncApiDocumentMapper.cs#L61-L80).
-- `Components Object` remains partial. The descriptor only exposes `schemas`, `messages`, `parameters`, `correlationIds`, `securitySchemes`, `operationBindings`, `messageBindings`, `channelBindings`, and `operationTraits`.
+- `Components Object` remains partial. The descriptor now exposes `schemas`, `messages`, `parameters`, `correlationIds`, `securitySchemes`, `serverBindings`, `operationBindings`, `messageBindings`, `channelBindings`, and `operationTraits`.
   - See [AsyncApiComponentsDescriptor.cs](src/Saunter/Descriptors/AsyncApiComponentsDescriptor.cs#L9-L28).
 - The top-level `servers`, `channels`, and `operations` maps are also only partially modeled. AsyncAPI 3.0.0 allows each entry in those maps to be either a concrete object or a `Reference Object`, but [AsyncApiDocumentDescriptor.cs](src/Saunter/Descriptors/AsyncApiDocumentDescriptor.cs) only exposes concrete descriptor dictionaries.
   - See the AsyncAPI 3.0.0 spec sections for `Servers Object`, `Channels Object`, and `Operations Object`.
@@ -182,15 +184,13 @@ Scope:
 
 ### Missing Surface
 
-- Server fields still missing from the descriptor and mapper: `pathname`, `title`, `summary`, `externalDocs`, and `bindings`.
-  - See [AsyncApiServerDescriptor.cs](src/Saunter/Descriptors/AsyncApiServerDescriptor.cs#L6-L32) and [AsyncApiDocumentMapper.cs](src/Saunter/SharedKernel/AsyncApiDocumentMapper.cs#L83-L113).
 - Channel `externalDocs` is still missing from the attribute descriptor surface.
   - See [AsyncApiChannelDescriptor.cs](src/Saunter/AttributeProvider/Descriptors/AsyncApiChannelDescriptor.cs#L7-L23).
 - Operation `security` and `externalDocs` are still missing from the descriptor surface.
   - See [AsyncApiOperationDescriptor.cs](src/Saunter/AttributeProvider/Descriptors/AsyncApiOperationDescriptor.cs#L7-L21) and [OperationAttribute.cs](src/Saunter/AttributeProvider/Attributes/OperationAttribute.cs#L7-L33).
 - Message `examples` and `traits` are still not authorable through the built-in descriptor path; the mapper initializes both to empty collections.
   - See [AsyncApiDescriptorMapper.cs](src/Saunter/AttributeProvider/AsyncApiDescriptorMapper.cs#L36-L52).
-- Reusable component maps still missing: `channels`, `operations`, `servers`, `serverVariables`, `replies`, `replyAddresses`, `externalDocs`, `tags`, `messageTraits`, and `serverBindings`.
+- Reusable component maps still missing: `channels`, `operations`, `servers`, `serverVariables`, `replies`, `replyAddresses`, `externalDocs`, `tags`, and `messageTraits`.
   - See [AsyncApiComponentsDescriptor.cs](src/Saunter/Descriptors/AsyncApiComponentsDescriptor.cs#L9-L28).
 - Multi Format Schema authoring is still missing from Saunter's descriptor surface. The implementation generates only AsyncAPI JSON-schema-shaped output.
   - See [AsyncApiSchemaDescriptor.cs](src/Saunter/SharedKernel/Descriptors/AsyncApiSchemaDescriptor.cs#L15-L38).
@@ -205,6 +205,8 @@ Scope:
   - See [AttributeDocumentProvider.cs](src/Saunter/AttributeProvider/AttributeDocumentProvider.cs#L53-L55).
 - The document writer is also not 3.0.0-only. `WriteJson` treats any version beginning with `3.` as AsyncAPI 3.0, so descriptors authored with `Asyncapi = "3.1.0"` are accepted and serialized instead of being rejected for strict 3.0.0 output.
   - See [AsyncApiDocumentWriter.cs](src/Saunter/SharedKernel/AsyncApiDocumentWriter.cs#L20-L26) and [DocumentWriterTests.cs](test/Saunter.Tests/SharedKernel/DocumentWriterTests.cs#L10-L37).
+- Server `title`, `summary`, and `externalDocs` are now modeled in Saunter descriptors and mapped into the ByteBard server model, but the current ByteBard AsyncAPI v3 serializer still does not emit those fields.
+  - See [AsyncApiServerDescriptor.cs](src/Saunter/Descriptors/AsyncApiServerDescriptor.cs), [AsyncApiDocumentMapper.cs](src/Saunter/SharedKernel/AsyncApiDocumentMapper.cs), and the decompiled `AsyncApiServer.SerializeV3` implementation in `ByteBard.AsyncAPI` 2.1.2.
 - The public authoring API still exposes `MessageAttribute.MessageId`, even though the AsyncAPI 3.0.0 `Message Object` does not define a `messageId` field. Saunter currently treats that property as the reusable message key for `channels.*.messages` and `components.messages`, so the emitted JSON remains valid but the public terminology is misleading.
   - See [MessageAttribute.cs](src/Saunter/AttributeProvider/Attributes/MessageAttribute.cs), [AttributeMessageResolver.cs](src/Saunter/AttributeProvider/AttributeMessageResolver.cs#L166-L196), and [AsyncApiDescriptorMapper.cs](src/Saunter/AttributeProvider/AsyncApiDescriptorMapper.cs#L30-L52).
 - Operation `security` is not modeled. The mapper currently emits `Security = new List<AsyncApiSecurityScheme>()`, which means generated AsyncAPI 3 operations serialize an empty security array rather than an intentionally authored value or omission.

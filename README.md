@@ -175,13 +175,34 @@ Bindings can be referenced from `ChannelAttribute` and `OperationAttribute` thro
 using ByteBard.AsyncAPI.Bindings.AMQP;
 using ByteBard.AsyncAPI.Bindings.Http;
 using ByteBard.AsyncAPI.Models;
+using ByteBard.AsyncAPI.Models.Interfaces;
+using Saunter.Bindings.AMQP;
 
 services.AddAsyncApiSchemaGeneration(options =>
 {
     options.AsyncApi = new AsyncApiDocumentDescriptor
     {
+        Servers =
+        {
+            ["rabbitmq"] = new AsyncApiServerDescriptor
+            {
+                Host = "broker.example.com:5671",
+                Protocol = "amqps",
+                Bindings = new AsyncApiBindings<IServerBinding>
+                {
+                    new AMQPServerBinding()
+                }
+            }
+        },
         Components =
         {
+            ServerBindings =
+            {
+                ["sharedRabbitMq"] = new()
+                {
+                    new AMQPServerBinding()
+                }
+            },
             ChannelBindings =
             {
                 ["amqpDev"] = new()
@@ -212,6 +233,8 @@ services.AddAsyncApiSchemaGeneration(options =>
     };
 });
 ```
+
+`AsyncApiServerDescriptor` also supports `BindingsRef` when you want to reference `components/serverBindings` instead of declaring bindings inline.
 
 ## Multiple AsyncAPI Documents
 
