@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Saunter.DocumentMiddleware;
 using Saunter.Options;
@@ -62,6 +63,17 @@ namespace Saunter
         /// </summary>
         public static IEndpointConventionBuilder MapAsyncApiUi(this IEndpointRouteBuilder endpoints)
         {
+            if (!AsyncApiUiResources.HasUiAssets)
+            {
+                endpoints.ServiceProvider
+                    .GetService<ILoggerFactory>()?
+                    .CreateLogger("Saunter.UI")
+                    .LogWarning(
+                        "The AsyncAPI UI assets (index.js, default.min.css) are not embedded in the Saunter assembly, " +
+                        "so the UI will render a blank page. This happens when Saunter was built from source without " +
+                        "running 'npm install' in src/Saunter.UI first. The document endpoint is unaffected.");
+            }
+
             var options = endpoints.ServiceProvider.GetRequiredService<IOptions<AsyncApiOptions>>();
             if (options.Value.Documents.Count > 0)
             {

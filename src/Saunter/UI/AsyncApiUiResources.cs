@@ -50,6 +50,14 @@ namespace Saunter.UI
             return indexHtml.ToString();
         }
 
+        /// <summary>
+        /// Whether the AsyncAPI UI JavaScript and CSS were embedded into the assembly at build time.
+        /// They are only embedded when <c>npm install</c> was run in <c>src/Saunter.UI</c> before building.
+        /// </summary>
+        public static bool HasUiAssets =>
+            FileProvider.GetFileInfo("index.js").Exists
+            && FileProvider.GetFileInfo("default.min.css").Exists;
+
         public static async Task RespondWithEmbeddedAsset(HttpResponse response, string assetPath)
         {
             var file = FileProvider.GetFileInfo(assetPath);
