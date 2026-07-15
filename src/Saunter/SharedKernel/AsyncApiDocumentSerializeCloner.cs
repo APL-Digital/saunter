@@ -146,6 +146,7 @@ namespace Saunter.SharedKernel
                 Nullable = schema.Nullable,
                 Reference = schema.Reference,
                 Items = schema.Items is null ? null : CloneSchema(schema.Items),
+                AdditionalProperties = schema.AdditionalProperties is null ? null : CloneSchema(schema.AdditionalProperties),
             };
 
             foreach (var pair in schema.Properties)

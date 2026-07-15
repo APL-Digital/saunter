@@ -164,5 +164,34 @@ namespace Saunter.Tests.SharedKernel
             Assert.NotNull(result.Components.Schemas);
             Assert.Empty(result.Components.Schemas);
         }
+
+        [Fact]
+        public void ClonePrototype_PreservesAdditionalPropertiesOnMapSchemas()
+        {
+            var prototype = new AsyncApiDocumentDescriptor
+            {
+                Components = new AsyncApiComponentsDescriptor
+                {
+                    Schemas =
+                    {
+                        ["metadata"] = new AsyncApiSchemaDescriptor
+                        {
+                            Id = "metadata",
+                            Type = AsyncApiSchemaValueType.Object,
+                            AdditionalProperties = new AsyncApiSchemaDescriptor
+                            {
+                                Type = AsyncApiSchemaValueType.String,
+                            },
+                        }
+                    }
+                }
+            };
+
+            var result = _cloner.ClonePrototype(prototype);
+
+            var cloned = result.Components.Schemas["metadata"];
+            Assert.NotNull(cloned.AdditionalProperties);
+            Assert.Equal(AsyncApiSchemaValueType.String, cloned.AdditionalProperties!.Type);
+        }
     }
 }
