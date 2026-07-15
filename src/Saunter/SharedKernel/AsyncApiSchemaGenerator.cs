@@ -92,6 +92,10 @@ namespace Saunter.SharedKernel
                         schema.EnumValues.Add(value);
                     }
                 }
+                else if (typeInfo.AsType() == typeof(byte[]))
+                {
+                    schema.Format = "byte";
+                }
                 else
                 {
                     schema.Format = name;
@@ -730,6 +734,12 @@ namespace Saunter.SharedKernel
             if (s_floatTypeInfos.Contains(typeInfo))
             {
                 return AsyncApiSchemaValueType.Number;
+            }
+
+            // byte[] serializes as a base64 string in System.Text.Json, not a JSON array.
+            if (typeInfo.AsType() == typeof(byte[]))
+            {
+                return AsyncApiSchemaValueType.String;
             }
 
             if (typeInfo.IsArray || GetEnumerableItemType(typeInfo) is not null && typeInfo.AsType() != typeof(string))

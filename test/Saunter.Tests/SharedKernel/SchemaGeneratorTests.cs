@@ -51,6 +51,7 @@ namespace Saunter.Tests.SharedKernel
         [InlineData(typeof(TimeSpan?), "timeSpan", (int)AsyncApiSchemaValueType.String, true, 1)]
         [InlineData(typeof(Guid?), "guid", (int)AsyncApiSchemaValueType.String, true, 1)]
         [InlineData(typeof(Uri), "uri", (int)AsyncApiSchemaValueType.String, false, 1)]
+        [InlineData(typeof(byte[]), "byte", (int)AsyncApiSchemaValueType.String, false, 1)]
         [InlineData(typeof(object), null, (int)AsyncApiSchemaValueType.Object, false, 1)]
         [InlineData(typeof(int[]), null, (int)AsyncApiSchemaValueType.Array, false, 1)]
         [InlineData(typeof(object[]), null, (int)AsyncApiSchemaValueType.Array, false, 2)]
