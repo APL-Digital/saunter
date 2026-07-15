@@ -1,15 +1,18 @@
 ﻿using System.Reflection;
 using Saunter.AttributeProvider.Attributes;
 
-public class ChannelFilterContext
+namespace Saunter.Options.Filters
 {
-    public ChannelFilterContext(MemberInfo member, ChannelAttribute channel)
+    public class ChannelFilterContext
     {
-        Member = member;
-        Channel = channel;
+        public ChannelFilterContext(MemberInfo member, ChannelAttribute channel)
+        {
+            Member = member;
+            Channel = channel;
+        }
+
+        public MemberInfo Member { get; }
+
+        public ChannelAttribute Channel { get; }
     }
-
-    public MemberInfo Member { get; }
-
-    public ChannelAttribute Channel { get; }
 }

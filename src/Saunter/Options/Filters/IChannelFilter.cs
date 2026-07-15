@@ -1,6 +1,9 @@
 ﻿using Saunter.AttributeProvider.Descriptors;
 
-public interface IChannelFilter
+namespace Saunter.Options.Filters
 {
-    void Apply(AsyncApiChannelDescriptor channel, ChannelFilterContext context);
+    public interface IChannelFilter
+    {
+        void Apply(AsyncApiChannelDescriptor channel, ChannelFilterContext context);
+    }
 }

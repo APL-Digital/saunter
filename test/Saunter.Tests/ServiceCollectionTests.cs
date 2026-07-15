@@ -4,6 +4,7 @@ using ByteBard.AsyncAPI.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Saunter.Options;
+using Saunter.Options.Filters;
 using Shouldly;
 using Xunit;
 
@@ -221,7 +222,7 @@ namespace Saunter.Tests
 
         private sealed class StandaloneDocumentFilter : Options.Filters.IDocumentFilter
         {
-            public void Apply(AsyncApiDocumentDescriptor document, global::DocumentFilterContext context)
+            public void Apply(AsyncApiDocumentDescriptor document, DocumentFilterContext context)
             {
                 document.Info.Description = "created without explicit DI registration";
             }
@@ -236,7 +237,7 @@ namespace Saunter.Tests
                 _dependency = dependency;
             }
 
-            public void Apply(AsyncApiDocumentDescriptor document, global::DocumentFilterContext context)
+            public void Apply(AsyncApiDocumentDescriptor document, DocumentFilterContext context)
             {
                 document.Info.Description = _dependency.Description;
             }
