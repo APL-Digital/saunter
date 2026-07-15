@@ -81,6 +81,7 @@ namespace Saunter.Tests
                 options.Middleware.Route = "/asyncapi/{Document}/asyncapi.json";
                 options.Middleware.UiBaseRoute = "/asyncapi/{DOCUMENT}/ui/";
             });
+#pragma warning disable CS0618 // Intentionally exercising the legacy named-document model
             services.ConfigureNamedAsyncApi("orders", document =>
             {
                 document.Info = new AsyncApiInfoDescriptor
@@ -89,6 +90,7 @@ namespace Saunter.Tests
                     Version = "1.0.0",
                 };
             });
+#pragma warning restore CS0618
 
             using var sp = services.BuildServiceProvider();
             var options = sp.GetRequiredService<IOptions<AsyncApiOptions>>().Value;
@@ -114,6 +116,7 @@ namespace Saunter.Tests
                     },
                 };
             });
+#pragma warning disable CS0618 // Intentionally exercising the legacy named-document model
             services.ConfigureNamedAsyncApi("orders", document =>
             {
                 document.Info = new AsyncApiInfoDescriptor
@@ -122,6 +125,7 @@ namespace Saunter.Tests
                     Version = "2.0.0",
                 };
             });
+#pragma warning restore CS0618
 
             using var sp = services.BuildServiceProvider();
             var provider = sp.GetRequiredService<IAsyncApiDocumentProvider>();

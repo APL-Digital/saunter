@@ -57,6 +57,7 @@ namespace Saunter
         /// <param name="documentName">The document name; created in <see cref="AsyncApiOptions.NamedApis"/> if it does not exist.</param>
         /// <param name="setupAction">An action to configure the document prototype.</param>
         /// <returns>The same service collection, for chaining.</returns>
+        [Obsolete("Use ConfigureAsyncApiDocument instead. It hosts each document on its own stable route and supports per-document marker types and type filtering. ConfigureNamedAsyncApi remains functional for the legacy {document}-templated route model.")]
         public static IServiceCollection ConfigureNamedAsyncApi(this IServiceCollection services, string documentName, Action<AsyncApiDocumentDescriptor> setupAction)
         {
             services.Configure<AsyncApiOptions>(options =>
