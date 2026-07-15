@@ -4,7 +4,7 @@ namespace Saunter.Options.Filters
 {
     /// <summary>
     /// Post-processes each generated channel before it is added to the document.
-    /// Register implementations via <see cref="AsyncApiOptions.AddAsyncApiChannelFilter{T}"/>.
+    /// Register implementations via <see cref="AsyncApiOptions.AddChannelFilter{T}"/>.
     /// </summary>
     public interface IChannelFilter
     {

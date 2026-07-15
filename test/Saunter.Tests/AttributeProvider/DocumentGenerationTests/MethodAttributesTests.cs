@@ -268,7 +268,7 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         public void GenerateDocument_AppliesChannelFiltersToSynthesizedReplyChannels()
         {
             ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(RequestReplyPublisher));
-            options.AddAsyncApiChannelFilter<ReplyChannelContextTaggingFilter>();
+            options.AddChannelFilter<ReplyChannelContextTaggingFilter>();
 
             var document = documentProvider.GetDocument(null, options);
 

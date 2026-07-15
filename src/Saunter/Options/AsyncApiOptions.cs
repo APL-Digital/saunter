@@ -51,7 +51,7 @@ namespace Saunter.Options
         public IEnumerable<Type> DocumentFilters => _documentFilters;
 
         /// <summary>
-        /// The <see cref="IChannelFilter"/> types registered via <see cref="AddAsyncApiChannelFilter{T}"/>,
+        /// The <see cref="IChannelFilter"/> types registered via <see cref="AddChannelFilter{T}"/>,
         /// applied to each generated channel.
         /// </summary>
         public IEnumerable<Type> ChannelFilters => _channelFilters;
@@ -77,9 +77,19 @@ namespace Saunter.Options
         /// The filter is resolved from the service provider, so it may take constructor dependencies.
         /// </summary>
         /// <typeparam name="T">The filter implementation to register.</typeparam>
-        public void AddAsyncApiChannelFilter<T>() where T : IChannelFilter
+        public void AddChannelFilter<T>() where T : IChannelFilter
         {
             _channelFilters.Add(typeof(T));
+        }
+
+        /// <summary>
+        /// Registers an <see cref="IChannelFilter"/> to post-process every generated channel.
+        /// </summary>
+        /// <typeparam name="T">The filter implementation to register.</typeparam>
+        [Obsolete("Use AddChannelFilter instead; it matches the AddDocumentFilter/AddOperationFilter naming.")]
+        public void AddAsyncApiChannelFilter<T>() where T : IChannelFilter
+        {
+            AddChannelFilter<T>();
         }
 
         /// <summary>
@@ -110,7 +120,7 @@ namespace Saunter.Options
         /// in place of <see cref="AsyncApi"/>. If the same name also exists in <see cref="Documents"/>,
         /// the <see cref="Documents"/> registration takes precedence.
         /// </summary>
-        public ConcurrentDictionary<string, AsyncApiDocumentDescriptor> NamedApis { get; set; } = new();
+        public ConcurrentDictionary<string, AsyncApiDocumentDescriptor> NamedApis { get; } = new();
 
         /// <summary>
         /// Full per-document registrations keyed by document name, populated via

@@ -138,7 +138,7 @@ See [AsyncApiOptions](src/Saunter/Options/AsyncApiOptions.cs) for detailed info.
 services.AddAsyncApiSchemaGeneration(options =>
 {
     options.AssemblyMarkerTypes = new[] { typeof(Startup) };
-    options.AddAsyncApiChannelFilter<MyAsyncApiChannelFilter>();
+    options.AddChannelFilter<MyChannelFilter>();
     options.AddOperationFilter<MyOperationFilter>();
     options.PropertyNameSelector = property =>
         property.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name

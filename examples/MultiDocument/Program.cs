@@ -29,7 +29,7 @@ builder.Services.AddAsyncApiSchemaGeneration(options =>
 
     // Filters post-process the generated model.
     options.AddDocumentFilter<HeartbeatDocumentFilter>();
-    options.AddAsyncApiChannelFilter<EnvironmentTagChannelFilter>();
+    options.AddChannelFilter<EnvironmentTagChannelFilter>();
 });
 
 // Both publishers share the attribute document name "v1"; TypeFilter splits

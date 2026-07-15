@@ -6,7 +6,7 @@ namespace MultiDocument.Filters;
 
 /// <summary>
 /// Adds an "environment" tag to every generated channel.
-/// Registered via <c>options.AddAsyncApiChannelFilter&lt;EnvironmentTagChannelFilter&gt;()</c>.
+/// Registered via <c>options.AddChannelFilter&lt;EnvironmentTagChannelFilter&gt;()</c>.
 /// </summary>
 public class EnvironmentTagChannelFilter : IChannelFilter
 {
