@@ -185,6 +185,19 @@ namespace Saunter.Tests.AttributeProvider.DocumentProviderTests
         }
 
         [Fact]
+        public void GetDocument_ThrowsWhenPayloadTypesWithSameSimpleNameProduceConflictingSchemas()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(RootSchemaCollisionPublisher));
+
+            var actual = () => documentProvider.GetDocument(null, options);
+
+            var error = Should.Throw<InvalidOperationException>(actual);
+            error.Message.ShouldContain("orderCreated");
+            error.Message.ShouldContain("Existing definition:");
+            error.Message.ShouldContain("Incoming definition:");
+        }
+
+        [Fact]
         public void GetDocument_CanSplitSameAttributeDocumentNameIntoMultipleConfiguredDocuments()
         {
             var services = new ServiceCollection();
@@ -306,6 +319,20 @@ namespace Saunter.Tests.AttributeProvider.DocumentProviderTests
         }
 
         [AsyncApi]
+        [Channel("shipping.events", "shipping.events")]
+        [SendOperation]
+        private class RootSchemaCollisionPublisher
+        {
+            public void PublishBilling(global::Saunter.Tests.AttributeProvider.DocumentProviderTests.RootSchemaCollisionSamples.Billing.OrderCreated _)
+            {
+            }
+
+            public void PublishShipping(global::Saunter.Tests.AttributeProvider.DocumentProviderTests.RootSchemaCollisionSamples.Shipping.OrderCreated _)
+            {
+            }
+        }
+
+        [AsyncApi]
         private class PreconfiguredConflictPublisher
         {
             [Channel("orders.preconfigured", "orders.preconfigured")]
@@ -373,5 +400,21 @@ namespace Saunter.Tests.AttributeProvider.DocumentProviderTests.NestedSchemaColl
     public class Metadata
     {
         public string Note { get; set; } = string.Empty;
+    }
+}
+
+namespace Saunter.Tests.AttributeProvider.DocumentProviderTests.RootSchemaCollisionSamples.Billing
+{
+    public class OrderCreated
+    {
+        public string OrderId { get; set; } = string.Empty;
+    }
+}
+
+namespace Saunter.Tests.AttributeProvider.DocumentProviderTests.RootSchemaCollisionSamples.Shipping
+{
+    public class OrderCreated
+    {
+        public int TrackingNumber { get; set; }
     }
 }

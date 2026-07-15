@@ -272,7 +272,7 @@ namespace Saunter.AttributeProvider
             return deduplicatedDescriptors.ToArray();
         }
 
-        private static bool MessageDescriptorsMatch(AsyncApiMessageDescriptor source, AsyncApiMessageDescriptor additional)
+        internal static bool MessageDescriptorsMatch(AsyncApiMessageDescriptor source, AsyncApiMessageDescriptor additional)
         {
             return string.Equals(source.Id, additional.Id, StringComparison.Ordinal)
                 && string.Equals(source.Name, additional.Name, StringComparison.Ordinal)
@@ -295,7 +295,7 @@ namespace Saunter.AttributeProvider
                 && SchemaDescriptorsMatch(source.Schema, additional.Schema);
         }
 
-        private static bool SchemaDescriptorsMatch(AsyncApiSchemaDescriptor source, AsyncApiSchemaDescriptor additional)
+        internal static bool SchemaDescriptorsMatch(AsyncApiSchemaDescriptor source, AsyncApiSchemaDescriptor additional)
         {
             if (!string.Equals(source.Id, additional.Id, StringComparison.Ordinal)
                 || source.Type != additional.Type
@@ -533,7 +533,7 @@ namespace Saunter.AttributeProvider
             return Nullable.GetUnderlyingType(type) is { } underlying && IsIgnorableParameter(underlying);
         }
 
-        private static string FormatMessageDescriptor(AsyncApiMessageDescriptor descriptor)
+        internal static string FormatMessageDescriptor(AsyncApiMessageDescriptor descriptor)
         {
             return $"id={FormatValue(descriptor.Id)}, name={FormatValue(descriptor.Name)}, title={FormatValue(descriptor.Title)}, payload={FormatValue(descriptor.PayloadSchemaId)}, headers={FormatValue(descriptor.HeadersSchemaId)}, contentType={FormatValue(descriptor.ContentType)}, bindings={FormatValue(descriptor.BindingsRef)}, tags={FormatValues(descriptor.Tags)}";
         }
@@ -543,7 +543,7 @@ namespace Saunter.AttributeProvider
             return $"id={FormatValue(descriptor.Id)}, schema={FormatSchemaDescriptor(descriptor.Schema)}";
         }
 
-        private static string FormatSchemaDescriptor(AsyncApiSchemaDescriptor? descriptor)
+        internal static string FormatSchemaDescriptor(AsyncApiSchemaDescriptor? descriptor)
         {
             if (descriptor is null)
             {

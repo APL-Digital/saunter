@@ -267,18 +267,40 @@ namespace Saunter.AttributeProvider
             {
                 foreach (var schema in resolution.Schemas)
                 {
-                    if (!components.Schemas.ContainsKey(schema.Id))
+                    if (components.Schemas.TryGetValue(schema.Id, out var existingSchema))
                     {
-                        components.Schemas[schema.Id] = schema.Schema;
+                        if (!AttributeMessageResolver.SchemaDescriptorsMatch(existingSchema, schema.Schema))
+                        {
+                            throw new InvalidOperationException(
+                                $"Conflicting schema definitions were generated for component id '{schema.Id}'. " +
+                                $"Existing definition: {AttributeMessageResolver.FormatSchemaDescriptor(existingSchema)}. " +
+                                $"Incoming definition: {AttributeMessageResolver.FormatSchemaDescriptor(schema.Schema)}. " +
+                                "This usually means two payload types share the same simple name; give one an explicit schema id or move it to avoid the collision.");
+                        }
+
+                        continue;
                     }
+
+                    components.Schemas[schema.Id] = schema.Schema;
                 }
 
                 foreach (var message in resolution.Messages)
                 {
-                    if (!components.Messages.ContainsKey(message.Id))
+                    if (components.Messages.TryGetValue(message.Id, out var existingMessage))
                     {
-                        components.Messages[message.Id] = message;
+                        if (!AttributeMessageResolver.MessageDescriptorsMatch(existingMessage, message))
+                        {
+                            throw new InvalidOperationException(
+                                $"Conflicting message definitions were generated for component id '{message.Id}'. " +
+                                $"Existing definition: {AttributeMessageResolver.FormatMessageDescriptor(existingMessage)}. " +
+                                $"Incoming definition: {AttributeMessageResolver.FormatMessageDescriptor(message)}. " +
+                                "This usually means two payload types share the same simple name; give one an explicit message id or move it to avoid the collision.");
+                        }
+
+                        continue;
                     }
+
+                    components.Messages[message.Id] = message;
                 }
             }
         }
