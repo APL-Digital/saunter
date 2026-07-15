@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 
 <!-- Please update the links section at the bottom when adding a new version. -->
+## [v1.1.0]
+### Added
+- Every `.json` document route now serves a `.yaml` sibling (e.g. `/asyncapi/asyncapi.yaml`) via the new `IAsyncApiDocumentWriter.WriteYaml`.
+- `AsyncApiOptions.ValidateOnStartup`: registered documents are generated once at startup so misconfiguration fails fast instead of returning a 500 on first request. Defaults to on in the Development environment.
+- Analyzer rule SAUN007 flags invalid operation reply configurations at build time; all analyzer rules now have help links backed by `docs/analyzers.md`.
+- `AsyncApiOptions.AddChannelFilter`, matching the `AddDocumentFilter`/`AddOperationFilter` naming.
+- Parameterless constructors on `AsyncApiMessageDescriptor`, `AsyncApiChannelDescriptor`, and `AsyncApiOperationDescriptor` for object-initializer construction.
+- `examples/MultiDocument` covering multi-document hosting, `TypeFilter`, filters, `PropertyNameSelector`, and custom inference generators.
+- XML doc comments on the entire public API surface; CS1591 is no longer suppressed.
+- `MapAsyncApiUi` logs a warning when the embedded UI assets are missing (source build without `npm install` in `src/Saunter.UI`).
+
+### Changed
+- `IChannelFilter`, `IOperationFilter`, `ChannelFilterContext`, and `DocumentFilterContext` moved from the global namespace into `Saunter.Options.Filters`.
+- `ConfigureNamedAsyncApi` and `AddAsyncApiChannelFilter` are marked obsolete in favor of `ConfigureAsyncApiDocument` and `AddChannelFilter`; both keep working.
+- `IAsyncApiDocumentWriter` gained `WriteYaml` (breaking for custom implementations).
+- `AsyncApiOptions.NamedApis` is now get-only (breaking if it was reassigned rather than populated).
+
 ## [v0.20.0]
 ### Changed
 - AsyncAPI generation now targets AsyncAPI 3.0.0 with the new descriptor-first document model.
@@ -168,6 +185,7 @@ When updating here set baseVersion to the previous tag and targetVersion to your
 This link will be dead until after you have completed the pull request and tagged the new version in master
 -->
 
+[v1.1.0]: https://github.com/APL-Digital/saunter/compare/v1.0.8...v1.1.0
 [v0.20.0]: https://github.com/APL-Digital/saunter/compare/v0.14.0...v0.20.0
 [v0.14.0]: https://github.com/m-wild/saunter/compare/v0.13.0...v0.14.0
 [v0.13.0]: https://github.com/m-wild/saunter/compare/v0.12.0...v0.13.0
