@@ -171,7 +171,8 @@ namespace Saunter.SharedKernel
                 var nestedSchemas = new List<AsyncApiSchemaDescriptor> { schema };
                 var properties = typeInfo.AsType()
                     .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                    .Where(p => p.GetMethod is not null && !p.GetMethod.IsStatic && p.GetIndexParameters().Length == 0);
+                    .Where(p => p.GetMethod is not null && !p.GetMethod.IsStatic && p.GetIndexParameters().Length == 0)
+                    .Where(p => !IsIgnoredForSerialization(p));
 
                 foreach (var prop in properties)
                 {
@@ -216,6 +217,14 @@ namespace Saunter.SharedKernel
         {
             return property.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name
                 ?? ToSchemaName(property.Name, true);
+        }
+
+        private static bool IsIgnoredForSerialization(PropertyInfo property)
+        {
+            // Only unconditionally-ignored properties are absent from the payload; the
+            // conditional variants (WhenWritingNull/WhenWritingDefault) still serialize.
+            var ignore = property.GetCustomAttribute<JsonIgnoreAttribute>();
+            return ignore is not null && ignore.Condition == JsonIgnoreCondition.Always;
         }
 
         private static AsyncApiSchemaDescriptor CreateUsageSchema(AsyncApiSchemaDescriptor schema, bool isNullable)

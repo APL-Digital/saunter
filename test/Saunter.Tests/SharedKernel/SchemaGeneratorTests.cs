@@ -237,6 +237,21 @@ namespace Saunter.Tests.SharedKernel
         }
 
         [Fact]
+        public void AsyncApiSchemaGenerator_ExcludesUnconditionallyIgnoredProperties()
+        {
+            AsyncApiSchemaGenerator generator = new();
+
+            var schema = generator.Generate(typeof(FooWithJsonIgnore));
+
+            schema.ShouldNotBeNull();
+            schema.Value.Root.Properties.ShouldContainKey("name");
+            schema.Value.Root.Properties.ShouldNotContainKey("internalSecret");
+            schema.Value.Root.Required.ShouldNotContain("internalSecret");
+            // Conditional ignores still serialize, so they remain documented.
+            schema.Value.Root.Properties.ShouldContainKey("optionalNote");
+        }
+
+        [Fact]
         public void AsyncApiSchemaGenerator_DoesNotTreatDictionariesAsArrays()
         {
             AsyncApiSchemaGenerator generator = new();
@@ -405,6 +420,17 @@ namespace Saunter.Tests.SharedKernel
     public class FooWithDictionary
     {
         public global::System.Collections.Generic.Dictionary<string, string> Attributes { get; set; } = new();
+    }
+
+    public class FooWithJsonIgnore
+    {
+        public string Name { get; set; } = string.Empty;
+
+        [JsonIgnore]
+        public string InternalSecret { get; set; } = string.Empty;
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? OptionalNote { get; set; }
     }
 
     public class BaseWithProperty
