@@ -87,12 +87,8 @@ Start with one of these examples:
 5. Map the endpoints.
 
    ```csharp
-   app.UseEndpoints(endpoints =>
-   {
-       endpoints.MapAsyncApiDocuments();
-       endpoints.MapAsyncApiUi();
-       endpoints.MapControllers();
-   });
+   app.MapAsyncApiDocuments();
+   app.MapAsyncApiUi();
    ```
 
 6. Open the JSON document.
@@ -106,7 +102,7 @@ Start with one of these examples:
        "version": "1.0.0"
      },
      "channels": {
-       "streetlights.measurement": {
+       "lightMeasured": {
          "address": "subscribe/light/measured"
        }
      },
@@ -114,7 +110,7 @@ Start with one of these examples:
        "ReceiveLightMeasurement": {
          "action": "receive",
          "channel": {
-           "$ref": "#/channels/streetlights.measurement"
+           "$ref": "#/channels/lightMeasured"
          }
        }
      }
