@@ -129,5 +129,14 @@ namespace Saunter.Options
         /// define the same name, the registration in <see cref="Documents"/> wins.
         /// </summary>
         public ConcurrentDictionary<string, AsyncApiDocumentRegistration> Documents { get; } = new();
+
+        /// <summary>
+        /// When <c>true</c>, every registered document is generated once at application startup so
+        /// misconfiguration (duplicate operation ids, unresolved references, invalid reply setups)
+        /// fails fast with a descriptive exception instead of a 500 on the first request to the
+        /// document endpoint. When <c>null</c> (the default), startup validation runs only in the
+        /// Development environment. Set to <c>false</c> to disable entirely.
+        /// </summary>
+        public bool? ValidateOnStartup { get; set; }
     }
 }

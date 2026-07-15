@@ -151,8 +151,11 @@ services.AddAsyncApiSchemaGeneration(options =>
     options.Inference.InferPayloadTypeFromMethodSignature = true;
     options.Inference.OperationIdGenerator = (member, action) => member.Name;
     options.Inference.ChannelIdGenerator = address => "myCustomChannelId";
+    options.ValidateOnStartup = true;
 });
 ```
+
+`ValidateOnStartup` generates every registered document once at startup so misconfiguration (duplicate operation ids, unresolved references) fails fast with a descriptive exception instead of a 500 on the first request. It defaults to on in the Development environment only; set it to `true`/`false` to control it explicitly.
 
 Default inference decisions:
 

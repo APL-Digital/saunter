@@ -37,6 +37,7 @@ namespace Saunter
             services.TryAddSingleton<IAttributeOperationBuilder, AttributeOperationBuilder>();
             services.TryAddSingleton<IAsyncApiDocumentValidator, AsyncApiDocumentValidator>();
             services.TryAddTransient<IAsyncApiDocumentProvider, AttributeDocumentProvider>();
+            services.AddHostedService<AsyncApiStartupValidationService>();
 
             if (setupAction != null)
             {
