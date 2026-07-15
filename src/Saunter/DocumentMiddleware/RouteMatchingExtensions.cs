@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Template;
@@ -7,13 +8,17 @@ namespace Saunter.DocumentMiddleware
 {
     internal static class RouteMatchingExtensions
     {
+        // Route patterns are fixed for the app lifetime, so parse each pattern once.
+        // TemplateMatcher is only read during TryMatch (writes land in the caller's
+        // RouteValueDictionary), so a cached instance is safe to share across requests.
+        private static readonly ConcurrentDictionary<string, TemplateMatcher> s_matchers = new();
+
         public static bool IsMatchingRoute(this PathString path, string pattern)
         {
-            var template = TemplateParser.Parse(pattern);
+            var matcher = s_matchers.GetOrAdd(pattern, static key =>
+                new TemplateMatcher(TemplateParser.Parse(key), new RouteValueDictionary()));
 
-            var values = new RouteValueDictionary();
-            var matcher = new TemplateMatcher(template, values);
-            return matcher.TryMatch(path, values);
+            return matcher.TryMatch(path, new RouteValueDictionary());
         }
 
         public static bool TryGetDocument(this HttpContext context, [MaybeNullWhen(false)] out string document)
