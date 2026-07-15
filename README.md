@@ -12,6 +12,7 @@ Start with one of these examples:
 - [examples/MassTransitStreetlights](examples/MassTransitStreetlights) for the advanced, spec-shaped MassTransit example
 - [examples/MassTransitUseCases](examples/MassTransitUseCases) for a broader set of MassTransit + Saunter authoring patterns in one project
 - [examples/StreetlightsAPI](examples/StreetlightsAPI) for the non-MassTransit Streetlights sample
+- [examples/MultiDocument](examples/MultiDocument) for multi-document hosting, filters, `PropertyNameSelector`, and custom inference generators
 
 1. Install the package.
 
