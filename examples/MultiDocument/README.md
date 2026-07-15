@@ -24,10 +24,10 @@ dotnet run --project examples/MultiDocument
 
 Open:
 
-- `http://localhost:5002/asyncapi/fleet/asyncapi.json`
-- `http://localhost:5002/asyncapi/fleet/ui`
-- `http://localhost:5002/asyncapi/config/asyncapi.json`
-- `http://localhost:5002/asyncapi/config/ui`
+- `http://localhost:5003/asyncapi/fleet/asyncapi.json`
+- `http://localhost:5003/asyncapi/fleet/ui`
+- `http://localhost:5003/asyncapi/config/asyncapi.json`
+- `http://localhost:5003/asyncapi/config/ui`
 
 ## Read This Example In Order
 

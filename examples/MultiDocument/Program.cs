@@ -9,7 +9,7 @@ using MultiDocument.Fleet;
 using Saunter;
 using Saunter.Options;
 
-const string baseAddress = "http://localhost:5002";
+const string baseAddress = "http://localhost:5003";
 
 var builder = WebApplication.CreateBuilder(args);
 
