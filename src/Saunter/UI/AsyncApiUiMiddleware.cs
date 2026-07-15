@@ -21,14 +21,20 @@ namespace Saunter.UI
         {
             if (IsRequestingUiBase(context.Request))
             {
-                context.Response.StatusCode = (int)HttpStatusCode.MovedPermanently;
-
                 if (context.TryGetDocument(out var document))
                 {
+                    if (!_options.NamedApis.ContainsKey(document))
+                    {
+                        context.Response.StatusCode = StatusCodes.Status404NotFound;
+                        return;
+                    }
+
+                    context.Response.StatusCode = (int)HttpStatusCode.MovedPermanently;
                     context.Response.Headers["Location"] = GetUiIndexFullRoute(context.Request).Replace("{document}", document);
                 }
                 else
                 {
+                    context.Response.StatusCode = (int)HttpStatusCode.MovedPermanently;
                     context.Response.Headers["Location"] = GetUiIndexFullRoute(context.Request);
                 }
                 return;
@@ -37,6 +43,12 @@ namespace Saunter.UI
             if (IsRequestingAsyncApiUi(context.Request))
             {
                 var hasDocument = context.TryGetDocument(out var document);
+                if (hasDocument && document is not null && !_options.NamedApis.ContainsKey(document))
+                {
+                    context.Response.StatusCode = StatusCodes.Status404NotFound;
+                    return;
+                }
+
                 var documentUrl = hasDocument
                     ? GetDocumentFullRoute(context.Request).Replace("{document}", document)
                     : GetDocumentFullRoute(context.Request);

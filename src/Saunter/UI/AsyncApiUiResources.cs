@@ -4,6 +4,7 @@ using System.IO;
 using System.Net;
 using System.Net.Mime;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.StaticFiles;
@@ -32,12 +33,15 @@ namespace Saunter.UI
 
             var indexHtml = new StringBuilder(template);
 
+            // Values are encoded for the context they are substituted into in index.html:
+            // title/css/js land in HTML (element text and attribute values); the document
+            // URL is emitted inside a single-quoted JavaScript string literal.
             foreach (var replacement in new Dictionary<string, string>
             {
-                ["{{title}}"] = title,
-                ["{{asyncApiDocumentUrl}}"] = documentUrl,
-                ["{{asyncApiUiCssUrl}}"] = cssUrl,
-                ["{{asyncApiUiJsUrl}}"] = jsUrl,
+                ["{{title}}"] = HtmlEncoder.Default.Encode(title),
+                ["{{asyncApiDocumentUrl}}"] = JavaScriptEncoder.Default.Encode(documentUrl),
+                ["{{asyncApiUiCssUrl}}"] = HtmlEncoder.Default.Encode(cssUrl),
+                ["{{asyncApiUiJsUrl}}"] = HtmlEncoder.Default.Encode(jsUrl),
             })
             {
                 indexHtml.Replace(replacement.Key, replacement.Value);

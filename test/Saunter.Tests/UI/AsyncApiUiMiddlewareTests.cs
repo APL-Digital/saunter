@@ -75,11 +75,48 @@ namespace Saunter.Tests.UI
             body.ShouldContain("/asyncapi/default/ui/index.js");
         }
 
+        [Fact]
+        public async Task Invoke_ReturnsNotFoundForUnknownDocument()
+        {
+            var middleware = CreateMiddleware();
+            var context = new DefaultHttpContext();
+            context.Request.Method = HttpMethods.Get;
+            context.Request.Path = "/asyncapi/unknown/ui/index.html";
+            context.Request.RouteValues["document"] = "unknown";
+            context.Response.Body = new MemoryStream();
+
+            await middleware.Invoke(context);
+
+            context.Response.StatusCode.ShouldBe(StatusCodes.Status404NotFound);
+            context.Response.Body.Length.ShouldBe(0);
+        }
+
+        [Fact]
+        public async Task Invoke_DoesNotReflectUnknownDocumentValueIntoHtml()
+        {
+            var middleware = CreateMiddleware();
+            var context = new DefaultHttpContext();
+            context.Request.Method = HttpMethods.Get;
+            context.Request.Path = "/asyncapi/x/ui/index.html";
+            context.Request.RouteValues["document"] = "\"><script>alert(1)</script>";
+            context.Response.Body = new MemoryStream();
+
+            await middleware.Invoke(context);
+
+            context.Response.StatusCode.ShouldBe(StatusCodes.Status404NotFound);
+
+            context.Response.Body.Position = 0;
+            using var reader = new StreamReader(context.Response.Body, Encoding.UTF8);
+            var body = await reader.ReadToEndAsync();
+            body.ShouldNotContain("<script>alert(1)</script>");
+        }
+
         private static AsyncApiUiMiddleware CreateMiddleware()
         {
             var options = Microsoft.Extensions.Options.Options.Create(new AsyncApiOptions());
             options.Value.Middleware.Route = "/asyncapi/{document}/asyncapi.json";
             options.Value.Middleware.UiBaseRoute = "/asyncapi/{document}/ui/";
+            options.Value.NamedApis["default"] = new AsyncApiDocumentDescriptor();
 
             return new AsyncApiUiMiddleware(_ => Task.CompletedTask, options);
         }
