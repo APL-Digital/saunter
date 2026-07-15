@@ -45,6 +45,39 @@ public class PaymentsApi
         }
 
         [Fact]
+        public async Task AnalyzeAsync_ReportsDuplicateOperationIdDeterministicallyOnLaterOccurrences()
+        {
+            const string source = """
+using Saunter.AttributeProvider.Attributes;
+
+[AsyncApi]
+[Channel("orders", "orders")]
+public class OrdersApi
+{
+    [SendOperation(OperationId = "publish")]
+    public void PublishFirst() { }
+
+    [SendOperation(OperationId = "publish")]
+    public void PublishSecond() { }
+
+    [SendOperation(OperationId = "publish")]
+    public void PublishThird() { }
+}
+""";
+
+            var duplicates = (await AnalyzeAsync(source))
+                .Where(diagnostic => diagnostic.Id == AsyncApiAttributeAnalyzer.DuplicateOperationIdDiagnosticId)
+                .ToArray();
+
+            // Three occurrences => the first is the canonical definition, the two later
+            // ones are flagged, and the reported spans are ordered by source position.
+            duplicates.Length.ShouldBe(2);
+            var starts = duplicates.Select(diagnostic => diagnostic.Location.SourceSpan.Start).ToArray();
+            starts.ShouldBe(starts.OrderBy(start => start).ToArray());
+            starts[0].ShouldBeGreaterThan(source.IndexOf("PublishFirst", StringComparison.Ordinal));
+        }
+
+        [Fact]
         public async Task AnalyzeAsync_DetectsInvalidExternalDocs()
         {
             const string source = """

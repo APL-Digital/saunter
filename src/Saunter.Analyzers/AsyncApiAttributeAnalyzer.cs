@@ -30,7 +30,10 @@ namespace Saunter.Analyzers
             "Operation id '{0}' is already used elsewhere. Use a unique OperationId or rely on member-name inference.",
             "Usage",
             DiagnosticSeverity.Warning,
-            isEnabledByDefault: true);
+            isEnabledByDefault: true,
+            description: null,
+            helpLinkUri: null,
+            WellKnownDiagnosticTags.CompilationEnd);
 
         private static readonly DiagnosticDescriptor s_invalidExternalDocs = new(
             InvalidExternalDocsDiagnosticId,
@@ -87,14 +90,34 @@ namespace Saunter.Analyzers
 
             context.RegisterCompilationStartAction(startContext =>
             {
-                var seenOperationIds = new ConcurrentDictionary<string, Location>(StringComparer.Ordinal);
+                // Collect occurrences during (unordered, concurrent) node analysis, then
+                // report duplicates once at compilation end so results are deterministic
+                // and don't depend on visitation order or stale incremental state.
+                var operationIdOccurrences = new ConcurrentBag<(string Value, Location Location)>();
                 startContext.RegisterSyntaxNodeAction(
-                    syntaxContext => AnalyzeAttribute(syntaxContext, seenOperationIds),
+                    syntaxContext => AnalyzeAttribute(syntaxContext, operationIdOccurrences),
                     Microsoft.CodeAnalysis.CSharp.SyntaxKind.Attribute);
+                startContext.RegisterCompilationEndAction(endContext => ReportDuplicateOperationIds(endContext, operationIdOccurrences));
             });
         }
 
-        private static void AnalyzeAttribute(SyntaxNodeAnalysisContext context, ConcurrentDictionary<string, Location> seenOperationIds)
+        private static void ReportDuplicateOperationIds(CompilationAnalysisContext context, ConcurrentBag<(string Value, Location Location)> operationIdOccurrences)
+        {
+            foreach (var group in operationIdOccurrences.GroupBy(occurrence => occurrence.Value, StringComparer.Ordinal))
+            {
+                var ordered = group
+                    .OrderBy(occurrence => occurrence.Location.SourceTree?.FilePath, StringComparer.Ordinal)
+                    .ThenBy(occurrence => occurrence.Location.SourceSpan.Start)
+                    .ToArray();
+
+                foreach (var duplicate in ordered.Skip(1))
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(s_duplicateOperationId, duplicate.Location, duplicate.Value));
+                }
+            }
+        }
+
+        private static void AnalyzeAttribute(SyntaxNodeAnalysisContext context, ConcurrentBag<(string Value, Location Location)> operationIdOccurrences)
         {
             var attributeSyntax = (AttributeSyntax)context.Node;
             if (context.SemanticModel.GetSymbolInfo(attributeSyntax).Symbol is not IMethodSymbol attributeSymbol)
@@ -106,7 +129,7 @@ namespace Saunter.Analyzers
             var attributeName = attributeType.Name;
             if (attributeName is "SendOperationAttribute" or "ReceiveOperationAttribute")
             {
-                AnalyzeOperationAttribute(context, attributeSyntax, seenOperationIds);
+                AnalyzeOperationAttribute(context, attributeSyntax, operationIdOccurrences);
                 return;
             }
 
@@ -128,7 +151,7 @@ namespace Saunter.Analyzers
             }
         }
 
-        private static void AnalyzeOperationAttribute(SyntaxNodeAnalysisContext context, AttributeSyntax attributeSyntax, ConcurrentDictionary<string, Location> seenOperationIds)
+        private static void AnalyzeOperationAttribute(SyntaxNodeAnalysisContext context, AttributeSyntax attributeSyntax, ConcurrentBag<(string Value, Location Location)> operationIdOccurrences)
         {
             foreach (var value in GetNamedStringValues(attributeSyntax, "OperationId"))
             {
@@ -137,10 +160,7 @@ namespace Saunter.Analyzers
                     context.ReportDiagnostic(Diagnostic.Create(s_invalidReferenceName, value.Location, "OperationId", value.Value));
                 }
 
-                if (!seenOperationIds.TryAdd(value.Value, value.Location))
-                {
-                    context.ReportDiagnostic(Diagnostic.Create(s_duplicateOperationId, value.Location, value.Value));
-                }
+                operationIdOccurrences.Add((value.Value, value.Location));
             }
 
             foreach (var propertyName in new[] { "BindingsRef", "Reply" })
