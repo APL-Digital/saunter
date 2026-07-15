@@ -2,6 +2,7 @@
 using System.Net;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Saunter.Options;
 using Saunter.SharedKernel.Interfaces;
@@ -13,16 +14,12 @@ namespace Saunter.DocumentMiddleware
         private const string DefaultDocumentCacheKey = "__default";
 
         private readonly RequestDelegate _next;
-        private readonly IAsyncApiDocumentProvider _asyncApiDocumentProvider;
-        private readonly IAsyncApiDocumentWriter _documentWriter;
         private readonly AsyncApiOptions _options;
         private readonly ConcurrentDictionary<string, string> _documentJsonCache = new();
 
-        public AsyncApiMiddleware(RequestDelegate next, IOptions<AsyncApiOptions> options, IAsyncApiDocumentProvider asyncApiDocumentProvider, IAsyncApiDocumentWriter documentWriter)
+        public AsyncApiMiddleware(RequestDelegate next, IOptions<AsyncApiOptions> options)
         {
             _next = next;
-            _asyncApiDocumentProvider = asyncApiDocumentProvider;
-            _documentWriter = documentWriter;
             _options = options.Value;
         }
 
@@ -43,8 +40,12 @@ namespace Saunter.DocumentMiddleware
             var cacheKey = documentName ?? DefaultDocumentCacheKey;
             var asyncApiSchemaJson = _documentJsonCache.GetOrAdd(cacheKey, _ =>
             {
-                var asyncApiSchema = _asyncApiDocumentProvider.GetDocument(documentName, _options);
-                return _documentWriter.WriteJson(asyncApiSchema);
+                // Resolve per request so scope-registered document providers and user
+                // filters bind to the request scope rather than the root container.
+                var documentProvider = context.RequestServices.GetRequiredService<IAsyncApiDocumentProvider>();
+                var documentWriter = context.RequestServices.GetRequiredService<IAsyncApiDocumentWriter>();
+                var asyncApiSchema = documentProvider.GetDocument(documentName, _options);
+                return documentWriter.WriteJson(asyncApiSchema);
             });
 
             await RespondWithAsyncApiSchemaJson(context.Response, asyncApiSchemaJson);

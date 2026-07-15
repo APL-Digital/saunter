@@ -23,13 +23,15 @@ namespace Saunter.Tests.DocumentMiddleware
             var options = Microsoft.Extensions.Options.Options.Create(new AsyncApiOptions());
             options.Value.Middleware.Route = "/asyncapi/asyncapi.json";
 
-            var middleware = new AsyncApiMiddleware(
-                _ => Task.CompletedTask,
-                options,
-                new TestDocumentProvider(),
-                CreateWriter());
+            var middleware = new AsyncApiMiddleware(_ => Task.CompletedTask, options);
 
-            var context = new DefaultHttpContext();
+            var services = new ServiceCollection();
+            services.AddFakeLogging();
+            services.AddAsyncApiSchemaGeneration();
+            services.AddSingleton<IAsyncApiDocumentProvider, TestDocumentProvider>();
+            using var serviceProvider = services.BuildServiceProvider();
+
+            var context = new DefaultHttpContext { RequestServices = serviceProvider };
             context.Request.Method = HttpMethods.Get;
             context.Request.Path = "/asyncapi/asyncapi.json";
             context.Response.Body = new MemoryStream();
@@ -56,36 +58,28 @@ namespace Saunter.Tests.DocumentMiddleware
 
             var provider = new CountingDocumentProvider();
             var writer = new CountingDocumentWriter();
-            var middleware = new AsyncApiMiddleware(
-                _ => Task.CompletedTask,
-                options,
-                provider,
-                writer);
+            var middleware = new AsyncApiMiddleware(_ => Task.CompletedTask, options);
 
-            await InvokeDocumentRequest(middleware);
-            await InvokeDocumentRequest(middleware);
+            var services = new ServiceCollection();
+            services.AddSingleton<IAsyncApiDocumentProvider>(provider);
+            services.AddSingleton<IAsyncApiDocumentWriter>(writer);
+            using var serviceProvider = services.BuildServiceProvider();
+
+            await InvokeDocumentRequest(middleware, serviceProvider);
+            await InvokeDocumentRequest(middleware, serviceProvider);
 
             provider.CallCount.ShouldBe(1);
             writer.CallCount.ShouldBe(1);
         }
 
-        private static async Task InvokeDocumentRequest(AsyncApiMiddleware middleware)
+        private static async Task InvokeDocumentRequest(AsyncApiMiddleware middleware, System.IServiceProvider serviceProvider)
         {
-            var context = new DefaultHttpContext();
+            var context = new DefaultHttpContext { RequestServices = serviceProvider };
             context.Request.Method = HttpMethods.Get;
             context.Request.Path = "/asyncapi/asyncapi.json";
             context.Response.Body = new MemoryStream();
 
             await middleware.Invoke(context);
-        }
-
-        private static IAsyncApiDocumentWriter CreateWriter()
-        {
-            var services = new ServiceCollection();
-            services.AddFakeLogging();
-            services.AddAsyncApiSchemaGeneration();
-
-            return services.BuildServiceProvider().GetRequiredService<IAsyncApiDocumentWriter>();
         }
 
         private class TestDocumentProvider : IAsyncApiDocumentProvider
