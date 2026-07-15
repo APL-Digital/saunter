@@ -28,6 +28,16 @@ namespace Saunter.AttributeProvider.Descriptors
         IReadOnlyList<string> MessageIds,
         IReadOnlyList<AsyncApiParameterDescriptor> Parameters)
     {
+        /// <summary>
+        /// Creates an empty descriptor for use with object-initializer syntax, e.g.
+        /// <c>new AsyncApiChannelDescriptor { Id = "orders", Address = "orders.created" }</c>.
+        /// Prefer this over the positional constructor and its long run of nullable arguments.
+        /// </summary>
+        public AsyncApiChannelDescriptor()
+            : this(string.Empty, null, null, null, null, null, [], [], [])
+        {
+        }
+
         private AsyncApiBindings<IChannelBinding> _bindings = new();
 
         /// <summary>

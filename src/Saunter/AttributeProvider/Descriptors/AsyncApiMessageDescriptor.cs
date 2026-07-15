@@ -35,6 +35,16 @@ namespace Saunter.AttributeProvider.Descriptors
         string? BindingsRef,
         IReadOnlyList<string> Tags)
     {
+        /// <summary>
+        /// Creates an empty descriptor for use with object-initializer syntax, e.g.
+        /// <c>new AsyncApiMessageDescriptor { Id = "signupMessage", Name = "signupMessage", Title = "Signup event" }</c>.
+        /// Prefer this over the positional constructor and its long run of nullable arguments.
+        /// </summary>
+        public AsyncApiMessageDescriptor()
+            : this(string.Empty, string.Empty, string.Empty, null, null, null, null, null, null, null, null, null, [])
+        {
+        }
+
         private AsyncApiBindings<IMessageBinding> _bindings = new();
 
         /// <summary>

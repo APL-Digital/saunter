@@ -27,6 +27,16 @@ namespace Saunter.AttributeProvider.Descriptors
         IReadOnlyList<string> Tags,
         AsyncApiOperationReplyDescriptor? Reply)
     {
+        /// <summary>
+        /// Creates an empty descriptor for use with object-initializer syntax, e.g.
+        /// <c>new AsyncApiOperationDescriptor { Action = AsyncApiAction.Send, ChannelId = "orders" }</c>.
+        /// Prefer this over the positional constructor and its long run of nullable arguments.
+        /// </summary>
+        public AsyncApiOperationDescriptor()
+            : this(AsyncApiAction.Send, string.Empty, null, null, null, null, [], [], null)
+        {
+        }
+
         private AsyncApiBindings<IOperationBinding> _bindings = new();
 
         /// <summary>

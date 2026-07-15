@@ -205,8 +205,12 @@ services.AddAsyncApiSchemaGeneration(options =>
             },
             Messages =
             {
-                ["signupMessage"] = new AsyncApiMessageDescriptor("signupMessage", "signupMessage", "Signup event", null, null, "signupPayload", null, null, null, null, null, null, [])
+                ["signupMessage"] = new AsyncApiMessageDescriptor
                 {
+                    Id = "signupMessage",
+                    Name = "signupMessage",
+                    Title = "Signup event",
+                    PayloadSchemaId = "signupPayload",
                     Bindings = new()
                     {
                         new AMQPMessageBinding
@@ -246,8 +250,12 @@ services.AddAsyncApiSchemaGeneration(options =>
         },
         Channels =
         {
-            ["routedChannel"] = new AsyncApiChannelDescriptor("routedChannel", "user.signup", null, null, null, null, ["rabbitmq"], ["signupMessage"], [])
+            ["routedChannel"] = new AsyncApiChannelDescriptor
             {
+                Id = "routedChannel",
+                Address = "user.signup",
+                ServerNames = ["rabbitmq"],
+                MessageIds = ["signupMessage"],
                 Bindings = new()
                 {
                     new AMQPChannelBinding

@@ -13,26 +13,19 @@ public class HeartbeatDocumentFilter : IDocumentFilter
 {
     public void Apply(AsyncApiDocumentDescriptor document, DocumentFilterContext context)
     {
-        document.Channels["heartbeat"] = new AsyncApiChannelDescriptor(
-            "heartbeat",
-            "system.heartbeat",
-            null,
-            "Liveness heartbeat",
-            "Emitted every 30 seconds by every service instance.",
-            null,
-            [],
-            [],
-            []);
+        document.Channels["heartbeat"] = new AsyncApiChannelDescriptor
+        {
+            Id = "heartbeat",
+            Address = "system.heartbeat",
+            Summary = "Liveness heartbeat",
+            Description = "Emitted every 30 seconds by every service instance.",
+        };
 
-        document.Operations["EmitHeartbeat"] = new AsyncApiOperationDescriptor(
-            AsyncApiAction.Send,
-            "heartbeat",
-            null,
-            "Emit liveness heartbeat",
-            null,
-            null,
-            [],
-            [],
-            null);
+        document.Operations["EmitHeartbeat"] = new AsyncApiOperationDescriptor
+        {
+            Action = AsyncApiAction.Send,
+            ChannelId = "heartbeat",
+            Summary = "Emit liveness heartbeat",
+        };
     }
 }
