@@ -14,7 +14,7 @@ Scope:
 |---|---|
 | Supported | Root `asyncapi`, `id`, `defaultContentType`; root `info.title`, `info.version`, `info.description`, `info.contact`, `info.license`, `info.termsOfService`; server `host`, `pathname`, `description`, `protocol`, `protocolVersion`, `variables`, `security`, `tags`, `bindings`; server variable `default`, `description`, `enum`, `examples`; channel `address` (string form), `messages`, `title`, `summary`, `description`, `servers`, `parameters`, `tags`, `bindings`; operation `action`, `channel`, `title`, `summary`, `description`, `bindings`, `messages`, `reply.channel`, `reply.address`; message `headers`, `payload`, `correlationId`, `contentType`, `name`, `title`, `summary`, `description`, `externalDocs`, `bindings`; parameter `enum`, `default`, `description`, `examples`, `location`; components `schemas`, `messages`, `parameters`, `correlationIds`, `securitySchemes`, `serverBindings`, `operationBindings`, `messageBindings`, `channelBindings`, `operationTraits`; schema primitives, objects, arrays, enums, refs, `required`, `items`, `additionalProperties`, `oneOf`, `allOf`, nullable output normalization, nullable root wrapper components |
 | Partially Supported | Root `info`; root `servers`; root `channels`; root `operations`; root `components`; server object overall; channel `address` null case; channel object overall; operation `traits`; operation object overall; operation tags as name-only tags; message tags as name-only tags; message object overall; schema object overall; validation coverage |
-| Missing | `info.tags`, `info.externalDocs`; server `title`, `summary`, `externalDocs`; channel `externalDocs`; operation `security`, `externalDocs`; message `examples`, `traits`; components `channels`, `operations`, `servers`, `serverVariables`, `replies`, `replyAddresses`, `externalDocs`, `tags`, `messageTraits`; Multi Format Schema authoring surface; YAML output; most advanced JSON Schema keywords |
+| Missing | `info.tags`, `info.externalDocs`; server `title`, `summary`, `externalDocs`; channel `externalDocs`; operation `security`, `externalDocs`; message `examples`, `traits`; components `channels`, `operations`, `servers`, `serverVariables`, `replies`, `replyAddresses`, `externalDocs`, `tags`, `messageTraits`; Multi Format Schema authoring surface; most advanced JSON Schema keywords |
 | Incorrect / Risky | `defaultContentType` is auto-injected as `application/json`; the document provider accepts prototype `Asyncapi` values beginning with `2.` instead of enforcing 3.0.0-only output; the writer accepts arbitrary `3.x` values instead of enforcing `3.0.0`; public authoring exposes `MessageAttribute.MessageId` even though AsyncAPI 3 `Message Object` has no `messageId` field; operation `security` is emitted as an empty list rather than intentionally authored; reusable component maps only expose concrete descriptors, not general reference-object authoring; null-address channels are awkward to author intentionally; the current ByteBard server serializer omits authored server `title`, `summary`, and `externalDocs`; many AsyncAPI invariants are not validated |
 
 ## Compatibility Matrix
@@ -98,7 +98,7 @@ Scope:
 | Schema nullability | Core subset | Supported with normalization | Serialized for AsyncAPI 3 as `oneOf` + `null`, without the legacy `nullable` keyword |
 | Rich JSON Schema keywords | Optional but important | Missing | No support for keywords like `pattern`, numeric bounds, schema `default`, schema `examples`, etc. |
 | Multi Format Schema Object | Supported by spec | Missing in authored surface | Saunter only exposes its JSON-schema-oriented descriptor path |
-| YAML output | Allowed by spec | Missing | Writer exposes JSON output only |
+| YAML output | Allowed by spec | Supported | `IAsyncApiDocumentWriter.WriteYaml` serializes via ByteBard; every `.json` document route hosts a `.yaml` sibling |
 | Validation coverage | N/A | Partial | Validates several reference relationships and address constraints, but not the full set of AsyncAPI invariants |
 
 ## Detailed Findings
@@ -157,8 +157,6 @@ Scope:
   - See [AsyncApiComponentsDescriptor.cs](src/Saunter/Descriptors/AsyncApiComponentsDescriptor.cs#L9-L28).
 - Multi Format Schema authoring is missing from Saunter's descriptor surface. The implementation generates only AsyncAPI JSON-schema-shaped output.
   - See [AsyncApiSchemaDescriptor.cs](src/Saunter/SharedKernel/Descriptors/AsyncApiSchemaDescriptor.cs#L15-L38).
-- YAML output is absent from the writer surface.
-  - See [AsyncApiDocumentWriter.cs](src/Saunter/SharedKernel/AsyncApiDocumentWriter.cs#L17-L34).
 
 ### Incorrect / Risky Behavior
 
