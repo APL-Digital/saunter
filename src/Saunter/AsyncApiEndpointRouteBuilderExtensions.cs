@@ -43,6 +43,18 @@ namespace Saunter
                             _ => writer.WriteJson(provider.GetDocument(registration.Name, options.Value)));
                         return Results.Text(json, "application/json");
                     });
+
+                    var yamlRoute = DeriveYamlRoute(documentRoute);
+                    if (yamlRoute is not null)
+                    {
+                        group.MapGet(yamlRoute, (IAsyncApiDocumentProvider provider, IAsyncApiDocumentWriter writer) =>
+                        {
+                            var yaml = cache.GetOrAdd(
+                                registration.Name + ":yaml",
+                                _ => writer.WriteYaml(provider.GetDocument(registration.Name, options.Value)));
+                            return Results.Text(yaml, "application/yaml");
+                        });
+                    }
                 }
 
                 return group;
@@ -54,7 +66,30 @@ namespace Saunter
 
             var route = options.Value.Middleware.Route;
 
-            return endpoints.MapGet(route, pipeline);
+            var jsonEndpoint = endpoints.MapGet(route, pipeline);
+
+            var defaultYamlRoute = DeriveYamlRoute(route);
+            if (defaultYamlRoute is not null)
+            {
+                endpoints.MapGet(defaultYamlRoute, pipeline);
+            }
+
+            return jsonEndpoint;
+        }
+
+        /// <summary>
+        /// Derives the YAML sibling of a JSON document route, e.g.
+        /// <c>/asyncapi/asyncapi.json</c> becomes <c>/asyncapi/asyncapi.yaml</c>.
+        /// Returns <c>null</c> when the route does not end in <c>.json</c>.
+        /// </summary>
+        internal static string? DeriveYamlRoute(string? jsonRoute)
+        {
+            if (jsonRoute is null || !jsonRoute.EndsWith(".json", System.StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return jsonRoute.Substring(0, jsonRoute.Length - ".json".Length) + ".yaml";
         }
 
 

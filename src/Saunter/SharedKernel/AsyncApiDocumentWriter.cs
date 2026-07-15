@@ -17,6 +17,18 @@ namespace Saunter.SharedKernel
 
         public string WriteJson(AsyncApiDocumentDescriptor document)
         {
+            var (mapped, serializerVersion) = PrepareForSerialization(document);
+            return mapped.SerializeAsJson(serializerVersion);
+        }
+
+        public string WriteYaml(AsyncApiDocumentDescriptor document)
+        {
+            var (mapped, serializerVersion) = PrepareForSerialization(document);
+            return mapped.SerializeAsYaml(serializerVersion);
+        }
+
+        private (AsyncApiDocument Document, AsyncApiVersion Version) PrepareForSerialization(AsyncApiDocumentDescriptor document)
+        {
             var mapped = _documentMapper.Map(document);
 
             var serializerVersion = mapped.Asyncapi switch
@@ -31,7 +43,7 @@ namespace Saunter.SharedKernel
                 NormalizeNullabilityForAsyncApi3(mapped);
             }
 
-            return mapped.SerializeAsJson(serializerVersion);
+            return (mapped, serializerVersion);
         }
 
         private static void NormalizeNullabilityForAsyncApi3(AsyncApiDocument document)

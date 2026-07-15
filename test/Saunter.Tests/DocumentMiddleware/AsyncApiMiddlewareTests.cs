@@ -126,6 +126,12 @@ namespace Saunter.Tests.DocumentMiddleware
                 CallCount++;
                 return "{\"asyncapi\":\"3.0.0\"}";
             }
+
+            public string WriteYaml(AsyncApiDocumentDescriptor document)
+            {
+                CallCount++;
+                return "asyncapi: 3.0.0";
+            }
         }
     }
 }

@@ -92,7 +92,7 @@ Start with one of these examples:
    app.MapAsyncApiUi();
    ```
 
-6. Open the JSON document.
+6. Open the JSON document. A YAML sibling is served next to every JSON route (`/asyncapi/asyncapi.yaml`).
 
    ```jsonc
    // GET /asyncapi/asyncapi.json

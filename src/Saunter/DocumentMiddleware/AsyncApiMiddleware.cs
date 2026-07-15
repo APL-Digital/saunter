@@ -25,10 +25,15 @@ namespace Saunter.DocumentMiddleware
 
         public async Task Invoke(HttpContext context)
         {
+            var isYaml = false;
             if (!IsRequestingAsyncApiSchema(context.Request))
             {
-                await _next(context);
-                return;
+                isYaml = IsRequestingAsyncApiSchemaYaml(context.Request);
+                if (!isYaml)
+                {
+                    await _next(context);
+                    return;
+                }
             }
 
             if (context.TryGetDocument(out var documentName) && !_options.NamedApis.TryGetValue(documentName, out _))
@@ -37,31 +42,37 @@ namespace Saunter.DocumentMiddleware
                 return;
             }
 
-            var cacheKey = documentName ?? DefaultDocumentCacheKey;
-            var asyncApiSchemaJson = _documentJsonCache.GetOrAdd(cacheKey, _ =>
+            var cacheKey = (documentName ?? DefaultDocumentCacheKey) + (isYaml ? ":yaml" : string.Empty);
+            var asyncApiSchema = _documentJsonCache.GetOrAdd(cacheKey, _ =>
             {
                 // Resolve per request so scope-registered document providers and user
                 // filters bind to the request scope rather than the root container.
                 var documentProvider = context.RequestServices.GetRequiredService<IAsyncApiDocumentProvider>();
                 var documentWriter = context.RequestServices.GetRequiredService<IAsyncApiDocumentWriter>();
-                var asyncApiSchema = documentProvider.GetDocument(documentName, _options);
-                return documentWriter.WriteJson(asyncApiSchema);
+                var document = documentProvider.GetDocument(documentName, _options);
+                return isYaml ? documentWriter.WriteYaml(document) : documentWriter.WriteJson(document);
             });
 
-            await RespondWithAsyncApiSchemaJson(context.Response, asyncApiSchemaJson);
+            await RespondWithAsyncApiSchema(context.Response, asyncApiSchema, isYaml ? "application/yaml" : "application/json");
         }
 
-        private static async Task RespondWithAsyncApiSchemaJson(HttpResponse response, string asyncApiSchemaJson)
+        private static async Task RespondWithAsyncApiSchema(HttpResponse response, string asyncApiSchema, string contentType)
         {
             response.StatusCode = (int)HttpStatusCode.OK;
-            response.ContentType = "application/json";
+            response.ContentType = contentType;
 
-            await response.WriteAsync(asyncApiSchemaJson);
+            await response.WriteAsync(asyncApiSchema);
         }
 
         private bool IsRequestingAsyncApiSchema(HttpRequest request)
         {
             return HttpMethods.IsGet(request.Method) && request.Path.IsMatchingRoute(_options.Middleware.Route);
+        }
+
+        private bool IsRequestingAsyncApiSchemaYaml(HttpRequest request)
+        {
+            var yamlRoute = AsyncApiEndpointRouteBuilderExtensions.DeriveYamlRoute(_options.Middleware.Route);
+            return yamlRoute is not null && HttpMethods.IsGet(request.Method) && request.Path.IsMatchingRoute(yamlRoute);
         }
     }
 }

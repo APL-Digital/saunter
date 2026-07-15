@@ -32,6 +32,7 @@ namespace Saunter.Tests
                 .ToArray();
 
             routes.ShouldContain("/asyncapi/orders/asyncapi.json");
+            routes.ShouldContain("/asyncapi/orders/asyncapi.yaml");
             routes.ShouldContain("/asyncapi/orders/ui");
             routes.ShouldContain("/asyncapi/orders/ui/index.html");
             routes.ShouldContain("/asyncapi/orders/ui/{assetName}");
