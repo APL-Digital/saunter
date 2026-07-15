@@ -10,9 +10,9 @@ Builds and releases managed with github actions.
 ### Build
 
 * Local builds are as simple as `dotnet build && dotnet test`
-* CI builds,fmt,unit on every push
-* [.github/workflows/ci.yaml](./.github/workflows/ci.yaml)
-* Build and tests MUST pass before merging to master
+* Run `dotnet format --verify-no-changes Saunter.sln` before pushing; CI checks formatting
+* CI builds and tests on every push: [.github/workflows/ci.yaml](./.github/workflows/ci.yaml)
+* Build and tests MUST pass before merging to `main`
 
 ### Release
 
@@ -21,7 +21,6 @@ Builds and releases managed with github actions.
 * [.github/workflows/release.yaml](./.github/workflows/release.yaml)
 * Pushing a tag formatted as `v*.*.*` will trigger the release workflow
 * Releases MUST use semantic versioning
-* Tags for release (non-preproduction) should relate to commits on `master`
+* Tags for release (non-preproduction) should relate to commits on `main`
 * The repository owner is responsible for tagging and releasing
-* Packages are pushed to [nuget.org/packages/saunter](https://www.nuget.org/packages/saunter)
 

@@ -55,12 +55,12 @@ The current Saunter generator cannot reproduce the target YAML exactly yet. The 
 
 ## Running
 
-```bash
-cd ~/saunter/src/Saunter.UI
-npm install
+From the repository root:
 
-cd ~/saunter/examples/MassTransitStreetlights
-dotnet run
+```bash
+npm install --prefix src/Saunter.UI
+
+dotnet run --project examples/MassTransitStreetlights
 ```
 
 Open:

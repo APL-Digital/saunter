@@ -6,12 +6,12 @@ This example mirrors the AsyncAPI Streetlights tutorial and uses Saunter with By
 
 The example project references the Saunter project directly, so install the UI assets first if you want to run it locally without publishing the npm bundle.
 
-```bash
-cd ~/saunter/src/Saunter.UI
-npm install
+From the repository root:
 
-cd ~/saunter/examples/StreetlightsAPI
-dotnet run
+```bash
+npm install --prefix src/Saunter.UI
+
+dotnet run --project examples/StreetlightsAPI
 ```
 
 Open:

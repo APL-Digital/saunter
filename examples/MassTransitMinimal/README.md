@@ -18,12 +18,12 @@ What is inferred automatically:
 
 ## Run
 
-```bash
-cd ~/saunter/src/Saunter.UI
-npm install
+From the repository root:
 
-cd ~/saunter/examples/MassTransitMinimal
-dotnet run
+```bash
+npm install --prefix src/Saunter.UI
+
+dotnet run --project examples/MassTransitMinimal
 ```
 
 Open:

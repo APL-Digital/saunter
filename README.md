@@ -1,23 +1,22 @@
 # Saunter
 
-![CI](https://github.com/asyncapi/saunter/workflows/CI/badge.svg)
-[![NuGet Badge](https://buildstats.info/nuget/saunter?includePreReleases=true)](https://www.nuget.org/packages/Saunter/)
+![CI](https://github.com/APL-Digital/saunter/actions/workflows/ci.yaml/badge.svg)
 
-Saunter is a code-first [AsyncAPI](https://github.com/asyncapi/asyncapi) documentation generator for .NET.
+Saunter is a code-first [AsyncAPI](https://www.asyncapi.com/) documentation generator for .NET. It generates AsyncAPI 3.0.0 documents from attributes on your messaging code and serves them (plus an interactive UI) from your ASP.NET Core application.
 
 ## Getting Started
 
 Start with one of these examples:
 
-- [examples/MassTransitMinimal](https://github.com/asyncapi/saunter/tree/main/examples/MassTransitMinimal) for the happy path and inferred defaults
-- [examples/MassTransitStreetlights](https://github.com/asyncapi/saunter/tree/main/examples/MassTransitStreetlights) for the advanced, spec-shaped MassTransit example
-- [examples/MassTransitUseCases](https://github.com/asyncapi/saunter/tree/main/examples/MassTransitUseCases) for a broader set of MassTransit + Saunter authoring patterns in one project
-- [examples/StreetlightsAPI](https://github.com/asyncapi/saunter/tree/main/examples/StreetlightsAPI) for the non-MassTransit Streetlights sample
+- [examples/MassTransitMinimal](examples/MassTransitMinimal) for the happy path and inferred defaults
+- [examples/MassTransitStreetlights](examples/MassTransitStreetlights) for the advanced, spec-shaped MassTransit example
+- [examples/MassTransitUseCases](examples/MassTransitUseCases) for a broader set of MassTransit + Saunter authoring patterns in one project
+- [examples/StreetlightsAPI](examples/StreetlightsAPI) for the non-MassTransit Streetlights sample
 
-1. Install the Saunter package.
+1. Install the package.
 
    ```bash
-   dotnet add package Saunter
+   dotnet add package Apollo.Saunter
    ```
 
 2. Configure Saunter in `ConfigureServices`.
@@ -124,7 +123,7 @@ Start with one of these examples:
 
 7. Open the UI.
 
-   ![AsyncAPI UI](https://raw.githubusercontent.com/asyncapi/saunter/main/assets/asyncapi-ui-screenshot.png)
+   ![AsyncAPI UI](assets/asyncapi-ui-screenshot.png)
 
 ## Annotation Mental Model
 
@@ -136,7 +135,7 @@ Start with one of these examples:
 
 ## Configuration
 
-See [the options source code](https://github.com/asyncapi/saunter/blob/main/src/Saunter/AsyncApiOptions.cs) for detailed info.
+See [AsyncApiOptions](src/Saunter/Options/AsyncApiOptions.cs) for detailed info.
 
 ```csharp
 services.AddAsyncApiSchemaGeneration(options =>
@@ -160,12 +159,15 @@ services.AddAsyncApiSchemaGeneration(options =>
 
 Default inference decisions:
 
-- inferred operation ids preserve the member name casing by default
+- inferred operation ids preserve the member name casing
 - inferred channel ids use the configured `ChannelIdGenerator`
-- schema property names honor `[JsonPropertyName]` by default; `PropertyNameSelector` can override that globally
+- schema property names honor `[JsonPropertyName]`; `PropertyNameSelector` can override that globally
+
+Related authoring surface:
+
 - richer channel tag metadata can be declared with `[ChannelTag(...)]`
-- channel parameters can now carry `DefaultValue` and `Examples`
-- Saunter packages ship the built-in analyzers automatically
+- channel parameters support `DefaultValue` and `Examples`
+- the package ships Roslyn analyzers that flag common annotation mistakes at build time
 
 ## Bindings
 
@@ -288,15 +290,15 @@ services.ConfigureAsyncApiDocument("fleet", document =>
     document.Document.Info = new AsyncApiInfoDescriptor { Title = "Fleet API", Version = "1.0.0" };
 });
 
-services.ConfigureAsyncApiDocument("markus-config", document =>
+services.ConfigureAsyncApiDocument("config", document =>
 {
     document.AttributeDocumentName = "v1";
     document.MarkerTypes.Add(typeof(ConfigPublisher));
-    document.Middleware.Route = "/asyncapi/markus-config/asyncapi.json";
-    document.Middleware.UiBaseRoute = "/asyncapi/markus-config/ui";
-    document.Middleware.UiTitle = "Markus.Config Messaging API";
+    document.Middleware.Route = "/asyncapi/config/asyncapi.json";
+    document.Middleware.UiBaseRoute = "/asyncapi/config/ui";
+    document.Middleware.UiTitle = "Config Messaging API";
     document.Document.Asyncapi = "3.0.0";
-    document.Document.Info = new AsyncApiInfoDescriptor { Title = "Markus.Config Messaging API", Version = "1.0.0" };
+    document.Document.Info = new AsyncApiInfoDescriptor { Title = "Config Messaging API", Version = "1.0.0" };
 });
 ```
 
@@ -337,34 +339,29 @@ services.ConfigureAsyncApiDocument("invoices-v1", document =>
 
 Saunter still supports `ConfigureNamedAsyncApi(...)` for the legacy model where the route template contains `{document}` and the hosted document key matches the `[AsyncApi("...")]` document name. Prefer `ConfigureAsyncApiDocument(...)` for new work.
 
-The built-in UI now renders absolute asset and document URLs, so `/asyncapi/foo/ui` works without relying on a trailing slash redirect.
+## Migrating From Saunter 0.x (AsyncAPI 2.x)
 
-## Breaking Changes
+This fork generates AsyncAPI 3.0.0 documents. If you are coming from upstream Saunter (AsyncAPI 2.x), the main changes are:
 
 - LEGO AsyncAPI.NET was replaced with `ByteBard.AsyncAPI.NET`, `ByteBard.AsyncAPI.NET.Readers`, and `ByteBard.AsyncAPI.NET.Bindings`.
 - Public API types now use Saunter descriptors, including `AsyncApiOptions.AsyncApi`, `IAsyncApiDocumentProvider`, and the filter interfaces.
-- `PublishOperationAttribute` and `SubscribeOperationAttribute` were removed and replaced with `SendOperationAttribute` and `ReceiveOperationAttribute`.
-- `ChannelAttribute` still supports `(channelId, address)`, supports inferred ids from a single address in the happy path, and lets you override the inferred id with `[Channel("address", ChannelId = "customId")]`.
-- Generated documents now use AsyncAPI v3 root `operations` and v3 channel `address` fields instead of v2 channel-local `publish` and `subscribe`.
-- Existing code that mutates or asserts v2 document shape must be updated to the v3 document model.
+- `PublishOperationAttribute` and `SubscribeOperationAttribute` were replaced with `SendOperationAttribute` and `ReceiveOperationAttribute`:
 
-Migration examples:
+  ```csharp
+  [Channel("temperature.sensor", "sensors/temperature")]
+  [SendOperation(typeof(TemperatureReading))]
+  public void PublishTemperature(TemperatureReading reading) { }
 
-```csharp
-[Channel("temperature.sensor", "sensors/temperature")]
-[SendOperation(typeof(TemperatureReading))]
-public void PublishTemperature(TemperatureReading reading) { }
-```
+  [Channel("temperature.sensor", "sensors/temperature")]
+  [ReceiveOperation(typeof(TemperatureReading))]
+  public void ConsumeTemperature(TemperatureReading reading) { }
+  ```
 
-```csharp
-[Channel("temperature.sensor", "sensors/temperature")]
-[ReceiveOperation(typeof(TemperatureReading))]
-public void ConsumeTemperature(TemperatureReading reading) { }
-```
+- Generated documents use AsyncAPI v3 root `operations` and channel `address` fields instead of v2 channel-local `publish` and `subscribe`. Code that mutates or asserts the v2 document shape (e.g. document filters) must be updated to the v3 model.
 
 ## Contributing
 
-See our [contributing guide](https://github.com/asyncapi/saunter/blob/main/CONTRIBUTING.md).
+See the [contributing guide](CONTRIBUTING.md).
 
 ## Thanks
 

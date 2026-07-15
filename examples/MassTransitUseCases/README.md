@@ -25,7 +25,7 @@ It is not the minimal getting-started path. Start with `examples/MassTransitMini
 - `TenantCatalogPublisher`: custom `IChannelResolver` usage.
 - `IPartnerExportPublisher` + `PartnerExportPublisher`: interface-based annotation discovery plus named `ChannelId` override on the one-argument `Channel` attribute.
 
-Every producer and consumer class now also carries short inline `Use case:` comments directly above the annotated boundary methods, so you can understand the intent without flipping back to this README.
+Every producer and consumer class also carries short inline `Use case:` comments directly above the annotated boundary methods, so you can understand the intent without flipping back to this README.
 
 ## Start Here
 
@@ -40,12 +40,12 @@ Read the project in this order:
 
 ## Running
 
-```bash
-cd ~/saunter/src/Saunter.UI
-npm install
+From the repository root:
 
-cd ~/saunter/examples/MassTransitUseCases
-dotnet run
+```bash
+npm install --prefix src/Saunter.UI
+
+dotnet run --project examples/MassTransitUseCases
 ```
 
 Open:
