@@ -180,6 +180,70 @@ public class OrdersApi
             diagnostics.ShouldContain(diagnostic => diagnostic.Id == AsyncApiAttributeAnalyzer.OrphanedAnnotationDiagnosticId);
         }
 
+        [Fact]
+        public async Task AnalyzeAsync_DetectsMutuallyExclusiveReplyAddressSettings()
+        {
+            const string source = """
+using Saunter.AttributeProvider.Attributes;
+
+[AsyncApi]
+public class OrdersApi
+{
+    [Channel("orders", "orders.created")]
+    [SendOperation(Reply = "ordersReply", ReplyChannelAddress = "orders.reply", ReplyAddressLocation = "$message.header#/replyTo")]
+    public void Publish() { }
+}
+""";
+
+            var diagnostics = await AnalyzeAsync(source);
+
+            diagnostics.ShouldContain(diagnostic => diagnostic.Id == AsyncApiAttributeAnalyzer.InvalidReplyConfigurationDiagnosticId);
+        }
+
+        [Fact]
+        public async Task AnalyzeAsync_DetectsReplyMetadataWithoutReplyChannelId()
+        {
+            const string source = """
+using Saunter.AttributeProvider.Attributes;
+
+[AsyncApi]
+public class OrdersApi
+{
+    [Channel("orders", "orders.created")]
+    [SendOperation(ReplyChannelAddress = "orders.reply")]
+    public void PublishWithAddress() { }
+
+    [Channel("payments", "payments.created")]
+    [SendOperation(ReplyMessagePayloadType = typeof(string))]
+    public void PublishWithPayload() { }
+}
+""";
+
+            var diagnostics = await AnalyzeAsync(source);
+
+            diagnostics.Count(diagnostic => diagnostic.Id == AsyncApiAttributeAnalyzer.InvalidReplyConfigurationDiagnosticId).ShouldBe(2);
+        }
+
+        [Fact]
+        public async Task AnalyzeAsync_AllowsValidReplyConfiguration()
+        {
+            const string source = """
+using Saunter.AttributeProvider.Attributes;
+
+[AsyncApi]
+public class OrdersApi
+{
+    [Channel("orders", "orders.created")]
+    [SendOperation(Reply = "ordersReply", ReplyChannelAddress = "orders.reply", ReplyMessagePayloadType = typeof(string))]
+    public void Publish() { }
+}
+""";
+
+            var diagnostics = await AnalyzeAsync(source);
+
+            diagnostics.ShouldNotContain(diagnostic => diagnostic.Id == AsyncApiAttributeAnalyzer.InvalidReplyConfigurationDiagnosticId);
+        }
+
         private static async Task<ImmutableArray<Diagnostic>> AnalyzeAsync(string source)
         {
             var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);

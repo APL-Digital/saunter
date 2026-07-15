@@ -19,6 +19,9 @@ namespace Saunter.Analyzers
         public const string InvalidReferenceNameDiagnosticId = "SAUN004";
         public const string OrphanedAnnotationDiagnosticId = "SAUN005";
         public const string InvalidChannelParameterNameDiagnosticId = "SAUN006";
+        public const string InvalidReplyConfigurationDiagnosticId = "SAUN007";
+
+        private const string HelpLinkBase = "https://github.com/APL-Digital/saunter/blob/development/docs/analyzers.md";
 
         private static readonly Regex s_referenceNamePattern = new("^[A-Za-z0-9._-]+$", RegexOptions.Compiled);
         private static readonly Regex s_channelParameterNamePattern = new("^[A-Za-z0-9_-]+$", RegexOptions.Compiled);
@@ -32,7 +35,7 @@ namespace Saunter.Analyzers
             DiagnosticSeverity.Warning,
             isEnabledByDefault: true,
             description: null,
-            helpLinkUri: null,
+            helpLinkUri: HelpLinkBase + "#saun001",
             WellKnownDiagnosticTags.CompilationEnd);
 
         private static readonly DiagnosticDescriptor s_invalidExternalDocs = new(
@@ -41,7 +44,9 @@ namespace Saunter.Analyzers
             "ExternalDocs value '{0}' must be a valid absolute URI",
             "Usage",
             DiagnosticSeverity.Warning,
-            isEnabledByDefault: true);
+            isEnabledByDefault: true,
+            description: null,
+            helpLinkUri: HelpLinkBase + "#saun002");
 
         private static readonly DiagnosticDescriptor s_channelParameterMismatch = new(
             ChannelParameterMismatchDiagnosticId,
@@ -49,7 +54,9 @@ namespace Saunter.Analyzers
             "Channel parameter '{0}' is not present in address '{1}'. Remove the parameter or add '{{{0}}}' to the address.",
             "Usage",
             DiagnosticSeverity.Warning,
-            isEnabledByDefault: true);
+            isEnabledByDefault: true,
+            description: null,
+            helpLinkUri: HelpLinkBase + "#saun003");
 
         private static readonly DiagnosticDescriptor s_invalidReferenceName = new(
             InvalidReferenceNameDiagnosticId,
@@ -57,7 +64,9 @@ namespace Saunter.Analyzers
             "{0} value '{1}' is not a valid AsyncAPI component/server name. Use only letters, digits, '.', '-', or '_'.",
             "Usage",
             DiagnosticSeverity.Warning,
-            isEnabledByDefault: true);
+            isEnabledByDefault: true,
+            description: null,
+            helpLinkUri: HelpLinkBase + "#saun004");
 
         private static readonly DiagnosticDescriptor s_invalidChannelParameterName = new(
             InvalidChannelParameterNameDiagnosticId,
@@ -65,7 +74,9 @@ namespace Saunter.Analyzers
             "ChannelParameter value '{0}' is not a valid AsyncAPI channel parameter name. Use only letters, digits, '-', or '_'.",
             "Usage",
             DiagnosticSeverity.Warning,
-            isEnabledByDefault: true);
+            isEnabledByDefault: true,
+            description: null,
+            helpLinkUri: HelpLinkBase + "#saun006");
 
         private static readonly DiagnosticDescriptor s_orphanedAnnotation = new(
             OrphanedAnnotationDiagnosticId,
@@ -73,7 +84,19 @@ namespace Saunter.Analyzers
             "{0} is used without the required surrounding AsyncAPI context: {1}",
             "Usage",
             DiagnosticSeverity.Warning,
-            isEnabledByDefault: true);
+            isEnabledByDefault: true,
+            description: null,
+            helpLinkUri: HelpLinkBase + "#saun005");
+
+        private static readonly DiagnosticDescriptor s_invalidReplyConfiguration = new(
+            InvalidReplyConfigurationDiagnosticId,
+            "Invalid AsyncAPI operation reply configuration",
+            "{0}",
+            "Usage",
+            DiagnosticSeverity.Warning,
+            isEnabledByDefault: true,
+            description: null,
+            helpLinkUri: HelpLinkBase + "#saun007");
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(
             s_duplicateOperationId,
@@ -81,7 +104,8 @@ namespace Saunter.Analyzers
             s_channelParameterMismatch,
             s_invalidReferenceName,
             s_orphanedAnnotation,
-            s_invalidChannelParameterName);
+            s_invalidChannelParameterName,
+            s_invalidReplyConfiguration);
 
         public override void Initialize(AnalysisContext context)
         {
@@ -173,7 +197,62 @@ namespace Saunter.Analyzers
                     }
                 }
             }
+
+            AnalyzeReplyConfiguration(context, attributeSyntax);
         }
+
+        private static void AnalyzeReplyConfiguration(SyntaxNodeAnalysisContext context, AttributeSyntax attributeSyntax)
+        {
+            var hasReply = HasNamedArgument(attributeSyntax, "Reply");
+            var replyChannelAddress = GetNamedArgumentLocation(attributeSyntax, "ReplyChannelAddress");
+            var replyAddressLocation = GetNamedArgumentLocation(attributeSyntax, "ReplyAddressLocation");
+            var replyMessagePayloadType = GetNamedArgumentLocation(attributeSyntax, "ReplyMessagePayloadType");
+
+            if (replyChannelAddress is not null && replyAddressLocation is not null)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    s_invalidReplyConfiguration,
+                    replyAddressLocation,
+                    "ReplyChannelAddress and ReplyAddressLocation are mutually exclusive. Remove one of them so the reply channel is either explicitly addressed or dynamically addressed."));
+            }
+
+            if (hasReply)
+            {
+                return;
+            }
+
+            if (replyChannelAddress is not null)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    s_invalidReplyConfiguration,
+                    replyChannelAddress,
+                    "ReplyChannelAddress requires a Reply channel id. Set Reply to the generated reply channel id."));
+            }
+
+            if (replyAddressLocation is not null)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    s_invalidReplyConfiguration,
+                    replyAddressLocation,
+                    "ReplyAddressLocation requires a Reply channel id. Set Reply to the reply channel id or remove the reply address metadata."));
+            }
+
+            if (replyMessagePayloadType is not null)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    s_invalidReplyConfiguration,
+                    replyMessagePayloadType,
+                    "ReplyMessagePayloadType requires a Reply channel id. Set Reply to the reply channel id or remove the reply payload type."));
+            }
+        }
+
+        private static bool HasNamedArgument(AttributeSyntax attributeSyntax, string propertyName) =>
+            GetNamedArgumentLocation(attributeSyntax, propertyName) is not null;
+
+        private static Location? GetNamedArgumentLocation(AttributeSyntax attributeSyntax, string propertyName) =>
+            attributeSyntax.ArgumentList?.Arguments
+                .FirstOrDefault(argument => argument.NameEquals?.Name.Identifier.ValueText == propertyName)
+                ?.GetLocation();
 
         private static void AnalyzeMessageAttribute(SyntaxNodeAnalysisContext context, AttributeSyntax attributeSyntax)
         {
