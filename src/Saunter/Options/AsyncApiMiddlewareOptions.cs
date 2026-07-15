@@ -1,5 +1,8 @@
 ﻿namespace Saunter.Options
 {
+    /// <summary>
+    /// Route options for hosting an AsyncAPI document and its UI.
+    /// </summary>
     public class AsyncApiMiddlewareOptions
     {
         /// <summary>

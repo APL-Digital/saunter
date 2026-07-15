@@ -11,5 +11,9 @@ public class FleetPublisher
 {
     [Channel("fleet.vehicle.position")]
     [SendOperation]
-    public void PublishVehiclePosition(VehiclePositionChanged position) { }
+    public void PublishVehiclePosition(VehiclePositionChanged position)
+    {
+        // A real implementation would hand the message to a broker here.
+        _ = position;
+    }
 }

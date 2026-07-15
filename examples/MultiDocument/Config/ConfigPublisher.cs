@@ -13,5 +13,9 @@ public class ConfigPublisher
 {
     [Channel("config.value.changed")]
     [SendOperation]
-    public void PublishConfigChange(ConfigValueChanged change) { }
+    public void PublishConfigChange(ConfigValueChanged change)
+    {
+        // A real implementation would hand the message to a broker here.
+        _ = change;
+    }
 }

@@ -2,15 +2,28 @@
 
 namespace Saunter.AttributeProvider.Attributes
 {
+    /// <summary>
+    /// Declares a message that can flow through the channel declared on the same method.
+    /// Apply multiple attributes to declare multiple messages.
+    /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
     public class MessageAttribute : Attribute
     {
+        /// <summary>
+        /// Initializes a <see cref="MessageAttribute"/> for the given payload type.
+        /// </summary>
+        /// <param name="payloadType">The type to use to generate the message payload schema.</param>
         public MessageAttribute(Type payloadType)
         {
             PayloadType = payloadType;
             Tags = Array.Empty<string>();
         }
 
+        /// <summary>
+        /// Initializes a <see cref="MessageAttribute"/> for the given payload type with tags.
+        /// </summary>
+        /// <param name="payloadType">The type to use to generate the message payload schema.</param>
+        /// <param name="tags">Tag names for logical grouping of messages.</param>
         public MessageAttribute(Type payloadType, params string[] tags)
         {
             PayloadType = payloadType;

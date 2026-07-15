@@ -27,7 +27,7 @@
 
   <PropertyGroup>
     <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\Saunter.xml</DocumentationFile>
-    <NoWarn>1701;1702;1591</NoWarn>
+    <NoWarn>1701;1702</NoWarn>
     <ByteBardVersion>2.1.2</ByteBardVersion>
   </PropertyGroup>
 

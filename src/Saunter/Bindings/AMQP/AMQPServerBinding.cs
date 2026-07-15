@@ -13,10 +13,13 @@ public sealed class AMQPServerBinding : ServerBinding<AMQPServerBinding>
 {
     private static readonly FixedFieldMap<AMQPServerBinding> FixedFields = new();
 
+    /// <inheritdoc/>
     public override string BindingKey => "amqp";
 
+    /// <inheritdoc/>
     protected override FixedFieldMap<AMQPServerBinding> FixedFieldMap => FixedFields;
 
+    /// <inheritdoc/>
     public override void SerializeProperties(IAsyncApiWriter writer)
     {
         ArgumentNullException.ThrowIfNull(writer);

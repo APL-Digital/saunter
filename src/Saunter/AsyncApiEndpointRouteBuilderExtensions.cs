@@ -12,10 +12,16 @@ using Saunter.UI;
 
 namespace Saunter
 {
+    /// <summary>
+    /// Extension methods for mapping the AsyncAPI document and UI endpoints on an
+    /// <see cref="IEndpointRouteBuilder"/>.
+    /// </summary>
     public static class AsyncApiEndpointRouteBuilderExtensions
     {
         /// <summary>
-        /// Maps the AsyncAPI document endpoint
+        /// Maps the AsyncAPI document endpoint(s). When documents are registered via
+        /// <c>ConfigureAsyncApiDocument</c>, one endpoint is mapped per registration on its own route;
+        /// otherwise a single endpoint is mapped on the shared middleware route.
         /// </summary>
         public static IEndpointConventionBuilder MapAsyncApiDocuments(
             this IEndpointRouteBuilder endpoints)
