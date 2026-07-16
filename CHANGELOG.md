@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 - When the embedded UI assets are missing (source build without `npm install`), the UI now serves an explanatory page linking to the document route instead of a blank page.
 
 ### Changed
+- **Breaking:** Saunter now targets .NET 10 only; the net8.0 and net9.0 targets were dropped. Tests and examples were moved to net10.0 as well.
 - **Breaking:** requesting a named document that is neither configured nor matched by any `[AsyncApi("name")]` attribute now throws a descriptive `InvalidOperationException` instead of silently serving the default document prototype.
 - **Breaking:** `AsyncApiMiddlewareOptions.UiTitle` is now `string?` (default `null`); the effective title resolves to `info.title`, then `"AsyncAPI"`.
 - **Breaking:** `AsyncApiOptions.DocumentFilters`/`ChannelFilters`/`OperationFilters` changed from `IEnumerable<Type>` to `IReadOnlyList<FilterDescriptor>` to support instance registration.
