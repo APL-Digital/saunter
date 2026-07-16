@@ -1,6 +1,14 @@
 {
   "asyncapi": "3.0.0",
   "channels": {
+    "masstransitminimalContractsOrderArchived": {
+      "address": "MassTransitMinimal.Contracts:OrderArchived",
+      "messages": {
+        "orderArchived": {
+          "$ref": "#/components/messages/orderArchived"
+        }
+      }
+    },
     "ordersSubmitted": {
       "address": "orders.submitted",
       "messages": {
@@ -17,6 +25,13 @@
   },
   "components": {
     "messages": {
+      "orderArchived": {
+        "name": "orderArchived",
+        "payload": {
+          "$ref": "#/components/schemas/orderArchived"
+        },
+        "title": "Order Archived"
+      },
       "orderSubmitted": {
         "name": "orderSubmitted",
         "payload": {
@@ -26,6 +41,26 @@
       }
     },
     "schemas": {
+      "orderArchived": {
+        "properties": {
+          "archivedAt": {
+            "format": "dateTimeOffset",
+            "title": "dateTimeOffset",
+            "type": "string"
+          },
+          "orderId": {
+            "format": "guid",
+            "title": "guid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "orderId",
+          "archivedAt"
+        ],
+        "title": "orderArchived",
+        "type": "object"
+      },
       "orderSubmitted": {
         "properties": {
           "orderId": {
@@ -63,6 +98,18 @@
       "messages": [
         {
           "$ref": "#/channels/ordersSubmitted/messages/orderSubmitted"
+        }
+      ],
+      "summary": ""
+    },
+    "OrderArchivedConsumer.OrderArchived.receive": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/masstransitminimalContractsOrderArchived"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/masstransitminimalContractsOrderArchived/messages/orderArchived"
         }
       ],
       "summary": ""

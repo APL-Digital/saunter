@@ -32,6 +32,7 @@ public static class MassTransitServiceCollectionExtensions
             configurator.AddConsumer<CustomerPreferenceChangedConsumer>();
             configurator.AddConsumer<OrderProjectionProcessor>();
             configurator.AddConsumer<NotificationDigestConsumer>();
+            configurator.AddConsumer<LoyaltyPointsAwardedConsumer>();
             configurator.AddRequestClient<InventoryReservationRequested>();
             configurator.AddRequestClient<PricingQuoteRequested>();
             configurator.AddRequestClient<NotificationDigestRequested>();

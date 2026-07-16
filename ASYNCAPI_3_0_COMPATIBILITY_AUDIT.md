@@ -7,6 +7,7 @@ Source spec:
 Scope:
 - This audit reflects the current generator implementation in `src/Saunter`.
 - Validation was cross-checked against the current code and existing unit tests in `test/Saunter.Tests`.
+- Convention-based MassTransit consumer discovery (`AsyncApiOptions.Discovery.DiscoverMassTransitConsumers`) emits only spec constructs already covered by this audit: it synthesizes standard channel and receive-operation descriptors through the same attribute pipeline, so it introduces no new spec surface.
 
 ## Summary Table
 

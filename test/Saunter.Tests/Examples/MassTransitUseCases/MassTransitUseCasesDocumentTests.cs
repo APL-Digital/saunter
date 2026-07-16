@@ -174,6 +174,10 @@ namespace Saunter.Tests.Examples.MassTransitUseCases
             document.AssertChannelMessages(partnerChannel, "partnerExportRequested");
             document.AssertByMessage(partnerOperation, "partnerExportRequested");
 
+            // Convention-discovered consumer: no attributes on LoyaltyPointsAwardedConsumer.
+            var loyaltyOperation = document.AssertAndGetOperation("LoyaltyPointsAwardedConsumer.LoyaltyPointsAwarded.receive", ByteBard.AsyncAPI.Models.AsyncApiAction.Receive);
+            document.Channels[loyaltyOperation.ChannelId].Address.ShouldBe("MassTransitUseCases.Contracts:LoyaltyPointsAwarded");
+
             var json = writer.WriteJson(document);
             var root = JsonNode.Parse(json)!;
             root["servers"]!["rabbitmq"]!["bindings"]!["$ref"]!.GetValue<string>().ShouldBe("#/components/serverBindings/rabbitmqAmqpServer");

@@ -26,6 +26,7 @@ namespace Saunter.Tests.Examples.MassTransitMinimal
                 // The example's Program.cs relies on entry-assembly scanning, but under the test
                 // host the entry assembly is the test runner, so markers stay explicit here.
                 options.AssemblyMarkerTypes = new[] { typeof(OrderSubmittedPublisher), typeof(OrderSubmittedConsumer) };
+                options.Discovery.DiscoverMassTransitConsumers = true;
                 options.AsyncApi = new AsyncApiDocumentDescriptor
                 {
                     Info = new AsyncApiInfoDescriptor

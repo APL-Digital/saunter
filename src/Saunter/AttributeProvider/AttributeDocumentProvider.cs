@@ -77,7 +77,8 @@ namespace Saunter.AttributeProvider
             ApplyInfoDefaults(clone, options, documentName);
 
             var generatedItems = GenerateChannelsFromMethods(clone.Components, options, asyncApiTypes)
-                .Concat(GenerateChannelsFromClasses(clone.Components, options, asyncApiTypes));
+                .Concat(GenerateChannelsFromClasses(clone.Components, options, asyncApiTypes))
+                .Concat(GenerateChannelsFromDiscoveredConsumers(clone.Components, options, documentName));
             var operationSources = new Dictionary<string, string>(StringComparer.Ordinal);
 
             foreach (var item in generatedItems)
@@ -191,6 +192,53 @@ namespace Saunter.AttributeProvider
                     yield return generated;
                 }
             }
+        }
+
+        /// <summary>
+        /// Documents MassTransit consumers found by convention when
+        /// <see cref="AsyncApiDiscoveryOptions.DiscoverMassTransitConsumers"/> is enabled, feeding the
+        /// synthesized channel/operation attributes through the same pipeline as reflected attributes.
+        /// </summary>
+        private IEnumerable<GeneratedOperation> GenerateChannelsFromDiscoveredConsumers(
+            AsyncApiComponentsDescriptor components,
+            AsyncApiOptions options,
+            string? documentName)
+        {
+            if (!options.Discovery.DiscoverMassTransitConsumers)
+            {
+                yield break;
+            }
+
+            var sourceTypes = GetScanScopeTypes(options, documentName);
+            foreach (var discovered in MassTransitConsumerDiscovery.Discover(sourceTypes, options.Discovery))
+            {
+                foreach (var generated in GenerateForMember(components, options, discovered.Method, discovered.Channel, new OperationAttribute[] { discovered.Operation }))
+                {
+                    yield return generated;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Resolves the full set of types in a document's scan scope (unlike
+        /// <see cref="GetAsyncApiTypes"/>, not restricted to types carrying <c>[AsyncApi]</c>),
+        /// honoring per-registration marker types and type filters.
+        /// </summary>
+        private static IEnumerable<TypeInfo> GetScanScopeTypes(AsyncApiOptions options, string? documentName)
+        {
+            var registration = documentName is not null && options.Documents.TryGetValue(documentName, out var configuredDocument)
+                ? configuredDocument
+                : null;
+            var sourceTypes = registration is not null && registration.MarkerTypes.Count > 0
+                ? registration.MarkerTypes
+                    .Select(t => t.Assembly)
+                    .Distinct()
+                    .SelectMany(a => a.DefinedTypes)
+                : options.AsyncApiSchemaTypes;
+
+            return registration?.TypeFilter is { } typeFilter
+                ? sourceTypes.Where(typeFilter)
+                : sourceTypes;
         }
 
         /// <summary>

@@ -24,6 +24,7 @@ It is not the minimal getting-started path. Start with `examples/MassTransitMini
 - `NotificationDigestRequester` + `NotificationDigestConsumer`: request/reply where the logical reply channel is documented but no fixed reply address is declared.
 - `TenantCatalogPublisher`: custom `IChannelResolver` usage.
 - `IPartnerExportPublisher` + `PartnerExportPublisher`: interface-based annotation discovery plus named `ChannelId` override on the one-argument `Channel` attribute.
+- `LoyaltyPointsAwardedConsumer`: convention-based MassTransit consumer discovery — no AsyncAPI attributes at all; documented because `Discovery.DiscoverMassTransitConsumers` is enabled.
 
 Every producer and consumer class also carries short inline `Use case:` comments directly above the annotated boundary methods, so you can understand the intent without flipping back to this README.
 

@@ -166,6 +166,12 @@ namespace Saunter.Options
         public AsyncApiInferenceOptions Inference { get; } = new AsyncApiInferenceOptions();
 
         /// <summary>
+        /// Controls convention-based discovery of channels and operations without attributes,
+        /// such as MassTransit consumers.
+        /// </summary>
+        public AsyncApiDiscoveryOptions Discovery { get; } = new AsyncApiDiscoveryOptions();
+
+        /// <summary>
         /// Additional named document prototypes keyed by document name, populated via
         /// <c>ConfigureNamedAsyncApi</c>. When a named document is requested, the matching prototype is used
         /// in place of <see cref="AsyncApi"/>. If the same name also exists in <see cref="Documents"/>,

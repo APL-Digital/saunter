@@ -36,6 +36,9 @@ public static class AsyncApiServiceCollectionExtensions
                 typeof(PartnerExportPublisher),
             ];
             options.Middleware.UiTitle = "MassTransit Use Cases";
+            // Use case: unannotated IConsumer<T> implementations (LoyaltyPointsAwardedConsumer)
+            // are documented by convention; annotated consumers are skipped by discovery.
+            options.Discovery.DiscoverMassTransitConsumers = true;
             options.AsyncApi = CommerceAsyncApiDocument.Create();
         });
 

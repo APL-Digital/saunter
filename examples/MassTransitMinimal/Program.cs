@@ -21,6 +21,8 @@ builder.WebHost.UseUrls(baseAddress);
 // defaults to 3.0.0, and the UI title falls back to info.title.
 builder.Services.AddAsyncApiSchemaGeneration(options =>
 {
+    // Unannotated IConsumer<T> implementations (OrderArchivedConsumer) are documented by convention.
+    options.Discovery.DiscoverMassTransitConsumers = true;
     options.AsyncApi = new AsyncApiDocumentDescriptor
     {
         Info = new AsyncApiInfoDescriptor
@@ -45,6 +47,7 @@ builder.Services.AddScoped<OrderSubmittedPublisher>();
 builder.Services.AddMassTransit(configurator =>
 {
     configurator.AddConsumer<OrderSubmittedConsumer>();
+    configurator.AddConsumer<OrderArchivedConsumer>();
     configurator.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
 });
 
