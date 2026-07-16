@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 
 <!-- Please update the links section at the bottom when adding a new version. -->
+## [v1.2.2]
+### Added
+- `MessageAttribute.PayloadSchemaId` overrides the payload's schema key in components/schemas, resolving the "conflicting schema definitions" error when two payload types share the same simple name (e.g. a legacy and a V1 contract) and renaming the CLR type isn't an option. All `$ref`s to the renamed schema are rewritten, including self-references in recursive types.
+
 ## [v1.2.1]
 ### Fixed
 - `AddAsyncApiSchemaGeneration` now registers logging itself, so `IAsyncApiDocumentProvider` resolves from a bare `ServiceCollection` without host logging (regression introduced in 1.2.0 by the document provider's new `ILogger` dependency).
@@ -210,6 +214,7 @@ When updating here set baseVersion to the previous tag and targetVersion to your
 This link will be dead until after you have completed the pull request and tagged the new version in master
 -->
 
+[v1.2.2]: https://github.com/APL-Digital/saunter/compare/v1.2.1...v1.2.2
 [v1.2.1]: https://github.com/APL-Digital/saunter/compare/v1.2.0...v1.2.1
 [v1.2.0]: https://github.com/APL-Digital/saunter/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/APL-Digital/saunter/compare/v1.0.8...v1.1.0

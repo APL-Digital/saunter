@@ -98,6 +98,14 @@ namespace Saunter.AttributeProvider.Attributes
         public string? MessageId { get; set; }
 
         /// <summary>
+        /// Overrides the payload's schema key in components/schemas. Set this when two payload
+        /// types share the same simple name (which would otherwise generate the same schema id and
+        /// be rejected as a conflict) and renaming the CLR type is not an option, e.g. because it
+        /// would change the message's wire name.
+        /// </summary>
+        public string? PayloadSchemaId { get; set; }
+
+        /// <summary>
         /// A list of tags for API documentation control. Tags can be used for logical grouping of messages.
         /// </summary>
         public string[] Tags { get; }

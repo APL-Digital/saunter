@@ -199,6 +199,20 @@ namespace Saunter.Tests.AttributeProvider.DocumentProviderTests
         }
 
         [Fact]
+        public void GetDocument_PayloadSchemaIdOverrideResolvesSameSimpleNameCollision()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(SchemaIdOverridePublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            document.Components.Schemas.ShouldContainKey("orderCreated");
+            document.Components.Schemas.ShouldContainKey("shippingOrderCreated");
+            document.Components.Messages.ShouldContainKey("orderCreated");
+            document.Components.Messages.ShouldContainKey("shippingOrderCreatedMessage");
+            document.Components.Messages["shippingOrderCreatedMessage"].PayloadSchemaId.ShouldBe("shippingOrderCreated");
+        }
+
+        [Fact]
         public void GetDocument_CanSplitSameAttributeDocumentNameIntoMultipleConfiguredDocuments()
         {
             var services = new ServiceCollection();
@@ -408,6 +422,27 @@ namespace Saunter.Tests.AttributeProvider.DocumentProviderTests
             }
 
             public void PublishShipping(global::Saunter.Tests.AttributeProvider.DocumentProviderTests.RootSchemaCollisionSamples.Shipping.OrderCreated _)
+            {
+            }
+        }
+
+        [AsyncApi]
+        private class SchemaIdOverridePublisher
+        {
+            [Channel("shipping.events.override", "shipping.events.override")]
+            [SendOperation(OperationId = "PublishBillingOrderCreated")]
+            [Message(typeof(global::Saunter.Tests.AttributeProvider.DocumentProviderTests.RootSchemaCollisionSamples.Billing.OrderCreated))]
+            public void PublishBilling()
+            {
+            }
+
+            [Channel("shipping.events.override2", "shipping.events.override2")]
+            [SendOperation(OperationId = "PublishShippingOrderCreated")]
+            [Message(
+                typeof(global::Saunter.Tests.AttributeProvider.DocumentProviderTests.RootSchemaCollisionSamples.Shipping.OrderCreated),
+                PayloadSchemaId = "shippingOrderCreated",
+                MessageId = "shippingOrderCreatedMessage")]
+            public void PublishShipping()
             {
             }
         }

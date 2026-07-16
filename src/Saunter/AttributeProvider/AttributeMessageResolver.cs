@@ -182,6 +182,11 @@ namespace Saunter.AttributeProvider
             }
 
             var payloadSchema = GetAsyncApiSchemaReference(messageAttribute.PayloadType.GetTypeInfo());
+            if (messageAttribute.PayloadSchemaId is string explicitSchemaId && payloadSchema is not null)
+            {
+                payloadSchema = RenameRootSchema(payloadSchema.Value, AttributeProviderModelFactory.SanitizeComponentKey(explicitSchemaId));
+            }
+
             var messageId = messageAttribute.MessageId is string explicitMessageId
                 ? AttributeProviderModelFactory.SanitizeComponentKey(explicitMessageId)
                 : payloadSchema?.Id ?? AttributeProviderModelFactory.SanitizeComponentKey(messageAttribute.PayloadType.Name);
@@ -415,6 +420,72 @@ namespace Saunter.AttributeProvider
             }
 
             return clone;
+        }
+
+        /// <summary>
+        /// Renames the root schema of a generated payload graph to an explicitly configured id,
+        /// rewriting every <c>$ref</c> to the old id (including self-references in recursive types).
+        /// Schema instances are freshly generated per resolution, so in-place mutation is safe.
+        /// </summary>
+        private static SchemaReferenceInfo RenameRootSchema(SchemaReferenceInfo reference, string newId)
+        {
+            var oldId = reference.Id;
+            if (string.IsNullOrWhiteSpace(newId) || newId == oldId)
+            {
+                return reference;
+            }
+
+            var oldRefPath = $"#/components/schemas/{oldId}";
+            var newRefPath = $"#/components/schemas/{newId}";
+            var visited = new HashSet<AsyncApiSchemaDescriptor>();
+            var renamed = new List<AsyncApiSchemaComponentDescriptor>(reference.Schemas.Count);
+
+            foreach (var component in reference.Schemas)
+            {
+                RewriteReferences(component.Schema, oldId, newId, oldRefPath, newRefPath, visited);
+                renamed.Add(component.Id == oldId
+                    ? component with { Id = newId }
+                    : component);
+            }
+
+            return new SchemaReferenceInfo(newId, renamed);
+        }
+
+        private static void RewriteReferences(
+            AsyncApiSchemaDescriptor? schema,
+            string oldId,
+            string newId,
+            string oldRefPath,
+            string newRefPath,
+            HashSet<AsyncApiSchemaDescriptor> visited)
+        {
+            if (schema is null || !visited.Add(schema))
+            {
+                return;
+            }
+
+            if (schema.Id == oldId)
+            {
+                schema.Id = newId;
+            }
+
+            if (schema.Reference == oldRefPath)
+            {
+                schema.Reference = newRefPath;
+            }
+
+            RewriteReferences(schema.Items, oldId, newId, oldRefPath, newRefPath, visited);
+            RewriteReferences(schema.AdditionalProperties, oldId, newId, oldRefPath, newRefPath, visited);
+
+            foreach (var property in schema.Properties.Values)
+            {
+                RewriteReferences(property, oldId, newId, oldRefPath, newRefPath, visited);
+            }
+
+            foreach (var candidate in schema.OneOf.Concat(schema.AllOf))
+            {
+                RewriteReferences(candidate, oldId, newId, oldRefPath, newRefPath, visited);
+            }
         }
 
         private SchemaReferenceInfo? GetAsyncApiSchemaReference(TypeInfo? payloadType)
