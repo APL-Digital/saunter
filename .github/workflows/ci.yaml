@@ -10,7 +10,7 @@ on:
 jobs:
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v2
       - name: setup build
@@ -19,7 +19,7 @@ jobs:
         run: dotnet build --configuration Debug
 
   fmt:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v2
 
@@ -35,7 +35,7 @@ jobs:
           PATH: ${{ github.env.PATH }}:/home/runner/.dotnet/tools
 
   unit-test:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v2
       - name: setup build
