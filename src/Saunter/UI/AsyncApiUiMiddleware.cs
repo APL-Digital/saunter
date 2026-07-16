@@ -56,9 +56,12 @@ namespace Saunter.UI
                     ? GetUiBaseFullRoute(context.Request).Replace("{document}", document)
                     : GetUiBaseFullRoute(context.Request);
 
+                var titleDocument = hasDocument && document is not null && _options.NamedApis.TryGetValue(document, out var namedDocument)
+                    ? namedDocument
+                    : _options.AsyncApi;
                 await AsyncApiUiResources.RespondWithHtml(
                     context.Response,
-                    _options.Middleware.UiTitle,
+                    AsyncApiMiddlewareOptions.ResolveUiTitle(_options.Middleware.UiTitle, titleDocument),
                     documentUrl,
                     $"{uiBaseRoute}/default.min.css",
                     $"{uiBaseRoute}/index.js");

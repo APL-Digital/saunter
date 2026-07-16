@@ -23,11 +23,11 @@ namespace Saunter.Tests.Examples.MassTransitMinimal
             services.AddFakeLogging();
             services.AddAsyncApiSchemaGeneration(options =>
             {
+                // The example's Program.cs relies on entry-assembly scanning, but under the test
+                // host the entry assembly is the test runner, so markers stay explicit here.
                 options.AssemblyMarkerTypes = new[] { typeof(OrderSubmittedPublisher), typeof(OrderSubmittedConsumer) };
-                options.Middleware.UiTitle = "MassTransit Minimal";
                 options.AsyncApi = new AsyncApiDocumentDescriptor
                 {
-                    Asyncapi = "3.0.0",
                     Info = new AsyncApiInfoDescriptor
                     {
                         Title = "MassTransit Minimal",

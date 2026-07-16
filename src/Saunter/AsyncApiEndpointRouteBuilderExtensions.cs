@@ -152,7 +152,7 @@ namespace Saunter
         {
             var documentUrl = WithPathBase(request, registration.Middleware.Route);
             var uiBaseRoute = WithPathBase(request, registration.Middleware.UiBaseRoute?.TrimEnd('/') ?? string.Empty);
-            var title = registration.Middleware.UiTitle;
+            var title = AsyncApiMiddlewareOptions.ResolveUiTitle(registration.Middleware.UiTitle, registration.Document);
             return AsyncApiUiResources.RenderHtml(
                 title,
                 documentUrl,

@@ -15,9 +15,10 @@ namespace Saunter
         public string? Id { get; set; }
 
         /// <summary>
-        /// The AsyncAPI <c>asyncapi</c> version string. When unset, Saunter emits <c>3.0.0</c>.
+        /// The AsyncAPI <c>asyncapi</c> version string. Defaults to <c>3.0.0</c>, the version
+        /// Saunter generates; when set to <c>null</c>, Saunter still emits <c>3.0.0</c>.
         /// </summary>
-        public string? Asyncapi { get; set; }
+        public string? Asyncapi { get; set; } = "3.0.0";
 
         /// <summary>
         /// The AsyncAPI <c>info</c> object: metadata about the API such as title, version and contact.

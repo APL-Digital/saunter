@@ -111,6 +111,29 @@ namespace Saunter.Tests.UI
             body.ShouldNotContain("<script>alert(1)</script>");
         }
 
+        [Fact]
+        public async Task Invoke_UiTitleFallsBackToInfoTitle_WhenNotConfigured()
+        {
+            var options = Microsoft.Extensions.Options.Options.Create(new AsyncApiOptions());
+            options.Value.Middleware.Route = "/asyncapi/asyncapi.json";
+            options.Value.Middleware.UiBaseRoute = "/asyncapi/ui/";
+            options.Value.AsyncApi.Info = new AsyncApiInfoDescriptor { Title = "Orders Service", Version = "1.0.0" };
+            var middleware = new AsyncApiUiMiddleware(_ => Task.CompletedTask, options);
+
+            var context = new DefaultHttpContext();
+            context.Request.Method = HttpMethods.Get;
+            context.Request.Path = "/asyncapi/ui/index.html";
+            context.Response.Body = new MemoryStream();
+
+            await middleware.Invoke(context);
+
+            context.Response.StatusCode.ShouldBe(StatusCodes.Status200OK);
+            context.Response.Body.Position = 0;
+            using var reader = new StreamReader(context.Response.Body, Encoding.UTF8);
+            var body = await reader.ReadToEndAsync();
+            body.ShouldContain("<title>Orders Service</title>");
+        }
+
         private static AsyncApiUiMiddleware CreateMiddleware()
         {
             var options = Microsoft.Extensions.Options.Options.Create(new AsyncApiOptions());

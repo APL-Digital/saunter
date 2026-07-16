@@ -62,6 +62,7 @@ namespace Saunter.AttributeProvider
             clone.Channels ??= new Dictionary<string, AsyncApiChannelDescriptor>();
             clone.Operations ??= new Dictionary<string, AsyncApiOperationDescriptor>();
             clone.Servers ??= new Dictionary<string, AsyncApiServerDescriptor>();
+            ApplyInfoDefaults(clone, options, documentName);
 
             var generatedItems = GenerateChannelsFromMethods(clone.Components, options, asyncApiTypes)
                 .Concat(GenerateChannelsFromClasses(clone.Components, options, asyncApiTypes));
@@ -464,6 +465,53 @@ namespace Saunter.AttributeProvider
                 .ToArray();
             attribute.Servers = channel.ServerNames.ToArray();
             return attribute;
+        }
+
+        /// <summary>
+        /// Fills in <c>info.title</c> and <c>info.version</c> from the document's first effective scan
+        /// assembly when the user has not configured them, so generated documents always carry the
+        /// spec-required info fields.
+        /// </summary>
+        private static void ApplyInfoDefaults(AsyncApiDocumentDescriptor document, AsyncApiOptions options, string? documentName)
+        {
+            document.Info ??= new AsyncApiInfoDescriptor();
+            if (document.Info.Title is not null && document.Info.Version is not null)
+            {
+                return;
+            }
+
+            var sourceAssembly = GetFirstScanAssembly(options, documentName);
+            document.Info.Title ??= sourceAssembly?.GetName().Name ?? "AsyncAPI Document";
+            document.Info.Version ??= GetAssemblyVersion(sourceAssembly) ?? "1.0.0";
+        }
+
+        private static Assembly? GetFirstScanAssembly(AsyncApiOptions options, string? documentName)
+        {
+            if (documentName is not null
+                && options.Documents.TryGetValue(documentName, out var registration)
+                && registration.MarkerTypes.Count > 0)
+            {
+                return registration.MarkerTypes[0].Assembly;
+            }
+
+            return options.GetEffectiveScanAssemblies().FirstOrDefault();
+        }
+
+        private static string? GetAssemblyVersion(Assembly? assembly)
+        {
+            if (assembly is null)
+            {
+                return null;
+            }
+
+            var informationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            if (!string.IsNullOrWhiteSpace(informationalVersion))
+            {
+                var metadataSeparator = informationalVersion.IndexOf('+');
+                return metadataSeparator >= 0 ? informationalVersion.Substring(0, metadataSeparator) : informationalVersion;
+            }
+
+            return assembly.GetName().Version?.ToString();
         }
 
         private static TypeInfo[] GetAsyncApiTypes(AsyncApiOptions options, string? apiName)

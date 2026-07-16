@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using ByteBard.AsyncAPI.Models;
 using ByteBard.AsyncAPI.Models.Interfaces;
 
@@ -9,6 +10,59 @@ namespace Saunter
     /// </summary>
     public class AsyncApiServerDescriptor
     {
+        /// <summary>
+        /// Creates a server descriptor from a broker connection URI, mapping the scheme to the
+        /// AsyncAPI protocol (<c>rabbitmq</c> becomes <c>amqp</c>), the host and port to
+        /// <see cref="Host"/>, and the path (e.g. a RabbitMQ virtual host) to <see cref="PathName"/>.
+        /// </summary>
+        /// <param name="uri">The broker connection URI, e.g. <c>rabbitmq://guest:guest@localhost:5672/vhost</c>.</param>
+        /// <param name="protocol">Overrides the protocol derived from the URI scheme.</param>
+        public static AsyncApiServerDescriptor FromUri(Uri uri, string? protocol = null)
+        {
+            ArgumentNullException.ThrowIfNull(uri);
+
+            var host = uri.IsDefaultPort || uri.Port <= 0
+                ? uri.Host
+                : $"{uri.Host}:{uri.Port}";
+            var pathName = uri.AbsolutePath is "" or "/" ? null : uri.AbsolutePath;
+
+            return new AsyncApiServerDescriptor
+            {
+                Host = host,
+                PathName = pathName,
+                Protocol = protocol ?? MapSchemeToProtocol(uri.Scheme),
+            };
+        }
+
+        /// <summary>
+        /// Creates a server descriptor from a broker connection string. See <see cref="FromUri"/>.
+        /// </summary>
+        /// <param name="connectionString">The broker connection string, e.g. <c>amqp://localhost:5672</c>.</param>
+        /// <param name="protocol">Overrides the protocol derived from the URI scheme.</param>
+        public static AsyncApiServerDescriptor FromConnectionString(string connectionString, string? protocol = null)
+        {
+            ArgumentNullException.ThrowIfNull(connectionString);
+
+            if (!Uri.TryCreate(connectionString, UriKind.Absolute, out var uri))
+            {
+                throw new ArgumentException(
+                    $"The connection string '{connectionString}' is not a valid absolute URI.",
+                    nameof(connectionString));
+            }
+
+            return FromUri(uri, protocol);
+        }
+
+        private static string MapSchemeToProtocol(string scheme)
+        {
+            return scheme.ToLowerInvariant() switch
+            {
+                "rabbitmq" or "amqp" => "amqp",
+                "rabbitmqs" or "amqps" => "amqps",
+                _ => scheme.ToLowerInvariant(),
+            };
+        }
+
         /// <summary>
         /// The AsyncAPI <c>server.host</c> field: the server host name, optionally including the port.
         /// </summary>

@@ -17,13 +17,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.WebHost.UseUrls(baseAddress);
 
+// The entry assembly is scanned for [AsyncApi] types by default, the asyncapi version
+// defaults to 3.0.0, and the UI title falls back to info.title.
 builder.Services.AddAsyncApiSchemaGeneration(options =>
 {
-    options.AssemblyMarkerTypes = new[] { typeof(OrderSubmittedPublisher), typeof(OrderSubmittedConsumer) };
-    options.Middleware.UiTitle = "MassTransit Minimal";
     options.AsyncApi = new AsyncApiDocumentDescriptor
     {
-        Asyncapi = "3.0.0",
         Info = new AsyncApiInfoDescriptor
         {
             Title = "MassTransit Minimal",

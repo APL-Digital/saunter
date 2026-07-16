@@ -27,8 +27,9 @@ namespace Saunter.Options
 
         /// <summary>
         /// Types whose assemblies are scanned for classes and interfaces marked with
-        /// <see cref="AttributeProvider.Attributes.AsyncApiAttribute"/>. Add one marker type per assembly
-        /// that contains annotated types.
+        /// <see cref="AttributeProvider.Attributes.AsyncApiAttribute"/>. One marker type per assembly is
+        /// sufficient — markers identify assemblies to scan, not the types to document.
+        /// When empty, the application's entry assembly is scanned.
         /// </summary>
         public IList<Type> AssemblyMarkerTypes { get; set; } = new List<Type>();
 
@@ -38,9 +39,25 @@ namespace Saunter.Options
         /// </summary>
         public Func<PropertyInfo, string>? PropertyNameSelector { get; set; }
 
-        internal virtual IReadOnlyCollection<TypeInfo> AsyncApiSchemaTypes => AssemblyMarkerTypes
-            .Select(t => t.Assembly)
-            .Distinct()
+        /// <summary>
+        /// Resolves the assemblies that are scanned for annotated types: the assemblies of
+        /// <see cref="AssemblyMarkerTypes"/> when any are set, otherwise the entry assembly.
+        /// </summary>
+        internal IReadOnlyList<Assembly> GetEffectiveScanAssemblies()
+        {
+            if (AssemblyMarkerTypes.Count > 0)
+            {
+                return AssemblyMarkerTypes
+                    .Select(t => t.Assembly)
+                    .Distinct()
+                    .ToArray();
+            }
+
+            var entryAssembly = Assembly.GetEntryAssembly();
+            return entryAssembly is null ? Array.Empty<Assembly>() : new[] { entryAssembly };
+        }
+
+        internal virtual IReadOnlyCollection<TypeInfo> AsyncApiSchemaTypes => GetEffectiveScanAssemblies()
             .SelectMany(a => a.DefinedTypes)
             .ToImmutableHashSet();
 
