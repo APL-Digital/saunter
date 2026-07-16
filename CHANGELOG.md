@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 
 <!-- Please update the links section at the bottom when adding a new version. -->
+## [v1.2.1]
+### Fixed
+- `AddAsyncApiSchemaGeneration` now registers logging itself, so `IAsyncApiDocumentProvider` resolves from a bare `ServiceCollection` without host logging (regression introduced in 1.2.0 by the document provider's new `ILogger` dependency).
+
 ## [v1.2.0]
 ### Added
 - Entry-assembly scanning by default: when `AsyncApiOptions.AssemblyMarkerTypes` is empty, the application's entry assembly is scanned for `[AsyncApi]` types, so the minimal setup needs no marker configuration.
@@ -206,6 +210,7 @@ When updating here set baseVersion to the previous tag and targetVersion to your
 This link will be dead until after you have completed the pull request and tagged the new version in master
 -->
 
+[v1.2.1]: https://github.com/APL-Digital/saunter/compare/v1.2.0...v1.2.1
 [v1.2.0]: https://github.com/APL-Digital/saunter/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/APL-Digital/saunter/compare/v1.0.8...v1.1.0
 [v0.20.0]: https://github.com/APL-Digital/saunter/compare/v0.14.0...v0.20.0

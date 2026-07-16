@@ -24,6 +24,7 @@ namespace Saunter
         public static IServiceCollection AddAsyncApiSchemaGeneration(this IServiceCollection services, Action<AsyncApiOptions>? setupAction = null)
         {
             services.AddOptions();
+            services.AddLogging();
 
             services.TryAddSingleton<IAsyncApiDocumentWriter, AsyncApiDocumentWriter>();
             services.TryAddSingleton<IAsyncApiDocumentCloner, AsyncApiDocumentSerializeCloner>();

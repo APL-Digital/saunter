@@ -72,6 +72,19 @@ namespace Saunter.Tests
         }
 
         [Fact]
+        public void AddAsyncApiSchemaGeneration_ResolvesWithoutHostLoggingRegistered()
+        {
+            // Consumers building a bare ServiceCollection (typically tests) don't get logging from a
+            // host; the provider's ILogger dependency must still resolve.
+            var services = new ServiceCollection();
+            services.AddAsyncApiSchemaGeneration();
+
+            using var sp = services.BuildServiceProvider();
+
+            sp.GetRequiredService<IAsyncApiDocumentProvider>().ShouldNotBeNull();
+        }
+
+        [Fact]
         public void ConfigureNamedAsyncApi_PreservesCustomRouteTokensRegardlessOfTokenCasing()
         {
             var services = new ServiceCollection();
