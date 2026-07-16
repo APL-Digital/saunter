@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Testing;
 using Microsoft.Extensions.Options;
 using Saunter.AttributeProvider.Attributes;
 using Saunter.AttributeProvider.Descriptors;
@@ -239,6 +240,85 @@ namespace Saunter.Tests.AttributeProvider.DocumentProviderTests
             ordersDocument.Operations.ShouldNotContainKey("PublishInvoiceCreated");
             invoicesDocument.Operations.ShouldContainKey("PublishInvoiceCreated");
             invoicesDocument.Operations.ShouldNotContainKey("PublishOrderCreated");
+        }
+
+        [Fact]
+        public void GetDocument_UnknownName_ThrowsWithKnownNames()
+        {
+            var services = new ServiceCollection();
+
+            services.AddFakeLogging();
+            services.AddAsyncApiSchemaGeneration(o =>
+            {
+                o.AssemblyMarkerTypes = new[] { typeof(OrdersV1Publisher) };
+            });
+            services.ConfigureAsyncApiDocument("orders-v1", document =>
+            {
+                document.AttributeDocumentName = "v1";
+            });
+
+            using var serviceprovider = services.BuildServiceProvider();
+
+            var documentProvider = serviceprovider.GetRequiredService<IAsyncApiDocumentProvider>();
+            var options = serviceprovider.GetRequiredService<IOptions<AsyncApiOptions>>().Value;
+
+            var actual = () => documentProvider.GetDocument("orders-v2", options);
+
+            var error = Should.Throw<InvalidOperationException>(actual);
+            error.Message.ShouldContain("No AsyncAPI document named 'orders-v2'");
+            error.Message.ShouldContain("'orders-v1'");
+        }
+
+        [Fact]
+        public void GetDocument_AttributeOnlyName_StillWorks()
+        {
+            var services = new ServiceCollection();
+
+            services.AddFakeLogging();
+            services.AddAsyncApiSchemaGeneration(o =>
+            {
+                o.AssemblyMarkerTypes = new[] { typeof(OrdersV1Publisher) };
+            });
+
+            using var serviceprovider = services.BuildServiceProvider();
+
+            var documentProvider = serviceprovider.GetRequiredService<IAsyncApiDocumentProvider>();
+            var options = serviceprovider.GetRequiredService<IOptions<AsyncApiOptions>>().Value;
+
+            var document = documentProvider.GetDocument("v1", options);
+
+            document.Operations.ShouldContainKey("PublishOrderCreated");
+        }
+
+        [Fact]
+        public void GetDocument_EmptyDocument_LogsWarning()
+        {
+            var services = new ServiceCollection();
+
+            services.AddFakeLogging();
+            services.AddAsyncApiSchemaGeneration(o =>
+            {
+                o.AssemblyMarkerTypes = new[] { typeof(ConflictPayload) };
+            });
+            services.ConfigureAsyncApiDocument("empty-doc", document =>
+            {
+                // No type carries [AsyncApi("no-such-attribute-name")], so generation yields an empty document.
+                document.AttributeDocumentName = "no-such-attribute-name";
+                document.Document.Info = new AsyncApiInfoDescriptor { Title = "Empty", Version = "1.0.0" };
+            });
+
+            using var serviceprovider = services.BuildServiceProvider();
+
+            var documentProvider = serviceprovider.GetRequiredService<IAsyncApiDocumentProvider>();
+            var options = serviceprovider.GetRequiredService<IOptions<AsyncApiOptions>>().Value;
+
+            var document = documentProvider.GetDocument("empty-doc", options);
+
+            document.Channels.ShouldBeEmpty();
+            var collector = serviceprovider.GetRequiredService<FakeLogCollector>();
+            collector.GetSnapshot().ShouldContain(record =>
+                record.Level == Microsoft.Extensions.Logging.LogLevel.Warning
+                && record.Message.Contains("has no channels or operations"));
         }
 
         [AsyncApi]

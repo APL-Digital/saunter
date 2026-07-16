@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Testing;
 using Shouldly;
 using Xunit;
 
@@ -37,6 +38,26 @@ namespace Saunter.Tests
             routes.ShouldContain("/asyncapi/orders/ui/index.html");
             routes.ShouldContain("/asyncapi/orders/ui/{assetName}");
             routes.ShouldNotContain("/asyncapi/{document}/asyncapi.json");
+        }
+
+        [Fact]
+        public void MapAsyncApiDocuments_LogsMappedRoutes()
+        {
+            var builder = WebApplication.CreateBuilder();
+            builder.Services.AddFakeLogging();
+            builder.Services.AddAsyncApiSchemaGeneration();
+            builder.Services.ConfigureAsyncApiDocument("orders", document =>
+            {
+                document.AttributeDocumentName = "v1";
+            });
+
+            using var app = builder.Build();
+
+            app.MapAsyncApiDocuments();
+
+            var collector = app.Services.GetRequiredService<FakeLogCollector>();
+            collector.GetSnapshot().ShouldContain(record =>
+                record.Message.Contains("AsyncAPI document 'orders' mapped at /asyncapi/orders/asyncapi.json"));
         }
     }
 }

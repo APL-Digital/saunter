@@ -27,6 +27,11 @@ namespace Saunter.UI
 
         public static string RenderHtml(string title, string documentUrl, string cssUrl, string jsUrl)
         {
+            if (!HasUiAssets)
+            {
+                return RenderMissingAssetsHtml(title, documentUrl);
+            }
+
             var template = EmbeddedTextCache.GetOrAdd(
                 $"{typeof(AsyncApiUiMiddleware).Namespace}.index.html",
                 ReadEmbeddedText);
@@ -78,6 +83,27 @@ namespace Saunter.UI
 
             await using var stream = file.CreateReadStream();
             await stream.CopyToAsync(response.Body);
+        }
+
+        /// <summary>
+        /// Renders a self-contained explanatory page for builds where the UI assets are missing,
+        /// instead of an index page whose script and stylesheet requests would 404 (a blank page).
+        /// </summary>
+        private static string RenderMissingAssetsHtml(string title, string documentUrl)
+        {
+            var encodedTitle = HtmlEncoder.Default.Encode(title);
+            var encodedDocumentUrl = HtmlEncoder.Default.Encode(documentUrl);
+            return "<!DOCTYPE html>\n" +
+                "<html lang=\"en\">\n" +
+                $"<head><meta charset=\"utf-8\"><title>{encodedTitle}</title></head>\n" +
+                "<body>\n" +
+                $"<h1>{encodedTitle}</h1>\n" +
+                "<p>The AsyncAPI UI assets (index.js, default.min.css) are not embedded in this build of Saunter, " +
+                "so the interactive UI cannot be rendered. This happens when Saunter was built from source without " +
+                "running <code>npm install</code> in <code>src/Saunter.UI</code> first.</p>\n" +
+                $"<p>The AsyncAPI document itself is unaffected: <a href=\"{encodedDocumentUrl}\">{encodedDocumentUrl}</a></p>\n" +
+                "</body>\n" +
+                "</html>\n";
         }
 
         private static string ReadEmbeddedText(string resourceName)

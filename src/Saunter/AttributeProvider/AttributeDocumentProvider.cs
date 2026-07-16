@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using ByteBard.AsyncAPI.Models;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Saunter.AttributeProvider.Attributes;
 using Saunter.AttributeProvider.Descriptors;
 using Saunter.Options;
@@ -22,6 +23,7 @@ namespace Saunter.AttributeProvider
         private readonly IAsyncApiChannelUnion _channelUnion;
         private readonly IAsyncApiDocumentCloner _cloner;
         private readonly IAsyncApiDocumentValidator _documentValidator;
+        private readonly ILogger<AttributeDocumentProvider> _logger;
 
         public AttributeDocumentProvider(
             IServiceProvider serviceProvider,
@@ -30,7 +32,8 @@ namespace Saunter.AttributeProvider
             IAttributeOperationBuilder operationBuilder,
             IAsyncApiChannelUnion channelUnion,
             IAsyncApiDocumentCloner cloner,
-            IAsyncApiDocumentValidator documentValidator)
+            IAsyncApiDocumentValidator documentValidator,
+            ILogger<AttributeDocumentProvider> logger)
         {
             _serviceProvider = serviceProvider;
             _messageResolver = messageResolver;
@@ -39,6 +42,7 @@ namespace Saunter.AttributeProvider
             _channelUnion = channelUnion;
             _cloner = cloner;
             _documentValidator = documentValidator;
+            _logger = logger;
         }
 
         public AsyncApiDocumentDescriptor GetDocument(string? documentName, AsyncApiOptions options)
@@ -46,9 +50,17 @@ namespace Saunter.AttributeProvider
             ArgumentNullException.ThrowIfNull(options);
 
             var asyncApiTypes = GetAsyncApiTypes(options, documentName);
-            var sourceDocument = TryGetConfiguredDocument(options, documentName, out var configuredDocument)
-                ? configuredDocument
-                : options.AsyncApi;
+            var isConfigured = TryGetConfiguredDocument(options, documentName, out var configuredDocument);
+            if (documentName is not null && !isConfigured && asyncApiTypes.Length == 0)
+            {
+                var knownNames = options.Documents.Keys.Union(options.NamedApis.Keys).OrderBy(name => name, StringComparer.Ordinal).ToArray();
+                throw new InvalidOperationException(
+                    $"No AsyncAPI document named '{documentName}' is configured and no types are marked [AsyncApi(\"{documentName}\")]. " +
+                    $"Known documents: {(knownNames.Length == 0 ? "<none>" : string.Join(", ", knownNames.Select(name => $"'{name}'")))}. " +
+                    "Register the document with ConfigureAsyncApiDocument or annotate types with the matching document name.");
+            }
+
+            var sourceDocument = isConfigured ? configuredDocument : options.AsyncApi;
             var clone = _cloner.ClonePrototype(sourceDocument);
 
             clone.Asyncapi = sourceDocument.Asyncapi?.StartsWith("2.") == true
@@ -105,8 +117,41 @@ namespace Saunter.AttributeProvider
                 filter.Apply(clone, filterContext);
             }
 
+            if (clone.Channels.Count == 0 && clone.Operations.Count == 0)
+            {
+                var scanAssemblies = GetScanAssemblies(options, documentName);
+                _logger.LogWarning(
+                    "AsyncAPI document '{DocumentName}' has no channels or operations. " +
+                    "Scanned assemblies: {ScannedAssemblies}. Types are included when marked [AsyncApi] " +
+                    "with a document name matching '{AttributeDocumentName}'. If you rely on entry-assembly " +
+                    "scanning, note that test hosts report the test runner as the entry assembly; " +
+                    "set AsyncApiOptions.AssemblyMarkerTypes explicitly in that case.",
+                    documentName ?? "<default>",
+                    scanAssemblies.Count == 0 ? "<none>" : string.Join(", ", scanAssemblies.Select(a => a.GetName().Name)),
+                    GetAttributeDocumentName(options, documentName) ?? "<none>");
+            }
+
             _documentValidator.Validate(clone);
             return clone;
+        }
+
+        private static IReadOnlyList<Assembly> GetScanAssemblies(AsyncApiOptions options, string? documentName)
+        {
+            if (documentName is not null
+                && options.Documents.TryGetValue(documentName, out var registration)
+                && registration.MarkerTypes.Count > 0)
+            {
+                return registration.MarkerTypes.Select(t => t.Assembly).Distinct().ToArray();
+            }
+
+            return options.GetEffectiveScanAssemblies();
+        }
+
+        private static string? GetAttributeDocumentName(AsyncApiOptions options, string? documentName)
+        {
+            return documentName is not null && options.Documents.TryGetValue(documentName, out var registration)
+                ? registration.AttributeDocumentName
+                : documentName;
         }
 
         private IEnumerable<GeneratedOperation> GenerateChannelsFromMethods(AsyncApiComponentsDescriptor components, AsyncApiOptions options, TypeInfo[] asyncApiTypes)

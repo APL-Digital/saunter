@@ -28,6 +28,7 @@ namespace Saunter
             this IEndpointRouteBuilder endpoints)
         {
             var options = endpoints.ServiceProvider.GetRequiredService<IOptions<AsyncApiOptions>>();
+            var logger = CreateLogger(endpoints);
             if (options.Value.Documents.Count > 0)
             {
                 var cache = new ConcurrentDictionary<string, string>();
@@ -36,6 +37,12 @@ namespace Saunter
                 foreach (var registration in options.Value.Documents.Values.OrderBy(document => document.Name, System.StringComparer.Ordinal))
                 {
                     var documentRoute = registration.Middleware.Route;
+                    logger?.LogInformation(
+                        "AsyncAPI document '{DocumentName}' mapped at {DocumentRoute} (YAML: {YamlRoute}, UI: {UiRoute})",
+                        registration.Name,
+                        documentRoute,
+                        DeriveYamlRoute(documentRoute) ?? "<none>",
+                        registration.Middleware.UiBaseRoute ?? "<none>");
                     group.MapGet(documentRoute, (IAsyncApiDocumentProvider provider, IAsyncApiDocumentWriter writer) =>
                     {
                         var json = cache.GetOrAdd(
@@ -65,6 +72,11 @@ namespace Saunter
                 .Build();
 
             var route = options.Value.Middleware.Route;
+            logger?.LogInformation(
+                "AsyncAPI document mapped at {DocumentRoute} (YAML: {YamlRoute}, UI: {UiRoute})",
+                route,
+                DeriveYamlRoute(route) ?? "<none>",
+                options.Value.Middleware.UiBaseRoute ?? "<none>");
 
             var jsonEndpoint = endpoints.MapGet(route, pipeline);
 
@@ -100,13 +112,10 @@ namespace Saunter
         {
             if (!AsyncApiUiResources.HasUiAssets)
             {
-                endpoints.ServiceProvider
-                    .GetService<ILoggerFactory>()?
-                    .CreateLogger("Saunter.UI")
-                    .LogWarning(
-                        "The AsyncAPI UI assets (index.js, default.min.css) are not embedded in the Saunter assembly, " +
-                        "so the UI will render a blank page. This happens when Saunter was built from source without " +
-                        "running 'npm install' in src/Saunter.UI first. The document endpoint is unaffected.");
+                CreateLogger(endpoints)?.LogWarning(
+                    "The AsyncAPI UI assets (index.js, default.min.css) are not embedded in the Saunter assembly, " +
+                    "so the UI will render an explanatory page instead. This happens when Saunter was built from " +
+                    "source without running 'npm install' in src/Saunter.UI first. The document endpoint is unaffected.");
             }
 
             var options = endpoints.ServiceProvider.GetRequiredService<IOptions<AsyncApiOptions>>();
@@ -165,6 +174,11 @@ namespace Saunter
             return request.PathBase != null
                 ? request.PathBase.Add(route)
                 : route;
+        }
+
+        private static ILogger? CreateLogger(IEndpointRouteBuilder endpoints)
+        {
+            return endpoints.ServiceProvider.GetService<ILoggerFactory>()?.CreateLogger("Saunter");
         }
     }
 }
