@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 
 <!-- Please update the links section at the bottom when adding a new version. -->
+## [v1.2.0]
+### Added
+- Entry-assembly scanning by default: when `AsyncApiOptions.AssemblyMarkerTypes` is empty, the application's entry assembly is scanned for `[AsyncApi]` types, so the minimal setup needs no marker configuration.
+- `AsyncApiDocumentDescriptor.Asyncapi` defaults to `"3.0.0"`, removing the boilerplate every consumer wrote.
+- Generated documents default `info.title`/`info.version` from the document's scan assembly (name and informational version) when not configured, so a document without explicit `Info` is still spec-valid.
+- `AsyncApiMiddlewareOptions.UiTitle` falls back to the document's `info.title` when not set.
+- `AsyncApiServerDescriptor.FromUri`/`FromConnectionString` build a server descriptor from a broker connection URI (`rabbitmq://…` maps to protocol `amqp`), replacing hand-rolled conversion helpers.
+- `MapAsyncApi()` maps the document endpoints and the UI in one call.
+- Filter instances can now be registered directly: `AddDocumentFilter(IDocumentFilter)`, `AddChannelFilter(IChannelFilter)`, `AddOperationFilter(IOperationFilter)`.
+- Opt-in MassTransit consumer auto-discovery (`AsyncApiOptions.Discovery.DiscoverMassTransitConsumers`): unannotated `IConsumer<T>` implementations are documented with a receive operation per consumed message type. The channel address defaults to the message type's `Namespace:TypeName` (MassTransit MessageUrn form) and is customizable via `MassTransitChannelAddressGenerator`; annotated consumers are skipped so attribute authoring always wins. Reflection-only — no MassTransit package dependency.
+- A warning is logged when a generated document contains no channels and no operations, naming the scanned assemblies and the attribute document name that was matched (the previous behavior was a silent empty document).
+- Mapped document, YAML, and UI routes are logged at startup.
+- When the embedded UI assets are missing (source build without `npm install`), the UI now serves an explanatory page linking to the document route instead of a blank page.
+
+### Changed
+- **Breaking:** requesting a named document that is neither configured nor matched by any `[AsyncApi("name")]` attribute now throws a descriptive `InvalidOperationException` instead of silently serving the default document prototype.
+- **Breaking:** `AsyncApiMiddlewareOptions.UiTitle` is now `string?` (default `null`); the effective title resolves to `info.title`, then `"AsyncAPI"`.
+- **Breaking:** `AsyncApiOptions.DocumentFilters`/`ChannelFilters`/`OperationFilters` changed from `IEnumerable<Type>` to `IReadOnlyList<FilterDescriptor>` to support instance registration.
+- Documents that previously serialized an empty (spec-invalid) `info` object now serialize a generated one.
+
 ## [v1.1.0]
 ### Added
 - Every `.json` document route now serves a `.yaml` sibling (e.g. `/asyncapi/asyncapi.yaml`) via the new `IAsyncApiDocumentWriter.WriteYaml`.
@@ -185,6 +205,7 @@ When updating here set baseVersion to the previous tag and targetVersion to your
 This link will be dead until after you have completed the pull request and tagged the new version in master
 -->
 
+[v1.2.0]: https://github.com/APL-Digital/saunter/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/APL-Digital/saunter/compare/v1.0.8...v1.1.0
 [v0.20.0]: https://github.com/APL-Digital/saunter/compare/v0.14.0...v0.20.0
 [v0.14.0]: https://github.com/m-wild/saunter/compare/v0.13.0...v0.14.0

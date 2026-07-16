@@ -20,19 +20,32 @@ Start with one of these examples:
    dotnet add package Apollo.Saunter
    ```
 
-2. Configure Saunter in `ConfigureServices`.
+2. Register Saunter and map the endpoints. This is the whole minimal setup:
 
    ```csharp
    using Saunter;
 
+   builder.Services.AddAsyncApiSchemaGeneration();
+   // ...
+   app.MapAsyncApi();
+   ```
+
+   The defaults do the rest:
+
+   - the **entry assembly** is scanned for `[AsyncApi]` types (set `AssemblyMarkerTypes` only when annotated types live in other assemblies — one marker type *per assembly* is sufficient; markers identify assemblies to scan, not the types to document)
+   - the `asyncapi` version is `3.0.0`
+   - `info.title`/`info.version` default from the scanned assembly's name and version
+   - the UI title falls back to `info.title`
+   - the document is served at `/asyncapi/asyncapi.json` (plus a YAML sibling) and the UI at `/asyncapi/ui/`
+   - the mapped routes are logged at startup
+
+   Most applications will still want to describe themselves explicitly:
+
+   ```csharp
    services.AddAsyncApiSchemaGeneration(options =>
    {
-       options.AssemblyMarkerTypes = new[] { typeof(StreetlightMessageBus) };
-       options.Middleware.UiTitle = "Streetlights API";
-
        options.AsyncApi = new AsyncApiDocumentDescriptor
        {
-           Asyncapi = "3.0.0",
            Info = new AsyncApiInfoDescriptor
            {
                Title = "Streetlights API",
@@ -47,6 +60,8 @@ Start with one of these examples:
            Servers =
            {
                ["mqtt"] = new AsyncApiServerDescriptor { Host = "test.mosquitto.org", Protocol = "mqtt" },
+               // Or build one from a broker connection URI:
+               // ["rabbitmq"] = AsyncApiServerDescriptor.FromUri(new Uri("rabbitmq://guest:guest@localhost:5672/")),
            }
        };
    });
@@ -85,14 +100,7 @@ Start with one of these examples:
 
    Method-level annotations are the clearest path for most users. Class-level annotations are still supported when you want to declare shared channels or shared operation context across multiple members.
 
-5. Map the endpoints.
-
-   ```csharp
-   app.MapAsyncApiDocuments();
-   app.MapAsyncApiUi();
-   ```
-
-6. Open the JSON document. A YAML sibling is served next to every JSON route (`/asyncapi/asyncapi.yaml`).
+5. Open the JSON document. A YAML sibling is served next to every JSON route (`/asyncapi/asyncapi.yaml`).
 
    ```jsonc
    // GET /asyncapi/asyncapi.json
@@ -118,7 +126,7 @@ Start with one of these examples:
    }
    ```
 
-7. Open the UI.
+6. Open the UI.
 
    ![AsyncAPI UI](assets/asyncapi-ui-screenshot.png)
 
@@ -156,6 +164,27 @@ services.AddAsyncApiSchemaGeneration(options =>
 ```
 
 `ValidateOnStartup` generates every registered document once at startup so misconfiguration (duplicate operation ids, unresolved references) fails fast with a descriptive exception instead of a 500 on the first request. It defaults to on in the Development environment only; set it to `true`/`false` to control it explicitly.
+
+A document that ends up with no channels and no operations logs a warning naming the scanned assemblies and the attribute document name that was matched, so a missing marker type or a mismatched `[AsyncApi("name")]` is visible instead of silently producing an empty document. Requesting a document name that is neither configured nor matched by any attribute throws a descriptive exception listing the known documents.
+
+## MassTransit Consumer Discovery
+
+Unannotated MassTransit `IConsumer<T>` implementations can be documented by convention, without any Saunter attributes:
+
+```csharp
+services.AddAsyncApiSchemaGeneration(options =>
+{
+    options.Discovery.DiscoverMassTransitConsumers = true;
+});
+```
+
+For every discovered consumer, Saunter emits a receive operation per consumed message type:
+
+- the channel address defaults to the message type's `Namespace:TypeName` — MassTransit's message topology (MessageUrn) naming, i.e. the exchange/topic a published message targets. Set `Discovery.MassTransitChannelAddressGenerator` to change it (e.g. `AsyncApiDiscoveryOptions.KebabCaseEndpointAddress` for queue-style names)
+- the operation id is `{ConsumerName}.{MessageName}.receive`
+- `Discovery.MassTransitConsumerFilter` can exclude specific consumer types
+
+Consumers that already carry AsyncAPI attributes are skipped, so discovery is a low-ceremony floor: annotate a consumer whenever you need reply metadata, explicit channels, headers, or versioned message contracts, and the annotation wins. Only the consume side is discoverable — publishes remain attribute-driven (see the publication-marker pattern in [examples/MassTransitUseCases](examples/MassTransitUseCases)). Discovery is reflection-only; Saunter takes no MassTransit package dependency.
 
 Default inference decisions:
 
@@ -291,10 +320,6 @@ services.ConfigureAsyncApiDocument("fleet", document =>
 {
     document.AttributeDocumentName = "v1";
     document.MarkerTypes.Add(typeof(FleetPublisher));
-    document.Middleware.Route = "/asyncapi/fleet/asyncapi.json";
-    document.Middleware.UiBaseRoute = "/asyncapi/fleet/ui";
-    document.Middleware.UiTitle = "Fleet API";
-    document.Document.Asyncapi = "3.0.0";
     document.Document.Info = new AsyncApiInfoDescriptor { Title = "Fleet API", Version = "1.0.0" };
 });
 
@@ -302,13 +327,11 @@ services.ConfigureAsyncApiDocument("config", document =>
 {
     document.AttributeDocumentName = "v1";
     document.MarkerTypes.Add(typeof(ConfigPublisher));
-    document.Middleware.Route = "/asyncapi/config/asyncapi.json";
-    document.Middleware.UiBaseRoute = "/asyncapi/config/ui";
-    document.Middleware.UiTitle = "Config Messaging API";
-    document.Document.Asyncapi = "3.0.0";
     document.Document.Info = new AsyncApiInfoDescriptor { Title = "Config Messaging API", Version = "1.0.0" };
 });
 ```
+
+Each registration derives its routes from the document name automatically — `fleet` is served at `/asyncapi/fleet/asyncapi.json` (plus a YAML sibling) with the UI at `/asyncapi/fleet/ui` — and the UI title falls back to the document's `info.title`. Set `document.Middleware.Route`/`UiBaseRoute`/`UiTitle` only to override those defaults.
 
 Use `ConfigureAsyncApiDocument(...)` when you need independent hosted documents with their own:
 
