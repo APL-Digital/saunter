@@ -111,9 +111,9 @@ namespace Saunter.AttributeProvider
             }
 
             var filterContext = new DocumentFilterContext(asyncApiTypes);
-            foreach (var filterType in options.DocumentFilters)
+            foreach (var filterDescriptor in options.DocumentFilters)
             {
-                var filter = ResolveFilter<IDocumentFilter>(filterType);
+                var filter = ResolveFilter<IDocumentFilter>(filterDescriptor);
                 filter.Apply(clone, filterContext);
             }
 
@@ -277,9 +277,9 @@ namespace Saunter.AttributeProvider
         {
             var context = new ChannelFilterContext(member, channel);
 
-            foreach (var filterType in options.ChannelFilters)
+            foreach (var filterDescriptor in options.ChannelFilters)
             {
-                var filter = ResolveFilter<IChannelFilter>(filterType);
+                var filter = ResolveFilter<IChannelFilter>(filterDescriptor);
                 filter.Apply(channelItem, context);
             }
         }
@@ -293,18 +293,23 @@ namespace Saunter.AttributeProvider
         {
             var filterContext = new OperationFilterContext(member, operationAttribute);
 
-            foreach (var filterType in options.OperationFilters)
+            foreach (var filterDescriptor in options.OperationFilters)
             {
-                var filter = ResolveFilter<IOperationFilter>(filterType);
+                var filter = ResolveFilter<IOperationFilter>(filterDescriptor);
                 filter.Apply(operation, filterContext);
             }
         }
 
-        private TFilter ResolveFilter<TFilter>(Type filterType)
+        private TFilter ResolveFilter<TFilter>(FilterDescriptor descriptor)
             where TFilter : class
         {
-            return _serviceProvider.GetService(filterType) as TFilter
-                ?? (TFilter)ActivatorUtilities.CreateInstance(_serviceProvider, filterType);
+            if (descriptor.FilterInstance is TFilter instance)
+            {
+                return instance;
+            }
+
+            return _serviceProvider.GetService(descriptor.FilterType!) as TFilter
+                ?? (TFilter)ActivatorUtilities.CreateInstance(_serviceProvider, descriptor.FilterType!);
         }
 
         private void RegisterMessageResolutions(AsyncApiComponentsDescriptor components, IEnumerable<AsyncApiMessageResolutionDescriptor> resolutions)

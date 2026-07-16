@@ -19,7 +19,7 @@ namespace Saunter.Tests
 
             var assemblies = options.GetEffectiveScanAssemblies();
 
-            assemblies.ShouldBe(new[] { Assembly.GetEntryAssembly() });
+            assemblies.ShouldBe(new[] { Assembly.GetEntryAssembly()! });
         }
 
         [Fact]

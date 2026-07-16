@@ -20,6 +20,18 @@ namespace Saunter
     public static class AsyncApiEndpointRouteBuilderExtensions
     {
         /// <summary>
+        /// Maps the AsyncAPI document endpoint(s) and the AsyncAPI UI in one call. Equivalent to
+        /// calling <see cref="MapAsyncApiDocuments"/> followed by <see cref="MapAsyncApiUi"/>.
+        /// Call the two methods separately when per-endpoint conventions are needed.
+        /// </summary>
+        public static IEndpointRouteBuilder MapAsyncApi(this IEndpointRouteBuilder endpoints)
+        {
+            endpoints.MapAsyncApiDocuments();
+            endpoints.MapAsyncApiUi();
+            return endpoints;
+        }
+
+        /// <summary>
         /// Maps the AsyncAPI document endpoint(s). When documents are registered via
         /// <c>ConfigureAsyncApiDocument</c>, one endpoint is mapped per registration on its own route;
         /// otherwise a single endpoint is mapped on the shared middleware route.

@@ -61,8 +61,7 @@ app.MapPost("/orders/{orderId:guid}", async (Guid orderId, OrderSubmittedPublish
     return Results.Accepted($"/orders/{orderId}");
 });
 
-app.MapAsyncApiDocuments();
-app.MapAsyncApiUi();
+app.MapAsyncApi();
 
 // Print the AsyncAPI doc location
 var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger<Program>();

@@ -41,6 +41,33 @@ namespace Saunter.Tests
         }
 
         [Fact]
+        public void MapAsyncApi_MapsDocumentsAndUi()
+        {
+            var builder = WebApplication.CreateBuilder();
+            builder.Services.AddAsyncApiSchemaGeneration();
+            builder.Services.ConfigureAsyncApiDocument("orders", document =>
+            {
+                document.AttributeDocumentName = "v1";
+            });
+
+            using var app = builder.Build();
+
+            app.MapAsyncApi();
+
+            var routes = ((IEndpointRouteBuilder)app).DataSources
+                .SelectMany(dataSource => dataSource.Endpoints)
+                .OfType<RouteEndpoint>()
+                .Select(endpoint => endpoint.RoutePattern.RawText)
+                .ToArray();
+
+            routes.ShouldContain("/asyncapi/orders/asyncapi.json");
+            routes.ShouldContain("/asyncapi/orders/asyncapi.yaml");
+            routes.ShouldContain("/asyncapi/orders/ui");
+            routes.ShouldContain("/asyncapi/orders/ui/index.html");
+            routes.ShouldContain("/asyncapi/orders/ui/{assetName}");
+        }
+
+        [Fact]
         public void MapAsyncApiDocuments_LogsMappedRoutes()
         {
             var builder = WebApplication.CreateBuilder();

@@ -13,9 +13,9 @@ namespace Saunter.Options
     /// </summary>
     public class AsyncApiOptions
     {
-        private readonly List<Type> _documentFilters = new();
-        private readonly List<Type> _channelFilters = new();
-        private readonly List<Type> _operationFilters = new();
+        private readonly List<FilterDescriptor> _documentFilters = new();
+        private readonly List<FilterDescriptor> _channelFilters = new();
+        private readonly List<FilterDescriptor> _operationFilters = new();
 
         /// <summary>
         /// The prototype for the default (unnamed) AsyncAPI document. Used when a document is requested
@@ -62,22 +62,23 @@ namespace Saunter.Options
             .ToImmutableHashSet();
 
         /// <summary>
-        /// The <see cref="IDocumentFilter"/> types registered via <see cref="AddDocumentFilter{T}"/>,
-        /// applied to each generated document after channels and operations have been built.
+        /// The <see cref="IDocumentFilter"/> registrations added via <see cref="AddDocumentFilter{T}"/>
+        /// or <see cref="AddDocumentFilter(IDocumentFilter)"/>, applied to each generated document
+        /// after channels and operations have been built.
         /// </summary>
-        public IEnumerable<Type> DocumentFilters => _documentFilters;
+        public IReadOnlyList<FilterDescriptor> DocumentFilters => _documentFilters;
 
         /// <summary>
-        /// The <see cref="IChannelFilter"/> types registered via <see cref="AddChannelFilter{T}"/>,
-        /// applied to each generated channel.
+        /// The <see cref="IChannelFilter"/> registrations added via <see cref="AddChannelFilter{T}"/>
+        /// or <see cref="AddChannelFilter(IChannelFilter)"/>, applied to each generated channel.
         /// </summary>
-        public IEnumerable<Type> ChannelFilters => _channelFilters;
+        public IReadOnlyList<FilterDescriptor> ChannelFilters => _channelFilters;
 
         /// <summary>
-        /// The <see cref="IOperationFilter"/> types registered via <see cref="AddOperationFilter{T}"/>,
-        /// applied to each generated operation.
+        /// The <see cref="IOperationFilter"/> registrations added via <see cref="AddOperationFilter{T}"/>
+        /// or <see cref="AddOperationFilter(IOperationFilter)"/>, applied to each generated operation.
         /// </summary>
-        public IEnumerable<Type> OperationFilters => _operationFilters;
+        public IReadOnlyList<FilterDescriptor> OperationFilters => _operationFilters;
 
         /// <summary>
         /// Registers an <see cref="IDocumentFilter"/> to post-process every generated document.
@@ -86,7 +87,18 @@ namespace Saunter.Options
         /// <typeparam name="T">The filter implementation to register.</typeparam>
         public void AddDocumentFilter<T>() where T : IDocumentFilter
         {
-            _documentFilters.Add(typeof(T));
+            _documentFilters.Add(new FilterDescriptor(typeof(T)));
+        }
+
+        /// <summary>
+        /// Registers a pre-constructed <see cref="IDocumentFilter"/> instance to post-process
+        /// every generated document.
+        /// </summary>
+        /// <param name="filter">The filter instance to use.</param>
+        public void AddDocumentFilter(IDocumentFilter filter)
+        {
+            ArgumentNullException.ThrowIfNull(filter);
+            _documentFilters.Add(new FilterDescriptor(filter));
         }
 
         /// <summary>
@@ -96,7 +108,18 @@ namespace Saunter.Options
         /// <typeparam name="T">The filter implementation to register.</typeparam>
         public void AddChannelFilter<T>() where T : IChannelFilter
         {
-            _channelFilters.Add(typeof(T));
+            _channelFilters.Add(new FilterDescriptor(typeof(T)));
+        }
+
+        /// <summary>
+        /// Registers a pre-constructed <see cref="IChannelFilter"/> instance to post-process
+        /// every generated channel.
+        /// </summary>
+        /// <param name="filter">The filter instance to use.</param>
+        public void AddChannelFilter(IChannelFilter filter)
+        {
+            ArgumentNullException.ThrowIfNull(filter);
+            _channelFilters.Add(new FilterDescriptor(filter));
         }
 
         /// <summary>
@@ -116,7 +139,18 @@ namespace Saunter.Options
         /// <typeparam name="T">The filter implementation to register.</typeparam>
         public void AddOperationFilter<T>() where T : IOperationFilter
         {
-            _operationFilters.Add(typeof(T));
+            _operationFilters.Add(new FilterDescriptor(typeof(T)));
+        }
+
+        /// <summary>
+        /// Registers a pre-constructed <see cref="IOperationFilter"/> instance to post-process
+        /// every generated operation.
+        /// </summary>
+        /// <param name="filter">The filter instance to use.</param>
+        public void AddOperationFilter(IOperationFilter filter)
+        {
+            ArgumentNullException.ThrowIfNull(filter);
+            _operationFilters.Add(new FilterDescriptor(filter));
         }
 
         /// <summary>
