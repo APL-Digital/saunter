@@ -167,49 +167,9 @@ namespace Saunter.AttributeProvider
 
             foreach (var item in methodsWithChannelAttribute)
             {
-                var channel = item.Channel!;
-                var operationAttributes = GetOperationAttributes(item.Method).ToArray();
-                var operationMessages = operationAttributes
-                    .ToDictionary(
-                        operationAttribute => operationAttribute,
-                        operationAttribute => _messageResolver.ResolveForOperation(item.Method, operationAttribute, options.Inference));
-                var replyMessages = operationAttributes
-                    .ToDictionary(
-                        operationAttribute => operationAttribute,
-                        operationAttribute => _messageResolver.ResolveReplyForOperation(item.Method, operationAttribute, options.Inference));
-
-                RegisterMessageResolutions(components, operationMessages.Values.Concat(replyMessages.Values));
-                var channelItem = _channelBuilder.Build(item.Method, channel, UnionMessageIds(operationMessages.Values), options.Inference);
-                RegisterChannelParameters(components, channelItem);
-
-                ApplyChannelFilters(options, item.Method, channel, channelItem);
-
-                foreach (var pair in operationMessages)
+                foreach (var generated in GenerateForMember(components, options, item.Method, item.Channel!, GetOperationAttributes(item.Method).ToArray()))
                 {
-                    var replyResolution = replyMessages[pair.Key];
-                    ValidateReplyConfiguration(item.Method, pair.Key);
-                    var replyMessageIds = GetReplyMessageIds(pair.Key, pair.Value, replyResolution);
-                    var operation = _operationBuilder.Build(item.Method, pair.Key, channelItem.Id, pair.Value.MessageIds, replyMessageIds);
-                    ApplyOperationFilters(item.Method, options, pair.Key, operation);
-
-                    yield return new GeneratedOperation(
-                        channelItem.Id,
-                        channelItem,
-                        GetOperationId(pair.Key, item.Method, pair.Key.Action, options),
-                        operation,
-                        item.Method);
-
-                    if (TryCreateReplyChannel(channelItem, pair.Key, operation, out var replyChannel))
-                    {
-                        ApplyChannelFilters(options, item.Method, replyChannel);
-
-                        yield return new GeneratedOperation(
-                            replyChannel.Id,
-                            replyChannel,
-                            null,
-                            null,
-                            item.Method);
-                    }
+                    yield return generated;
                 }
             }
         }
@@ -226,49 +186,76 @@ namespace Saunter.AttributeProvider
 
             foreach (var item in classesWithChannelAttribute)
             {
-                var channel = item.Channel!;
-                var operationAttributes = GetOperationAttributes(item.Type).ToArray();
-                var operationMessages = operationAttributes
-                    .ToDictionary(
-                        operationAttribute => operationAttribute,
-                        operationAttribute => _messageResolver.ResolveForOperation(item.Type, operationAttribute, options.Inference));
-                var replyMessages = operationAttributes
-                    .ToDictionary(
-                        operationAttribute => operationAttribute,
-                        operationAttribute => _messageResolver.ResolveReplyForOperation(item.Type, operationAttribute, options.Inference));
-
-                RegisterMessageResolutions(components, operationMessages.Values.Concat(replyMessages.Values));
-                var channelItem = _channelBuilder.Build(item.Type, channel, UnionMessageIds(operationMessages.Values), options.Inference);
-                RegisterChannelParameters(components, channelItem);
-
-                ApplyChannelFilters(options, item.Type, channel, channelItem);
-
-                foreach (var pair in operationMessages)
+                foreach (var generated in GenerateForMember(components, options, item.Type, item.Channel!, GetOperationAttributes(item.Type).ToArray()))
                 {
-                    var replyResolution = replyMessages[pair.Key];
-                    ValidateReplyConfiguration(item.Type, pair.Key);
-                    var replyMessageIds = GetReplyMessageIds(pair.Key, pair.Value, replyResolution);
-                    var operation = _operationBuilder.Build(item.Type, pair.Key, channelItem.Id, pair.Value.MessageIds, replyMessageIds);
-                    ApplyOperationFilters(item.Type, options, pair.Key, operation);
+                    yield return generated;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Runs the full channel/operation generation pipeline (message resolution, channel and
+        /// operation building, filters, reply channels) for one annotated member. The channel and
+        /// operation attributes are passed in so callers can supply either reflected or
+        /// convention-synthesized attributes.
+        /// </summary>
+        private IEnumerable<GeneratedOperation> GenerateForMember(
+            AsyncApiComponentsDescriptor components,
+            AsyncApiOptions options,
+            MemberInfo member,
+            ChannelAttribute channel,
+            OperationAttribute[] operationAttributes)
+        {
+            var operationMessages = operationAttributes
+                .ToDictionary(
+                    operationAttribute => operationAttribute,
+                    operationAttribute => member switch
+                    {
+                        MethodInfo method => _messageResolver.ResolveForOperation(method, operationAttribute, options.Inference),
+                        TypeInfo type => _messageResolver.ResolveForOperation(type, operationAttribute, options.Inference),
+                        _ => throw new ArgumentException($"Unsupported member kind '{member.GetType().Name}'.", nameof(member)),
+                    });
+            var replyMessages = operationAttributes
+                .ToDictionary(
+                    operationAttribute => operationAttribute,
+                    operationAttribute => member switch
+                    {
+                        MethodInfo method => _messageResolver.ResolveReplyForOperation(method, operationAttribute, options.Inference),
+                        TypeInfo type => _messageResolver.ResolveReplyForOperation(type, operationAttribute, options.Inference),
+                        _ => throw new ArgumentException($"Unsupported member kind '{member.GetType().Name}'.", nameof(member)),
+                    });
+
+            RegisterMessageResolutions(components, operationMessages.Values.Concat(replyMessages.Values));
+            var channelItem = _channelBuilder.Build(member, channel, UnionMessageIds(operationMessages.Values), options.Inference);
+            RegisterChannelParameters(components, channelItem);
+
+            ApplyChannelFilters(options, member, channel, channelItem);
+
+            foreach (var pair in operationMessages)
+            {
+                var replyResolution = replyMessages[pair.Key];
+                ValidateReplyConfiguration(member, pair.Key);
+                var replyMessageIds = GetReplyMessageIds(pair.Key, pair.Value, replyResolution);
+                var operation = _operationBuilder.Build(member, pair.Key, channelItem.Id, pair.Value.MessageIds, replyMessageIds);
+                ApplyOperationFilters(member, options, pair.Key, operation);
+
+                yield return new GeneratedOperation(
+                    channelItem.Id,
+                    channelItem,
+                    GetOperationId(pair.Key, member, pair.Key.Action, options),
+                    operation,
+                    member);
+
+                if (TryCreateReplyChannel(channelItem, pair.Key, operation, out var replyChannel))
+                {
+                    ApplyChannelFilters(options, member, replyChannel);
 
                     yield return new GeneratedOperation(
-                        channelItem.Id,
-                        channelItem,
-                        GetOperationId(pair.Key, item.Type, pair.Key.Action, options),
-                        operation,
-                        item.Type);
-
-                    if (TryCreateReplyChannel(channelItem, pair.Key, operation, out var replyChannel))
-                    {
-                        ApplyChannelFilters(options, item.Type, replyChannel);
-
-                        yield return new GeneratedOperation(
-                            replyChannel.Id,
-                            replyChannel,
-                            null,
-                            null,
-                            item.Type);
-                    }
+                        replyChannel.Id,
+                        replyChannel,
+                        null,
+                        null,
+                        member);
                 }
             }
         }
