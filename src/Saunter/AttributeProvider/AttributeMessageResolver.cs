@@ -82,27 +82,60 @@ namespace Saunter.AttributeProvider
 
         public AsyncApiMessageResolutionDescriptor ResolveReplyForOperation(MethodInfo method, OperationAttribute operationAttribute, AsyncApiInferenceOptions inferenceOptions)
         {
-            return ResolveReply(operationAttribute, inferenceOptions);
+            return ResolveReply(
+                operationAttribute,
+                method.GetCustomAttributes<ReplyMessageAttribute>(),
+                inferenceOptions);
         }
 
         public AsyncApiMessageResolutionDescriptor ResolveReplyForOperation(TypeInfo type, OperationAttribute operationAttribute, AsyncApiInferenceOptions inferenceOptions)
         {
-            return ResolveReply(operationAttribute, inferenceOptions);
+            var replyMessageAttributes = type
+                .GetCustomAttributes<ReplyMessageAttribute>()
+                .Concat(GetCandidateOperationMethods(type).SelectMany(method => method.GetCustomAttributes<ReplyMessageAttribute>()));
+
+            return ResolveReply(operationAttribute, replyMessageAttributes, inferenceOptions);
         }
 
-        private AsyncApiMessageResolutionDescriptor ResolveReply(OperationAttribute operationAttribute, AsyncApiInferenceOptions inferenceOptions)
+        private AsyncApiMessageResolutionDescriptor ResolveReply(
+            OperationAttribute operationAttribute,
+            IEnumerable<ReplyMessageAttribute> replyMessageAttributes,
+            AsyncApiInferenceOptions inferenceOptions)
         {
+            var resolutions = new List<AsyncApiMessageResolutionDescriptor>();
             if (operationAttribute.ReplyMessagePayloadType is not null)
             {
-                return GenerateMessageFromType(
+                resolutions.Add(GenerateMessageFromType(
                     operationAttribute.ReplyMessagePayloadType.GetTypeInfo(),
                     inferenceOptions,
                     operationAttribute.ReplyMessageId,
                     operationAttribute.ReplyMessageName,
-                    operationAttribute.ReplyMessageTitle);
+                    operationAttribute.ReplyMessageTitle,
+                    operationAttribute.ReplyMessagePayloadSchemaId));
             }
 
-            return new AsyncApiMessageResolutionDescriptor(Array.Empty<string>(), Array.Empty<AsyncApiMessageDescriptor>(), Array.Empty<AsyncApiSchemaComponentDescriptor>());
+            resolutions.Add(GenerateMessagesFromReplyAttributes(replyMessageAttributes, inferenceOptions));
+
+            return CreateMessageResolution(
+                resolutions.SelectMany(resolution => resolution.Messages),
+                resolutions.SelectMany(resolution => resolution.Schemas));
+        }
+
+        private AsyncApiMessageResolutionDescriptor GenerateMessagesFromReplyAttributes(
+            IEnumerable<ReplyMessageAttribute> replyMessageAttributes,
+            AsyncApiInferenceOptions inferenceOptions)
+        {
+            var messageDescriptors = new List<AsyncApiMessageDescriptor>();
+            var schemaDescriptors = new List<AsyncApiSchemaComponentDescriptor>();
+
+            foreach (var attribute in replyMessageAttributes)
+            {
+                var result = GenerateMessageFromReplyAttribute(attribute, inferenceOptions);
+                messageDescriptors.Add(result.Message);
+                schemaDescriptors.AddRange(result.Schemas);
+            }
+
+            return CreateMessageResolution(messageDescriptors, schemaDescriptors);
         }
 
         private AsyncApiMessageResolutionDescriptor GenerateMessagesFromAttributes(IEnumerable<MessageAttribute> messageAttributes, AsyncApiInferenceOptions inferenceOptions)
@@ -141,9 +174,15 @@ namespace Saunter.AttributeProvider
             AsyncApiInferenceOptions inferenceOptions,
             string? explicitMessageId = null,
             string? explicitMessageName = null,
-            string? explicitMessageTitle = null)
+            string? explicitMessageTitle = null,
+            string? explicitPayloadSchemaId = null)
         {
             var payloadSchema = GetAsyncApiSchemaReference(payloadType);
+            if (explicitPayloadSchemaId is string schemaId && payloadSchema is not null)
+            {
+                payloadSchema = RenameRootSchema(payloadSchema.Value, AttributeProviderModelFactory.SanitizeComponentKey(schemaId));
+            }
+
             var messageId = explicitMessageId is string configuredMessageId
                 ? AttributeProviderModelFactory.SanitizeComponentKey(configuredMessageId)
                 : payloadSchema?.Id ?? AttributeProviderModelFactory.SanitizeComponentKey(inferenceOptions.MessageNameGenerator(payloadType.AsType()));
@@ -172,6 +211,42 @@ namespace Saunter.AttributeProvider
                 [messageId],
                 [message],
                 payloadSchema?.Schemas ?? Array.Empty<AsyncApiSchemaComponentDescriptor>());
+        }
+
+        private MessageDescriptorResult GenerateMessageFromReplyAttribute(
+            ReplyMessageAttribute replyMessageAttribute,
+            AsyncApiInferenceOptions inferenceOptions)
+        {
+            var payloadSchema = GetAsyncApiSchemaReference(replyMessageAttribute.PayloadType.GetTypeInfo());
+            if (replyMessageAttribute.PayloadSchemaId is string explicitSchemaId && payloadSchema is not null)
+            {
+                payloadSchema = RenameRootSchema(payloadSchema.Value, AttributeProviderModelFactory.SanitizeComponentKey(explicitSchemaId));
+            }
+
+            var messageId = replyMessageAttribute.MessageId is string explicitMessageId
+                ? AttributeProviderModelFactory.SanitizeComponentKey(explicitMessageId)
+                : payloadSchema?.Id ?? AttributeProviderModelFactory.SanitizeComponentKey(replyMessageAttribute.PayloadType.Name);
+            var headersSchema = GetHeadersSchemaReference(replyMessageAttribute.HeadersType?.GetTypeInfo());
+            var message = new AsyncApiMessageDescriptor(
+                messageId,
+                replyMessageAttribute.Name ?? inferenceOptions.MessageNameGenerator(replyMessageAttribute.PayloadType),
+                replyMessageAttribute.Title ?? inferenceOptions.MessageTitleGenerator(replyMessageAttribute.PayloadType),
+                replyMessageAttribute.Summary,
+                replyMessageAttribute.Description,
+                payloadSchema?.Id,
+                headersSchema?.Id,
+                replyMessageAttribute.CorrelationId,
+                replyMessageAttribute.ContentType,
+                replyMessageAttribute.ExternalDocs,
+                replyMessageAttribute.ExternalDocsDescription,
+                replyMessageAttribute.BindingsRef,
+                replyMessageAttribute.Tags ?? Array.Empty<string>());
+
+            return new MessageDescriptorResult(
+                message,
+                DeduplicateSchemaDescriptors(
+                    (payloadSchema?.Schemas ?? Array.Empty<AsyncApiSchemaComponentDescriptor>())
+                        .Concat(headersSchema?.Schemas ?? Array.Empty<AsyncApiSchemaComponentDescriptor>())));
         }
 
         private MessageDescriptorResult? GenerateMessageFromAttribute(MessageAttribute messageAttribute, AsyncApiInferenceOptions inferenceOptions)

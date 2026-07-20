@@ -163,6 +163,12 @@ namespace Saunter.Analyzers
                 return;
             }
 
+            if (attributeName == "ReplyMessageAttribute")
+            {
+                AnalyzeReplyMessageAttribute(context, attributeSyntax);
+                return;
+            }
+
             if (attributeName == "ChannelAttribute")
             {
                 AnalyzeChannelAttribute(context, attributeSyntax);
@@ -187,7 +193,7 @@ namespace Saunter.Analyzers
                 operationIdOccurrences.Add((value.Value, value.Location));
             }
 
-            foreach (var propertyName in new[] { "BindingsRef", "Reply" })
+            foreach (var propertyName in new[] { "BindingsRef", "Reply", "ReplyMessageId", "ReplyMessagePayloadSchemaId" })
             {
                 foreach (var value in GetNamedStringValues(attributeSyntax, propertyName))
                 {
@@ -207,6 +213,7 @@ namespace Saunter.Analyzers
             var replyChannelAddress = GetNamedArgumentLocation(attributeSyntax, "ReplyChannelAddress");
             var replyAddressLocation = GetNamedArgumentLocation(attributeSyntax, "ReplyAddressLocation");
             var replyMessagePayloadType = GetNamedArgumentLocation(attributeSyntax, "ReplyMessagePayloadType");
+            var replyMessagePayloadSchemaId = GetNamedArgumentLocation(attributeSyntax, "ReplyMessagePayloadSchemaId");
 
             if (replyChannelAddress is not null && replyAddressLocation is not null)
             {
@@ -214,6 +221,14 @@ namespace Saunter.Analyzers
                     s_invalidReplyConfiguration,
                     replyAddressLocation,
                     "ReplyChannelAddress and ReplyAddressLocation are mutually exclusive. Remove one of them so the reply channel is either explicitly addressed or dynamically addressed."));
+            }
+
+            if (replyMessagePayloadSchemaId is not null && replyMessagePayloadType is null)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    s_invalidReplyConfiguration,
+                    replyMessagePayloadSchemaId,
+                    "ReplyMessagePayloadSchemaId requires ReplyMessagePayloadType. Set the payload type or use PayloadSchemaId on a [ReplyMessage] attribute."));
             }
 
             if (hasReply)
@@ -244,6 +259,14 @@ namespace Saunter.Analyzers
                     replyMessagePayloadType,
                     "ReplyMessagePayloadType requires a Reply channel id. Set Reply to the reply channel id or remove the reply payload type."));
             }
+
+            if (replyMessagePayloadSchemaId is not null)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    s_invalidReplyConfiguration,
+                    replyMessagePayloadSchemaId,
+                    "ReplyMessagePayloadSchemaId requires a Reply channel id. Set Reply to the reply channel id or remove the reply schema id."));
+            }
         }
 
         private static bool HasNamedArgument(AttributeSyntax attributeSyntax, string propertyName) =>
@@ -256,24 +279,7 @@ namespace Saunter.Analyzers
 
         private static void AnalyzeMessageAttribute(SyntaxNodeAnalysisContext context, AttributeSyntax attributeSyntax)
         {
-            foreach (var value in GetNamedStringValues(attributeSyntax, "ExternalDocs"))
-            {
-                if (!Uri.TryCreate(value.Value, UriKind.Absolute, out _))
-                {
-                    context.ReportDiagnostic(Diagnostic.Create(s_invalidExternalDocs, value.Location, value.Value));
-                }
-            }
-
-            foreach (var propertyName in new[] { "BindingsRef", "CorrelationId", "MessageId" })
-            {
-                foreach (var value in GetNamedStringValues(attributeSyntax, propertyName))
-                {
-                    if (!s_referenceNamePattern.IsMatch(value.Value))
-                    {
-                        context.ReportDiagnostic(Diagnostic.Create(s_invalidReferenceName, value.Location, propertyName, value.Value));
-                    }
-                }
-            }
+            AnalyzeMessageMetadata(context, attributeSyntax);
 
             if (context.ContainingSymbol is not IMethodSymbol method)
             {
@@ -290,6 +296,71 @@ namespace Saunter.Analyzers
                     "MessageAttribute",
                     "Add [SendOperation] or [ReceiveOperation] on the method or containing type."));
             }
+        }
+
+        private static void AnalyzeReplyMessageAttribute(SyntaxNodeAnalysisContext context, AttributeSyntax attributeSyntax)
+        {
+            AnalyzeMessageMetadata(context, attributeSyntax);
+
+            if (context.ContainingSymbol is not ISymbol member)
+            {
+                return;
+            }
+
+            var operationAttributes = member.GetAttributes().Where(IsOperationAttribute);
+            if (member is IMethodSymbol method)
+            {
+                operationAttributes = operationAttributes.Concat(method.ContainingType.GetAttributes().Where(IsOperationAttribute));
+            }
+
+            var operations = operationAttributes.ToArray();
+            if (operations.Length == 0)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    s_orphanedAnnotation,
+                    attributeSyntax.GetLocation(),
+                    "ReplyMessageAttribute",
+                    "Add [SendOperation] or [ReceiveOperation] with Reply set on the method or containing type."));
+                return;
+            }
+
+            if (!operations.Any(HasReplyChannelId))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    s_invalidReplyConfiguration,
+                    attributeSyntax.GetLocation(),
+                    "ReplyMessageAttribute requires a Reply channel id. Set Reply on the surrounding operation or remove the reply message."));
+            }
+        }
+
+        private static void AnalyzeMessageMetadata(SyntaxNodeAnalysisContext context, AttributeSyntax attributeSyntax)
+        {
+            foreach (var value in GetNamedStringValues(attributeSyntax, "ExternalDocs"))
+            {
+                if (!Uri.TryCreate(value.Value, UriKind.Absolute, out _))
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(s_invalidExternalDocs, value.Location, value.Value));
+                }
+            }
+
+            foreach (var propertyName in new[] { "BindingsRef", "CorrelationId", "MessageId", "PayloadSchemaId" })
+            {
+                foreach (var value in GetNamedStringValues(attributeSyntax, propertyName))
+                {
+                    if (!s_referenceNamePattern.IsMatch(value.Value))
+                    {
+                        context.ReportDiagnostic(Diagnostic.Create(s_invalidReferenceName, value.Location, propertyName, value.Value));
+                    }
+                }
+            }
+        }
+
+        private static bool HasReplyChannelId(AttributeData attribute)
+        {
+            return attribute.NamedArguments.Any(argument =>
+                argument.Key == "Reply"
+                && argument.Value.Value is string reply
+                && !string.IsNullOrWhiteSpace(reply));
         }
 
         private static void AnalyzeChannelAttribute(SyntaxNodeAnalysisContext context, AttributeSyntax attributeSyntax)

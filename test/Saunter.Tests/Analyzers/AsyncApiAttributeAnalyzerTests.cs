@@ -244,6 +244,70 @@ public class OrdersApi
             diagnostics.ShouldNotContain(diagnostic => diagnostic.Id == AsyncApiAttributeAnalyzer.InvalidReplyConfigurationDiagnosticId);
         }
 
+        [Fact]
+        public async Task AnalyzeAsync_DetectsReplyMessageWithoutReplyChannelId()
+        {
+            const string source = """
+using Saunter.AttributeProvider.Attributes;
+
+[AsyncApi]
+public class OrdersApi
+{
+    [Channel("orders", "orders.created")]
+    [SendOperation]
+    [ReplyMessage(typeof(string))]
+    public void Publish() { }
+}
+""";
+
+            var diagnostics = await AnalyzeAsync(source);
+
+            diagnostics.ShouldContain(diagnostic => diagnostic.Id == AsyncApiAttributeAnalyzer.InvalidReplyConfigurationDiagnosticId);
+        }
+
+        [Fact]
+        public async Task AnalyzeAsync_AllowsMultipleReplyMessagesWithValidReferences()
+        {
+            const string source = """
+using Saunter.AttributeProvider.Attributes;
+
+[AsyncApi]
+public class OrdersApi
+{
+    [Channel("orders", "orders.created")]
+    [SendOperation(Reply = "ordersReply")]
+    [ReplyMessage(typeof(string), MessageId = "ordersAccepted", PayloadSchemaId = "ordersAcceptedSchema")]
+    [ReplyMessage(typeof(int), MessageId = "ordersRejected", PayloadSchemaId = "ordersRejectedSchema")]
+    public void Publish() { }
+}
+""";
+
+            var diagnostics = await AnalyzeAsync(source);
+
+            diagnostics.ShouldNotContain(diagnostic => diagnostic.Id == AsyncApiAttributeAnalyzer.InvalidReplyConfigurationDiagnosticId);
+            diagnostics.ShouldNotContain(diagnostic => diagnostic.Id == AsyncApiAttributeAnalyzer.InvalidReferenceNameDiagnosticId);
+        }
+
+        [Fact]
+        public async Task AnalyzeAsync_DetectsSingleReplySchemaIdWithoutPayloadType()
+        {
+            const string source = """
+using Saunter.AttributeProvider.Attributes;
+
+[AsyncApi]
+public class OrdersApi
+{
+    [Channel("orders", "orders.created")]
+    [SendOperation(Reply = "ordersReply", ReplyMessagePayloadSchemaId = "replySchema")]
+    public void Publish() { }
+}
+""";
+
+            var diagnostics = await AnalyzeAsync(source);
+
+            diagnostics.ShouldContain(diagnostic => diagnostic.Id == AsyncApiAttributeAnalyzer.InvalidReplyConfigurationDiagnosticId);
+        }
+
         private static async Task<ImmutableArray<Diagnostic>> AnalyzeAsync(string source)
         {
             var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);

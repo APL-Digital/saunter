@@ -436,6 +436,13 @@ namespace Saunter.AttributeProvider
 
             if (!string.IsNullOrWhiteSpace(operationAttribute.Reply))
             {
+                if (operationAttribute.ReplyMessagePayloadType is null
+                    && HasLegacyReplyMessageMetadata(operationAttribute))
+                {
+                    throw new InvalidOperationException(
+                        $"Operation '{FormatMember(member)}' configures reply message metadata but no ReplyMessagePayloadType. Set ReplyMessagePayloadType or move the metadata to a [ReplyMessage] attribute.");
+                }
+
                 return;
             }
 
@@ -456,6 +463,37 @@ namespace Saunter.AttributeProvider
                 throw new InvalidOperationException(
                     $"Operation '{FormatMember(member)}' configures ReplyMessagePayloadType but no Reply channel id. Set OperationAttribute.Reply to the reply channel id or remove the reply payload type.");
             }
+
+            if (HasLegacyReplyMessageMetadata(operationAttribute))
+            {
+                throw new InvalidOperationException(
+                    $"Operation '{FormatMember(member)}' configures reply message metadata but no Reply channel id. Set OperationAttribute.Reply and ReplyMessagePayloadType, or remove the reply metadata.");
+            }
+
+            if (HasReplyMessageAttributes(member))
+            {
+                throw new InvalidOperationException(
+                    $"Operation '{FormatMember(member)}' has [ReplyMessage] annotations but no Reply channel id. Set OperationAttribute.Reply to the reply channel id or remove the reply messages.");
+            }
+        }
+
+        private static bool HasLegacyReplyMessageMetadata(OperationAttribute operationAttribute)
+        {
+            return !string.IsNullOrWhiteSpace(operationAttribute.ReplyMessagePayloadSchemaId)
+                || !string.IsNullOrWhiteSpace(operationAttribute.ReplyMessageId)
+                || !string.IsNullOrWhiteSpace(operationAttribute.ReplyMessageName)
+                || !string.IsNullOrWhiteSpace(operationAttribute.ReplyMessageTitle);
+        }
+
+        private static bool HasReplyMessageAttributes(MemberInfo member)
+        {
+            if (member.GetCustomAttributes<ReplyMessageAttribute>().Any())
+            {
+                return true;
+            }
+
+            return member is TypeInfo type
+                && type.DeclaredMethods.Any(method => method.GetCustomAttributes<ReplyMessageAttribute>().Any());
         }
 
         private static bool TryCreateReplyChannel(
@@ -471,6 +509,7 @@ namespace Saunter.AttributeProvider
             }
 
             var replyMessageIds = operation.Reply.MessageIds;
+            var hasDynamicReplyAddress = !string.IsNullOrWhiteSpace(operation.Reply.AddressLocation);
             string? replyChannelAddress = null;
             if (string.IsNullOrWhiteSpace(operationAttribute.ReplyChannelAddress)
                 && string.IsNullOrWhiteSpace(operation.Reply.AddressLocation))
@@ -492,13 +531,15 @@ namespace Saunter.AttributeProvider
                 null,
                 null,
                 null,
-                sourceChannel.BindingsRef,
+                hasDynamicReplyAddress ? null : sourceChannel.BindingsRef,
                 sourceChannel.ServerNames,
                 replyMessageIds.ToArray(),
-                Array.Empty<AsyncApiParameterDescriptor>())
+                Array.Empty<AsyncApiParameterDescriptor>());
+            if (!hasDynamicReplyAddress)
             {
-                Bindings = sourceChannel.InlineBindings,
-            };
+                replyChannel = replyChannel with { Bindings = sourceChannel.InlineBindings };
+            }
+
             return true;
         }
 

@@ -119,8 +119,8 @@ namespace Saunter.SharedKernel
                     itemSchemas.AddRange(generatedItemSchema.Value.All);
                 }
 
-                var usageSchema = CreateUsageSchema(schema, isNullable);
-                if (!ReferenceEquals(usageSchema, schema))
+                var usageSchema = CreateCollectionUsageSchema(schema, isNullable, isRoot);
+                if (isRoot && !ReferenceEquals(usageSchema, schema))
                 {
                     itemSchemas.Insert(0, schema);
                 }
@@ -141,7 +141,7 @@ namespace Saunter.SharedKernel
 
                 try
                 {
-                    var dictionarySchemas = new List<AsyncApiSchemaDescriptor> { schema };
+                    var dictionarySchemas = new List<AsyncApiSchemaDescriptor>();
                     var generatedValueSchema = GenerateBranch(dictionaryValueType, parents, nullabilityInfoContext, generationContext, GetDictionaryValueNullabilityInfo(nullabilityInfo));
                     if (generatedValueSchema is not null)
                     {
@@ -149,7 +149,13 @@ namespace Saunter.SharedKernel
                         dictionarySchemas.AddRange(generatedValueSchema.Value.All);
                     }
 
-                    return new(CreateUsageSchema(schema, isNullable), DeduplicateSchemas(dictionarySchemas, $"building dictionary values for schema '{name}'"));
+                    var usageSchema = CreateCollectionUsageSchema(schema, isNullable, isRoot);
+                    if (isRoot && !ReferenceEquals(usageSchema, schema))
+                    {
+                        dictionarySchemas.Insert(0, schema);
+                    }
+
+                    return new(usageSchema, DeduplicateSchemas(dictionarySchemas, $"building dictionary values for schema '{name}'"));
                 }
                 finally
                 {
@@ -255,6 +261,27 @@ namespace Saunter.SharedKernel
 
             schema.Nullable = true;
             return schema;
+        }
+
+        private static AsyncApiSchemaDescriptor CreateCollectionUsageSchema(
+            AsyncApiSchemaDescriptor schema,
+            bool isNullable,
+            bool isRoot)
+        {
+            if (isRoot)
+            {
+                return CreateUsageSchema(schema, isNullable);
+            }
+
+            if (!isNullable)
+            {
+                return schema;
+            }
+
+            var inlineSchema = CloneSchema(schema);
+            inlineSchema.Id = null;
+            inlineSchema.Nullable = true;
+            return inlineSchema;
         }
 
         private static AsyncApiSchemaDescriptor CreateNullableReferenceWrapper(string reference)

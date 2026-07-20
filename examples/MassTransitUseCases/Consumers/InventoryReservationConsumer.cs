@@ -21,7 +21,9 @@ public class InventoryReservationConsumer : IConsumer<InventoryReservationReques
     [Channel(CommerceChannels.InventoryReservations, CommerceChannels.InventoryReservationsAddress, Servers = new[] { "rabbitmq" }, Summary = "Inventory reservation requests routed by warehouse.")]
     [ChannelParameter("warehouseId", typeof(string), Description = "Warehouse that should process the reservation.", DefaultValue = "primary", Examples = new[] { "primary", "overflow" })]
     [ChannelTag("inventory", Description = "Channels used to reserve stock and coordinate inventory workflows.", ExternalDocs = "https://example.com/docs/inventory", ExternalDocsDescription = "Inventory workflow documentation.")]
-    [ReceiveOperation(typeof(InventoryReservationRequested), OperationId = "HandleInventoryReservation", Summary = "Handle a reservation request and send a reply.", Description = "Demonstrates receive-side request/reply modeling in AsyncAPI 3.", Reply = CommerceChannels.InventoryReservationsReply, ReplyMessagePayloadType = typeof(InventoryReserved), ReplyAddressLocation = "$message.header#/responseAddress")]
+    [ReceiveOperation(typeof(InventoryReservationRequested), OperationId = "HandleInventoryReservation", Summary = "Handle a reservation request and send a reply.", Description = "Demonstrates receive-side request/reply modeling in AsyncAPI 3.", Reply = CommerceChannels.InventoryReservationsReply, ReplyAddressLocation = "$message.header#/responseAddress")]
+    [ReplyMessage(typeof(InventoryReserved), MessageId = "inventoryReserved")]
+    [ReplyMessage(typeof(InventoryReservationRejected), MessageId = "inventoryReservationRejected")]
     [Message(typeof(InventoryReservationRequested), Name = "InventoryReservationRequested", Title = "Inventory reservation requested", Summary = "Request that a warehouse reserve inventory for an order.", HeadersType = typeof(CommerceMessageHeaders), CorrelationId = "workflowCorrelation", ContentType = "application/json", ExternalDocs = "https://example.com/docs/inventory/reservations/request")]
     public async Task Consume(ConsumeContext<InventoryReservationRequested> context)
     {

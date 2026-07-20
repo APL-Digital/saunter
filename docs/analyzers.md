@@ -23,7 +23,7 @@ reported at document-generation time instead.
 
 **Invalid AsyncAPI external docs URL**
 
-The `ExternalDocs` value on a `[Message]` attribute is not an absolute URI.
+The `ExternalDocs` value on a `[Message]` or `[ReplyMessage]` attribute is not an absolute URI.
 
 Fix: use a fully qualified URL such as `https://example.com/docs/my-message`.
 
@@ -41,8 +41,9 @@ Fix: remove the parameter, or add `{name}` to the channel address.
 **Invalid AsyncAPI reference name**
 
 A reference-valued property (`OperationId`, `BindingsRef`, `Reply`,
-`CorrelationId`, `MessageId`, `Servers`) contains characters that are not
-valid in an AsyncAPI component or server name.
+`CorrelationId`, `MessageId`, `PayloadSchemaId`, `ReplyMessageId`,
+`ReplyMessagePayloadSchemaId`, `Servers`) contains characters that are not valid
+in an AsyncAPI component or server name.
 
 Fix: use only letters, digits, `.`, `-`, or `_`.
 
@@ -54,6 +55,8 @@ An annotation was found without the companion annotation it needs to take
 effect:
 
 - `[Message]` without a `[SendOperation]` or `[ReceiveOperation]` on the
+  method or containing type.
+- `[ReplyMessage]` without a `[SendOperation]` or `[ReceiveOperation]` on the
   method or containing type.
 - `[ChannelParameter]` without a `[Channel]` on the method or containing type.
 
@@ -79,6 +82,9 @@ combined in a way that document generation rejects:
   a reply channel is either explicitly addressed or dynamically addressed.
 - `ReplyChannelAddress`, `ReplyAddressLocation`, and `ReplyMessagePayloadType`
   each require `Reply` to be set to the reply channel id.
+- `[ReplyMessage]` requires a surrounding operation with `Reply` set.
+- `ReplyMessagePayloadSchemaId` requires `ReplyMessagePayloadType`; use
+  `PayloadSchemaId` on `[ReplyMessage]` for repeatable reply declarations.
 
 Fix: set `Reply` to the reply channel id and keep at most one of
 `ReplyChannelAddress`/`ReplyAddressLocation`.

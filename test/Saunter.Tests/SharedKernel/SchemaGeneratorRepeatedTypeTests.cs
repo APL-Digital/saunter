@@ -27,6 +27,22 @@ namespace Saunter.Tests.SharedKernel
             AssertDictionaryProperty(withoutSiblingWrapper.Properties["name"]);
         }
 
+        [Fact]
+        public void AsyncApiSchemaGenerator_AllowsRepeatedDictionaryTypeWithDifferentValueNullability()
+        {
+            AsyncApiSchemaGenerator generator = new();
+
+            var generated = generator.Generate(typeof(RootWithDifferentlyAnnotatedDictionaries));
+
+            generated.ShouldNotBeNull();
+            var requiredValues = generated.Value.Root.Properties["requiredValues"];
+            var nullableValues = generated.Value.Root.Properties["nullableValues"];
+            requiredValues.AdditionalProperties.ShouldNotBeNull();
+            requiredValues.AdditionalProperties.Nullable.ShouldBeFalse();
+            nullableValues.AdditionalProperties.ShouldNotBeNull();
+            nullableValues.AdditionalProperties.Nullable.ShouldBeTrue();
+        }
+
         private static void AssertDictionaryProperty(global::Saunter.SharedKernel.Descriptors.AsyncApiSchemaDescriptor schema)
         {
             schema.Reference.ShouldBeNull();
@@ -52,5 +68,12 @@ namespace Saunter.Tests.SharedKernel
     public class DictionaryReuseWrapper
     {
         public Dictionary<string, string> Name { get; set; } = new();
+    }
+
+    public class RootWithDifferentlyAnnotatedDictionaries
+    {
+        public Dictionary<string, string> RequiredValues { get; set; } = new();
+
+        public Dictionary<string, string?> NullableValues { get; set; } = new();
     }
 }
