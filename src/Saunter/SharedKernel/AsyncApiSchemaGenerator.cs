@@ -75,7 +75,8 @@ namespace Saunter.SharedKernel
             }
 
             var schemaType = MapJsonTypeToSchemaType(typeInfo);
-            var collectionNullability = GetCollectionNullabilityDiscriminator(typeInfo, schemaType, nullabilityInfo);
+            var isDictionary = TryGetDictionaryValueType(typeInfo, out var dictionaryValueType);
+            var collectionNullability = GetCollectionNullabilityDiscriminator(isDictionary, schemaType, nullabilityInfo);
             var name = GetSchemaId(typeInfo, schemaType, generationContext, isRoot, collectionNullability);
             var schema = new AsyncApiSchemaDescriptor
             {
@@ -129,7 +130,7 @@ namespace Saunter.SharedKernel
                 return new(usageSchema, DeduplicateSchemas(itemSchemas, $"building array items for schema '{name}'"));
             }
 
-            if (TryGetDictionaryValueType(typeInfo, out var dictionaryValueType))
+            if (isDictionary)
             {
                 if (!isRoot && generationContext.ReusableCollectionSchemaIds.Contains(name))
                 {
@@ -529,12 +530,12 @@ namespace Saunter.SharedKernel
         }
 
         private static string? GetCollectionNullabilityDiscriminator(
-            TypeInfo typeInfo,
+            bool isDictionary,
             AsyncApiSchemaValueType? schemaType,
             NullabilityInfo? nullabilityInfo)
         {
             NullabilityInfo? itemNullability = null;
-            if (TryGetDictionaryValueType(typeInfo, out _))
+            if (isDictionary)
             {
                 itemNullability = GetDictionaryValueNullabilityInfo(nullabilityInfo);
             }
