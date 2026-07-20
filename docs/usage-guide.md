@@ -30,36 +30,28 @@ keep generated documents correct and stable. For the API-level walkthrough see
    dotnet add package Apollo.Saunter
    ```
 
-2. Register generation and map the endpoints.
+2. Register generation and map the endpoints. **This is the whole minimal
+   setup — no options lambda required.**
 
    ```csharp
    using Saunter;
 
-   builder.Services.AddAsyncApiSchemaGeneration(options =>
-   {
-       options.AsyncApi = new AsyncApiDocumentDescriptor
-       {
-           Info = new AsyncApiInfoDescriptor
-           {
-               Title = "Streetlights API",
-               Version = "1.0.0",
-           },
-           Servers =
-           {
-               ["mqtt"] = new AsyncApiServerDescriptor
-               {
-                   Host = "test.mosquitto.org",
-                   Protocol = "mqtt",
-               },
-           },
-       };
-   });
-
+   builder.Services.AddAsyncApiSchemaGeneration();
    // ...
    app.MapAsyncApi();
    ```
 
-3. Annotate the messaging boundary.
+   The defaults carry you the rest of the way:
+
+   - the **entry assembly** is scanned for `[AsyncApi]` types
+   - `asyncapi` version is `3.0.0`; `info.title`/`info.version` default from the
+     scanned assembly's name and version; the UI title falls back to `info.title`
+   - the document is served at `/asyncapi/asyncapi.json` (plus a YAML sibling) and
+     the UI at `/asyncapi/ui/`
+   - all inference (channel id, operation id, payload schema, message name/title)
+     is **on by default**
+
+3. Annotate the messaging boundary — bare attributes are enough.
 
    ```csharp
    using Saunter.AttributeProvider.Attributes;
@@ -73,9 +65,47 @@ keep generated documents correct and stable. For the API-level walkthrough see
    }
    ```
 
+   No `ChannelId`, no `OperationId`, no `typeof`, no `[Message]`: Saunter infers the
+   channel id from the address, the operation id from the member name, and the
+   payload schema from the method signature.
+
+   > **MassTransit users get an even shorter path.** Turn on
+   > `options.Discovery.DiscoverMassTransitConsumers = true` and your `IConsumer<T>`
+   > implementations are documented with **zero attributes**. See
+   > [MassTransit consumer discovery](#masstransit-consumer-discovery).
+
 4. Browse the results:
    - Document: `GET /asyncapi/asyncapi.json` (YAML sibling at `/asyncapi/asyncapi.yaml`)
    - UI: `/asyncapi/ui/`
+
+## Configure only when you need to
+
+Saunter is designed so that each piece of configuration is opt-in. Add it only
+when you hit the matching need — not preemptively.
+
+| Start here (least config) | Add this only when… |
+|---------------------------|---------------------|
+| `AddAsyncApiSchemaGeneration()` with no lambda | you want a real `info.title`/`version`, a `Servers` map, or a license → set `options.AsyncApi` |
+| Bare `[Channel]` + `[SendOperation]`/`[ReceiveOperation]` | an inferred id collides or reads badly → set `ChannelId`/`OperationId` |
+| Inferred payload from the method signature | the method signature isn't the payload, or you need several messages → add `[Message]` |
+| Entry-assembly scanning | annotated types live in other assemblies → set `AssemblyMarkerTypes` (one marker **per assembly**) |
+| A single hosted document | you co-host multiple messaging boundaries → `ConfigureAsyncApiDocument(...)` |
+
+Most apps *will* eventually want to describe themselves — a title, version, and at
+least one server make the UI far more useful:
+
+```csharp
+builder.Services.AddAsyncApiSchemaGeneration(options =>
+{
+    options.AsyncApi = new AsyncApiDocumentDescriptor
+    {
+        Info = new AsyncApiInfoDescriptor { Title = "Streetlights API", Version = "1.0.0" },
+        Servers = { ["mqtt"] = new AsyncApiServerDescriptor { Host = "test.mosquitto.org", Protocol = "mqtt" } },
+    };
+});
+```
+
+But treat that as the *second* step, not a prerequisite.
 
 ## The core attributes
 
@@ -238,7 +268,8 @@ in each recipe points at the source file.
 
 ### 1. Publish an event (fire-and-forget)
 
-The happy path: annotate the producing method, let inference do the rest.
+The happy path: two bare attributes, no `typeof`. Saunter infers the operation id
+from the method name and the payload schema from the parameter.
 (`CatalogPriceChangedPublisher`)
 
 ```csharp
@@ -246,24 +277,32 @@ The happy path: annotate the producing method, let inference do the rest.
 public class CatalogPriceChangedPublisher
 {
     [Channel("catalog.price-changed")]
-    [SendOperation(typeof(CatalogPriceChanged))]
-    public Task Publish(CatalogPriceChanged message) => _publishEndpoint.Publish(message);
+    [SendOperation]
+    public Task Publish(ProductPriceChanged message) => _publishEndpoint.Publish(message);
 }
 ```
+
+Reach for `[SendOperation(typeof(ProductPriceChanged))]` only when the payload
+isn't the method's parameter (for example a request/reply method whose parameter
+and reply differ).
 
 ### 2. Receive/consume a message
 
-Same shape with `[ReceiveOperation]`. (`CatalogPriceChangedConsumer`)
+Same shape with `[ReceiveOperation]` — still bare. (`CatalogPriceChangedConsumer`)
 
 ```csharp
 [AsyncApi]
-public class CatalogPriceChangedConsumer : IConsumer<CatalogPriceChanged>
+public class CatalogPriceChangedConsumer : IConsumer<ProductPriceChanged>
 {
     [Channel("catalog.price-changed")]
-    [ReceiveOperation(typeof(CatalogPriceChanged))]
-    public Task Consume(ConsumeContext<CatalogPriceChanged> context) => Task.CompletedTask;
+    [ReceiveOperation]
+    public Task Consume(ConsumeContext<ProductPriceChanged> context) => Task.CompletedTask;
 }
 ```
+
+> If this consumer is a MassTransit `IConsumer<T>`, you can often drop the
+> attributes entirely and let [discovery](#masstransit-consumer-discovery)
+> document it.
 
 ### 3. Request/reply with a dynamic reply address
 
