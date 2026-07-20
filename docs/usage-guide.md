@@ -67,7 +67,8 @@ keep generated documents correct and stable. For the API-level walkthrough see
 
    No `ChannelId`, no `OperationId`, no `typeof`, no `[Message]`: Saunter infers the
    channel id from the address, the operation id from the member name, and the
-   payload schema from the method signature.
+   payload schema from the method signature (the `ConsumeContext<T>` type argument
+   here, or the single message-shaped parameter for a producer).
 
    > **MassTransit users get an even shorter path.** Turn on
    > `options.Discovery.DiscoverMassTransitConsumers = true` and your `IConsumer<T>`
@@ -115,12 +116,29 @@ But treat that as the *second* step, not a prerequisite.
 | `[Channel("address")]` | method / class / interface | Declares a channel and its address. |
 | `[SendOperation]` / `[ReceiveOperation]` | method / class / interface | Declares the operation action bound to the channel on the same member. |
 | `[Message(typeof(T))]` | method (repeatable) | Overrides or adds message metadata; use only when inference is insufficient. |
-| `[ChannelParameter("name")]` | method / class | Describes a `{name}` segment in a channel address. |
-| `[ChannelTag(...)]` | method / class | Adds channel tag metadata. |
+| `[ChannelParameter("name")]` | method / class / interface (repeatable) | Describes a `{name}` segment in a channel address. |
+| `[ChannelTag(...)]` | method / class / interface (repeatable) | Adds channel tag metadata. |
+
+**`[Channel]` has three constructors — mind the argument order.** The first
+positional argument is the *address* in the one-arg form but the *channel id* in
+the others:
+
+| Overload | Signature | Use |
+|----------|-----------|-----|
+| One-arg | `[Channel(address)]` | Address only; channel id is inferred (or set via `ChannelId = ...`). |
+| Two-arg | `[Channel(channelId, address)]` | Explicit channel id **first**, then address. |
+| Three-arg | `[Channel(channelId, typeof(IChannelResolver), typeof(payload))]` | Channel id, then a resolver that computes the address from the payload type. |
+
+So `[Channel("orders/created")]` sets the *address*, but
+`[Channel("ordersCreated", "orders/created")]` sets the *id* then the address —
+they are not interchangeable.
 
 `[SendOperation]` / `[ReceiveOperation]` can take the payload type explicitly
-(`[SendOperation(typeof(CommandEnvelope))]`) or infer it from the method's first
-parameter when inference is enabled.
+(`[SendOperation(typeof(CommandEnvelope))]`) or infer it from the method
+signature: Saunter unwraps a `ConsumeContext<T>` parameter to `T`, otherwise it
+uses the single message-shaped parameter (ignoring `string`, `Guid`, `DateTime`,
+`CancellationToken`, and other primitives). If more than one candidate parameter
+remains, nothing is inferred and you must pass the type explicitly.
 
 ## Do's and don'ts
 
@@ -269,8 +287,8 @@ in each recipe points at the source file.
 ### 1. Publish an event (fire-and-forget)
 
 The happy path: two bare attributes, no `typeof`. Saunter infers the operation id
-from the method name and the payload schema from the parameter.
-(`CatalogPriceChangedPublisher`)
+from the method name and the payload schema from the method's single
+message-shaped parameter. (`CatalogPriceChangedPublisher`)
 
 ```csharp
 [AsyncApi]
@@ -288,7 +306,9 @@ and reply differ).
 
 ### 2. Receive/consume a message
 
-Same shape with `[ReceiveOperation]` — still bare. (`CatalogPriceChangedConsumer`)
+Same shape with `[ReceiveOperation]` — still bare. The payload is
+`ProductPriceChanged`, not `ConsumeContext<…>`: Saunter unwraps the
+`ConsumeContext<T>` parameter to its type argument. (`CatalogPriceChangedConsumer`)
 
 ```csharp
 [AsyncApi]
