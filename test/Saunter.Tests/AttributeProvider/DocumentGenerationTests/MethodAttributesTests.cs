@@ -84,6 +84,46 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         }
 
         [Fact]
+        public void GenerateDocument_ScopesReplyMessagesToTheSingleReplyOperationOnMethod()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(MixedOperationReplyPublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            var send = document.AssertAndGetOperation("MixedReplySend", AsyncApiAction.Send);
+            send.Reply.ShouldBeNull();
+
+            var receive = document.AssertAndGetOperation("MixedReplyReceive", AsyncApiAction.Receive);
+            receive.Reply.ShouldNotBeNull();
+            receive.Reply.MessageIds.ShouldBe(["createOrderAccepted"]);
+            document.AssertAndGetChannel("mixed.operation.reply.responses", null);
+        }
+
+        [Fact]
+        public void GenerateDocument_DoesNotLeakMethodReplyMessagesIntoClassOperation()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(MixedClassAndMethodReplyPublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            document.AssertAndGetOperation("ClassOneWay", AsyncApiAction.Send).Reply.ShouldBeNull();
+            var methodReply = document.AssertAndGetOperation("MethodReply", AsyncApiAction.Receive);
+            methodReply.Reply.ShouldNotBeNull();
+            methodReply.Reply.MessageIds.ShouldBe(["createOrderAccepted"]);
+        }
+
+        [Fact]
+        public void GenerateDocument_ThrowsWhenReplyMessagesHaveMultipleReplyOperations()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(AmbiguousReplyOperationPublisher));
+
+            var actual = () => documentProvider.GetDocument(null, options);
+
+            var exception = Should.Throw<InvalidOperationException>(actual);
+            exception.Message.ShouldContain("multiple operations with Reply configured");
+        }
+
+        [Fact]
         public void GenerateDocument_AssertByMessage_DoesNotAssumeSchemaKeyMatchesMessageId()
         {
             ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(CustomMessageIdPublisher));
@@ -230,6 +270,47 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         }
 
         [Fact]
+        public void GenerateDocument_AllowsMultipleReplyMessagesWithExplicitSchemaIds()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(MultipleReplyMessagesPublisher));
+            options.AsyncApi.Components.ChannelBindings["requestQueue"] = new AsyncApiBindings<IChannelBinding>
+            {
+                new KafkaChannelBinding(),
+            };
+
+            var document = documentProvider.GetDocument(null, options);
+
+            var requestChannel = document.AssertAndGetChannel("checks.retrieve", "checks.retrieve");
+            requestChannel.BindingsRef.ShouldBe("requestQueue");
+
+            var replyChannel = document.AssertAndGetChannel("checks.retrieve.reply", null);
+            document.AssertChannelMessages(replyChannel, "legacyChecksReply", "currentChecksReply");
+            replyChannel.BindingsRef.ShouldBeNull();
+            replyChannel.InlineBindings.ShouldBeEmpty();
+
+            var receive = document.AssertAndGetOperation("RetrieveChecks", AsyncApiAction.Receive);
+            receive.Reply.ShouldNotBeNull();
+            receive.Reply.MessageIds.ShouldBe(["legacyChecksReply", "currentChecksReply"]);
+
+            document.Components.Messages["legacyChecksReply"].PayloadSchemaId.ShouldBe("legacyRetrieveChecksResponse");
+            document.Components.Messages["currentChecksReply"].PayloadSchemaId.ShouldBe("currentRetrieveChecksResponse");
+            document.Components.Schemas.ShouldContainKey("legacyRetrieveChecksResponse");
+            document.Components.Schemas.ShouldContainKey("currentRetrieveChecksResponse");
+        }
+
+        [Fact]
+        public void GenerateDocument_AllowsSchemaIdOverrideForLegacySingleReplyProperty()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(SingleReplySchemaOverridePublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            var reply = document.Components.Messages["customReplyMessage"];
+            reply.PayloadSchemaId.ShouldBe("customReplySchema");
+            document.Components.Schemas.ShouldContainKey("customReplySchema");
+        }
+
+        [Fact]
         public void GenerateDocument_GeneratesPlaceholderReplyChannelWhenReplyHasMessagesButNoAddressMetadata()
         {
             ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(ReplyWithoutAddressPublisher));
@@ -359,6 +440,43 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         }
 
         [AsyncApi]
+        public class MixedOperationReplyPublisher
+        {
+            [Channel("mixed.operation.reply", "mixed.operation.reply")]
+            [SendOperation(typeof(CreateOrderRequest), OperationId = "MixedReplySend")]
+            [ReceiveOperation(typeof(CreateOrderRequest), OperationId = "MixedReplyReceive", Reply = "mixed.operation.reply.responses")]
+            [ReplyMessage(typeof(CreateOrderAccepted))]
+            public void Process()
+            {
+            }
+        }
+
+        [AsyncApi]
+        [Channel("mixed.class.operation", "mixed.class.operation")]
+        [SendOperation(typeof(CreateOrderRequest), OperationId = "ClassOneWay")]
+        public class MixedClassAndMethodReplyPublisher
+        {
+            [Channel("mixed.method.reply", "mixed.method.reply")]
+            [ReceiveOperation(typeof(CreateOrderRequest), OperationId = "MethodReply", Reply = "mixed.method.reply.responses")]
+            [ReplyMessage(typeof(CreateOrderAccepted))]
+            public void Process()
+            {
+            }
+        }
+
+        [AsyncApi]
+        public class AmbiguousReplyOperationPublisher
+        {
+            [Channel("ambiguous.operation.reply", "ambiguous.operation.reply")]
+            [SendOperation(typeof(CreateOrderRequest), OperationId = "AmbiguousSend", Reply = "ambiguous.send.replies")]
+            [ReceiveOperation(typeof(CreateOrderRequest), OperationId = "AmbiguousReceive", Reply = "ambiguous.receive.replies")]
+            [ReplyMessage(typeof(CreateOrderAccepted))]
+            public void Process()
+            {
+            }
+        }
+
+        [AsyncApi]
         [Channel("custom.message.id", "custom.message.id")]
         [SendOperation(OperationId = "CustomMessageIdPublisher")]
         public class CustomMessageIdPublisher
@@ -471,6 +589,28 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             }
         }
 
+        [AsyncApi]
+        private class MultipleReplyMessagesPublisher
+        {
+            [Channel("checks.retrieve", "checks.retrieve", BindingsRef = "requestQueue")]
+            [ReceiveOperation(typeof(CreateOrderRequest), OperationId = "RetrieveChecks", Reply = "checks.retrieve.reply", ReplyAddressLocation = "$message.header#/responseAddress")]
+            [ReplyMessage(typeof(global::Saunter.Tests.AttributeProvider.DocumentGenerationTests.ReplySchemaSamples.Legacy.RetrieveChecksResponse), MessageId = "legacyChecksReply", PayloadSchemaId = "legacyRetrieveChecksResponse")]
+            [ReplyMessage(typeof(global::Saunter.Tests.AttributeProvider.DocumentGenerationTests.ReplySchemaSamples.Current.RetrieveChecksResponse), MessageId = "currentChecksReply", PayloadSchemaId = "currentRetrieveChecksResponse")]
+            public void Consume()
+            {
+            }
+        }
+
+        [AsyncApi]
+        private class SingleReplySchemaOverridePublisher
+        {
+            [Channel("orders.single-reply-schema", "orders.single-reply-schema")]
+            [ReceiveOperation(typeof(CreateOrderRequest), OperationId = "SingleReplySchemaOverride", Reply = "orders.single-reply-schema.reply", ReplyMessagePayloadType = typeof(CreateOrderAccepted), ReplyMessageId = "customReplyMessage", ReplyMessagePayloadSchemaId = "customReplySchema")]
+            public void Consume()
+            {
+            }
+        }
+
         [AsyncApi("static-reply-address")]
         private class ReplyChannelAddressPublisher
         {
@@ -559,5 +699,21 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
     {
         void PublishTenantEvent<TEvent>(Guid tenantId, TEvent @event)
             where TEvent : IEvent;
+    }
+}
+
+namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests.ReplySchemaSamples.Legacy
+{
+    public sealed class RetrieveChecksResponse
+    {
+        public string LegacyValue { get; set; } = string.Empty;
+    }
+}
+
+namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests.ReplySchemaSamples.Current
+{
+    public sealed class RetrieveChecksResponse
+    {
+        public int CurrentValue { get; set; }
     }
 }

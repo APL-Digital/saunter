@@ -57,14 +57,14 @@ namespace Saunter.Tests.Examples.MassTransitUseCases
 
             requestOperation.Reply.ShouldNotBeNull();
             requestOperation.Reply.ChannelId.ShouldBe("inventoryReservationsReply");
-            requestOperation.Reply.MessageIds.ShouldBe(new[] { "inventoryReserved" });
+            requestOperation.Reply.MessageIds.ShouldBe(new[] { "inventoryReserved", "inventoryReservationRejected" });
 
             handleOperation.Reply.ShouldNotBeNull();
             handleOperation.Reply.ChannelId.ShouldBe("inventoryReservationsReply");
-            handleOperation.Reply.MessageIds.ShouldBe(new[] { "inventoryReserved" });
+            handleOperation.Reply.MessageIds.ShouldBe(new[] { "inventoryReserved", "inventoryReservationRejected" });
 
             var inventoryReplyChannel = document.AssertAndGetChannel("inventoryReservationsReply", null);
-            document.AssertChannelMessages(inventoryReplyChannel, "inventoryReserved");
+            document.AssertChannelMessages(inventoryReplyChannel, "inventoryReserved", "inventoryReservationRejected");
 
             var billingChannel = document.AssertAndGetChannel("billingLifecycle", "billing/invoices/lifecycle");
             var billingOperation = document.AssertAndGetOperation("PublishBillingLifecycleEvents", ByteBard.AsyncAPI.Models.AsyncApiAction.Send);

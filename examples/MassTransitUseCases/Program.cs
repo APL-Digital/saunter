@@ -1,4 +1,5 @@
 ﻿using System;
+using MassTransit;
 using MassTransitUseCases.Configuration;
 using MassTransitUseCases.Contracts;
 using MassTransitUseCases.Producers;
@@ -46,7 +47,13 @@ app.MapPost("/inventory/warehouses/{warehouseId}/reservations", async (string wa
             Quantity = quantity,
         });
 
-    return Results.Accepted($"/inventory/warehouses/{warehouseId}/reservations/{response.ReservationId}", response);
+    if (response.Is(out Response<InventoryReserved> accepted))
+    {
+        return Results.Accepted($"/inventory/warehouses/{warehouseId}/reservations/{accepted.Message.ReservationId}", accepted.Message);
+    }
+
+    response.Is(out Response<InventoryReservationRejected> rejected);
+    return Results.BadRequest(rejected.Message);
 });
 
 app.MapPost("/billing/invoices/{invoiceNumber}/issued", async (string invoiceNumber, decimal amount, BillingLifecyclePublisher publisher) =>

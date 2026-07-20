@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 
 <!-- Please update the links section at the bottom when adding a new version. -->
+## Unreleased
+### Added
+- Repeatable `[ReplyMessage]` annotations describe multiple success/error reply variants with independent message metadata and payload schema ids.
+- `OperationAttribute.ReplyMessagePayloadSchemaId` provides a schema-id override for the backward-compatible single-reply authoring surface.
+
+### Fixed
+- Dynamically addressed reply channels no longer inherit physical bindings from the request channel.
+- Repeated nested collection types with different generic nullability no longer collide on a shared generated component id.
+- Recursive dictionary graphs retain any component required by their generated `$ref` values.
+- Repeatable reply annotations are scoped to the single reply-enabled operation on mixed-operation members.
+- Reply alternatives with identical payload, headers, content type, and bindings validation are rejected.
+- Blank explicit reply message ids are rejected instead of falling back to a generic component key.
+- Reply analyzer diagnostics now match runtime validation for empty reply ids and legacy single-reply metadata.
+
 ## [v1.2.2]
 ### Added
 - `MessageAttribute.PayloadSchemaId` overrides the payload's schema key in components/schemas, resolving the "conflicting schema definitions" error when two payload types share the same simple name (e.g. a legacy and a V1 contract) and renaming the CLR type isn't an option. All `$ref`s to the renamed schema are rewritten, including self-references in recursive types.

@@ -30,7 +30,7 @@ namespace Saunter.SharedKernel
         {
             var nullabilityInfoContext = new NullabilityInfoContext();
             var generationContext = new SchemaGenerationContext();
-            var generatedSchemas = GenerateBranch(type, new HashSet<Type>(), nullabilityInfoContext, generationContext, isRoot: true);
+            var generatedSchemas = GenerateBranch(type, new HashSet<string>(StringComparer.Ordinal), nullabilityInfoContext, generationContext, isRoot: true);
             if (generatedSchemas is null)
             {
                 return null;
@@ -53,7 +53,7 @@ namespace Saunter.SharedKernel
 
         private GeneratedSchemaDescriptors? GenerateBranch(
             Type? type,
-            HashSet<Type> parents,
+            HashSet<string> parents,
             NullabilityInfoContext nullabilityInfoContext,
             SchemaGenerationContext generationContext,
             NullabilityInfo? nullabilityInfo = null,
@@ -75,7 +75,9 @@ namespace Saunter.SharedKernel
             }
 
             var schemaType = MapJsonTypeToSchemaType(typeInfo);
-            var name = GetSchemaId(typeInfo, schemaType, generationContext, isRoot);
+            var isDictionary = TryGetDictionaryValueType(typeInfo, out var dictionaryValueType);
+            var collectionNullability = GetCollectionNullabilityDiscriminator(isDictionary, schemaType, nullabilityInfo);
+            var name = GetSchemaId(typeInfo, schemaType, generationContext, isRoot, collectionNullability);
             var schema = new AsyncApiSchemaDescriptor
             {
                 Id = name,
@@ -119,8 +121,8 @@ namespace Saunter.SharedKernel
                     itemSchemas.AddRange(generatedItemSchema.Value.All);
                 }
 
-                var usageSchema = CreateUsageSchema(schema, isNullable);
-                if (!ReferenceEquals(usageSchema, schema))
+                var usageSchema = CreateCollectionUsageSchema(schema, isNullable, isRoot);
+                if (isRoot && !ReferenceEquals(usageSchema, schema))
                 {
                     itemSchemas.Insert(0, schema);
                 }
@@ -128,9 +130,18 @@ namespace Saunter.SharedKernel
                 return new(usageSchema, DeduplicateSchemas(itemSchemas, $"building array items for schema '{name}'"));
             }
 
-            if (TryGetDictionaryValueType(typeInfo, out var dictionaryValueType))
+            if (isDictionary)
             {
-                if (!parents.Add(type))
+                if (!isRoot && generationContext.ReusableCollectionSchemaIds.Contains(name))
+                {
+                    var reusableReference = new AsyncApiSchemaDescriptor
+                    {
+                        Reference = $"#/components/schemas/{name}",
+                    };
+                    return new(CreateUsageSchema(reusableReference, isNullable), Array.Empty<AsyncApiSchemaDescriptor>());
+                }
+
+                if (!parents.Add(name))
                 {
                     var referenceSchema = new AsyncApiSchemaDescriptor
                     {
@@ -141,7 +152,7 @@ namespace Saunter.SharedKernel
 
                 try
                 {
-                    var dictionarySchemas = new List<AsyncApiSchemaDescriptor> { schema };
+                    var dictionarySchemas = new List<AsyncApiSchemaDescriptor>();
                     var generatedValueSchema = GenerateBranch(dictionaryValueType, parents, nullabilityInfoContext, generationContext, GetDictionaryValueNullabilityInfo(nullabilityInfo));
                     if (generatedValueSchema is not null)
                     {
@@ -149,15 +160,30 @@ namespace Saunter.SharedKernel
                         dictionarySchemas.AddRange(generatedValueSchema.Value.All);
                     }
 
-                    return new(CreateUsageSchema(schema, isNullable), DeduplicateSchemas(dictionarySchemas, $"building dictionary values for schema '{name}'"));
+                    var usageSchema = CreateCollectionUsageSchema(schema, isNullable, isRoot);
+                    var recursiveReference = $"#/components/schemas/{name}";
+                    var requiresRecursiveComponent = !isRoot
+                        && new[] { schema }
+                            .Concat(dictionarySchemas)
+                            .Any(candidate => ReferencesComponent(
+                                candidate,
+                                recursiveReference,
+                                new HashSet<AsyncApiSchemaDescriptor>()));
+                    if (requiresRecursiveComponent || isRoot && !ReferenceEquals(usageSchema, schema))
+                    {
+                        dictionarySchemas.Insert(0, schema);
+                        generationContext.ReusableCollectionSchemaIds.Add(name);
+                    }
+
+                    return new(usageSchema, DeduplicateSchemas(dictionarySchemas, $"building dictionary values for schema '{name}'"));
                 }
                 finally
                 {
-                    parents.Remove(type);
+                    parents.Remove(name);
                 }
             }
 
-            if (!parents.Add(type))
+            if (!parents.Add(name))
             {
                 var referenceSchema = new AsyncApiSchemaDescriptor
                 {
@@ -197,7 +223,7 @@ namespace Saunter.SharedKernel
             }
             finally
             {
-                parents.Remove(type);
+                parents.Remove(name);
             }
         }
 
@@ -257,6 +283,27 @@ namespace Saunter.SharedKernel
             return schema;
         }
 
+        private static AsyncApiSchemaDescriptor CreateCollectionUsageSchema(
+            AsyncApiSchemaDescriptor schema,
+            bool isNullable,
+            bool isRoot)
+        {
+            if (isRoot)
+            {
+                return CreateUsageSchema(schema, isNullable);
+            }
+
+            if (!isNullable)
+            {
+                return schema;
+            }
+
+            var inlineSchema = CloneSchema(schema);
+            inlineSchema.Id = null;
+            inlineSchema.Nullable = true;
+            return inlineSchema;
+        }
+
         private static AsyncApiSchemaDescriptor CreateNullableReferenceWrapper(string reference)
         {
             var wrapper = new AsyncApiSchemaDescriptor
@@ -310,6 +357,28 @@ namespace Saunter.SharedKernel
             }
 
             return clone;
+        }
+
+        private static bool ReferencesComponent(
+            AsyncApiSchemaDescriptor? schema,
+            string reference,
+            HashSet<AsyncApiSchemaDescriptor> visited)
+        {
+            if (schema is null || !visited.Add(schema))
+            {
+                return false;
+            }
+
+            if (string.Equals(schema.Reference, reference, StringComparison.Ordinal)
+                || ReferencesComponent(schema.Items, reference, visited)
+                || ReferencesComponent(schema.AdditionalProperties, reference, visited))
+            {
+                return true;
+            }
+
+            return schema.Properties.Values.Any(property => ReferencesComponent(property, reference, visited))
+                || schema.OneOf.Any(item => ReferencesComponent(item, reference, visited))
+                || schema.AllOf.Any(item => ReferencesComponent(item, reference, visited));
         }
 
         private static Type? GetEnumerableItemType(TypeInfo typeInfo)
@@ -437,10 +506,16 @@ namespace Saunter.SharedKernel
             return ToSchemaName(name, true);
         }
 
-        private static string GetSchemaId(TypeInfo typeInfo, AsyncApiSchemaValueType? schemaType, SchemaGenerationContext generationContext, bool isRoot)
+        private static string GetSchemaId(
+            TypeInfo typeInfo,
+            AsyncApiSchemaValueType? schemaType,
+            SchemaGenerationContext generationContext,
+            bool isRoot,
+            string? collectionNullability)
         {
             var type = typeInfo.AsType();
-            if (generationContext.AssignedSchemaIds.TryGetValue(type, out var existingId))
+            var key = new SchemaIdentity(type, collectionNullability);
+            if (generationContext.AssignedSchemaIds.TryGetValue(key, out var existingId))
             {
                 return existingId;
             }
@@ -448,9 +523,56 @@ namespace Saunter.SharedKernel
             var schemaId = schemaType is AsyncApiSchemaValueType.Object or AsyncApiSchemaValueType.Array
                 ? (isRoot ? ToSchemaName(typeInfo) : ToQualifiedSchemaName(typeInfo))
                 : ToSchemaName(typeInfo);
+            schemaId += collectionNullability;
 
-            generationContext.AssignedSchemaIds[type] = schemaId;
+            generationContext.AssignedSchemaIds[key] = schemaId;
             return schemaId;
+        }
+
+        private static string? GetCollectionNullabilityDiscriminator(
+            bool isDictionary,
+            AsyncApiSchemaValueType? schemaType,
+            NullabilityInfo? nullabilityInfo)
+        {
+            NullabilityInfo? itemNullability = null;
+            if (isDictionary)
+            {
+                itemNullability = GetDictionaryValueNullabilityInfo(nullabilityInfo);
+            }
+            else if (schemaType == AsyncApiSchemaValueType.Array)
+            {
+                itemNullability = GetItemNullabilityInfo(nullabilityInfo);
+            }
+
+            return itemNullability is not null && HasNonRequiredAnnotation(itemNullability)
+                ? $"With{FormatNullability(itemNullability)}Items"
+                : null;
+        }
+
+        private static bool HasNonRequiredAnnotation(NullabilityInfo nullabilityInfo)
+        {
+            return nullabilityInfo.ReadState != NullabilityState.NotNull
+                || nullabilityInfo.ElementType is not null && HasNonRequiredAnnotation(nullabilityInfo.ElementType)
+                || nullabilityInfo.GenericTypeArguments.Any(HasNonRequiredAnnotation);
+        }
+
+        private static string FormatNullability(NullabilityInfo nullabilityInfo)
+        {
+            var state = nullabilityInfo.ReadState switch
+            {
+                NullabilityState.Nullable => "Nullable",
+                NullabilityState.NotNull => "Required",
+                _ => "Unknown",
+            };
+
+            if (nullabilityInfo.ElementType is not null)
+            {
+                return $"{state}Of{FormatNullability(nullabilityInfo.ElementType)}";
+            }
+
+            return nullabilityInfo.GenericTypeArguments.Length == 0
+                ? state
+                : $"{state}Of{string.Join("And", nullabilityInfo.GenericTypeArguments.Select(FormatNullability))}";
         }
 
         private static string ToQualifiedSchemaName(TypeInfo typeInfo)
@@ -761,7 +883,11 @@ namespace Saunter.SharedKernel
 
         private sealed class SchemaGenerationContext
         {
-            public IDictionary<Type, string> AssignedSchemaIds { get; } = new Dictionary<Type, string>();
+            public IDictionary<SchemaIdentity, string> AssignedSchemaIds { get; } = new Dictionary<SchemaIdentity, string>();
+
+            public ISet<string> ReusableCollectionSchemaIds { get; } = new HashSet<string>(StringComparer.Ordinal);
         }
+
+        private readonly record struct SchemaIdentity(Type Type, string? CollectionNullability);
     }
 }

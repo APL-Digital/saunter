@@ -231,6 +231,25 @@ fully qualified URI (**SAUN002**).
 ✅ **Do** pick at most one of `ReplyChannelAddress` (explicit address) or
 `ReplyAddressLocation` (dynamic runtime expression like `$message.header#/replyTo`).
 
+✅ **Do** stack `[ReplyMessage(typeof(...))]` attributes when the operation can
+return more than one reply variant. Set `MessageId` and `PayloadSchemaId` on each
+attribute when stable message/component keys or same-simple-name CLR types require
+explicit keys.
+
+✅ **Do** keep each reply variant structurally distinguishable through its payload,
+headers, content type, or bindings. AsyncAPI requires an actual reply to validate against one,
+and only one, listed message. Saunter rejects alternatives with identical payload,
+header, content-type, and bindings references, but does not attempt general
+schema-overlap proofs.
+
+✅ **Do** use unscoped `[ReplyMessage]` annotations only when exactly one operation
+on the member configures `Reply`. Split multiple reply-enabled operations across
+members, or use the operation-specific single-reply properties.
+
+✅ **Do** keep request-channel bindings on the request channel. A dynamically
+addressed reply channel does not inherit those bindings because the runtime reply
+address may resolve to a different queue or topic.
+
 ❌ **Don't** set both `ReplyChannelAddress` and `ReplyAddressLocation` — they are
 mutually exclusive (**SAUN007**).
 
@@ -327,7 +346,8 @@ public class CatalogPriceChangedConsumer : IConsumer<ProductPriceChanged>
 ### 3. Request/reply with a dynamic reply address
 
 Set `Reply` to the reply channel id and locate the reply address at runtime with
-`ReplyAddressLocation`. (`InventoryReservationRequester`)
+`ReplyAddressLocation`. Stack `[ReplyMessage]` for every success or business-error
+variant. (`InventoryReservationRequester`)
 
 ```csharp
 [Channel("inventory.reservations", "inventory/reservations/{warehouseId}")]
@@ -335,10 +355,15 @@ Set `Reply` to the reply channel id and locate the reply address at runtime with
 [SendOperation(typeof(InventoryReservationRequested),
     OperationId = "RequestInventoryReservation",
     Reply = "inventoryReservationsReply",
-    ReplyMessagePayloadType = typeof(InventoryReserved),
     ReplyAddressLocation = "$message.header#/responseAddress")]
-public Task<InventoryReserved> Request(string warehouseId, InventoryReservationRequested message) => /* ... */;
+[ReplyMessage(typeof(InventoryReserved), MessageId = "inventoryReserved")]
+[ReplyMessage(typeof(InventoryReservationRejected), MessageId = "inventoryReservationRejected")]
+public Task Request(string warehouseId, InventoryReservationRequested message) => /* ... */;
 ```
+
+For a single reply, `ReplyMessagePayloadType` remains a compact backward-compatible
+option. Use `ReplyMessagePayloadSchemaId` alongside it when that one reply payload
+needs an explicit schema key.
 
 ### 4. Request/reply with a fixed reply address
 

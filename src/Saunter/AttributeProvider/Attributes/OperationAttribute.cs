@@ -81,6 +81,13 @@ namespace Saunter.AttributeProvider.Attributes
         public Type? ReplyMessagePayloadType { get; set; }
 
         /// <summary>
+        /// Overrides the generated schema key for <see cref="ReplyMessagePayloadType"/>.
+        /// Use repeatable <see cref="ReplyMessageAttribute"/> annotations when an operation
+        /// can return more than one reply message.
+        /// </summary>
+        public string? ReplyMessagePayloadSchemaId { get; set; }
+
+        /// <summary>
         /// Unique string used as the reusable AsyncAPI message key for the reply message.
         /// Defaults to a key derived from <see cref="ReplyMessagePayloadType"/>.
         /// </summary>

@@ -21,13 +21,14 @@ public class InventoryReservationRequester
     [Channel(CommerceChannels.InventoryReservations, CommerceChannels.InventoryReservationsAddress, Servers = new[] { "rabbitmq" }, Summary = "Inventory reservation requests routed by warehouse.")]
     [ChannelParameter("warehouseId", typeof(string), Description = "Warehouse that should process the reservation.", DefaultValue = "primary", Examples = new[] { "primary", "overflow" })]
     [ChannelTag("inventory", Description = "Channels used to reserve stock and coordinate inventory workflows.", ExternalDocs = "https://example.com/docs/inventory", ExternalDocsDescription = "Inventory workflow documentation.")]
-    [SendOperation(typeof(InventoryReservationRequested), OperationId = "RequestInventoryReservation", Summary = "Send a reservation request and wait for a reply.", Description = "Demonstrates request/reply, explicit operation metadata, and a parameterized channel address.", Reply = CommerceChannels.InventoryReservationsReply, ReplyMessagePayloadType = typeof(InventoryReserved), ReplyAddressLocation = "$message.header#/responseAddress")]
+    [SendOperation(typeof(InventoryReservationRequested), OperationId = "RequestInventoryReservation", Summary = "Send a reservation request and wait for a reply.", Description = "Demonstrates request/reply, explicit operation metadata, and a parameterized channel address.", Reply = CommerceChannels.InventoryReservationsReply, ReplyAddressLocation = "$message.header#/responseAddress")]
+    [ReplyMessage(typeof(InventoryReserved), MessageId = "inventoryReserved")]
+    [ReplyMessage(typeof(InventoryReservationRejected), MessageId = "inventoryReservationRejected")]
     [Message(typeof(InventoryReservationRequested), Name = "InventoryReservationRequested", Title = "Inventory reservation requested", Summary = "Request that a warehouse reserve inventory for an order.", HeadersType = typeof(CommerceMessageHeaders), CorrelationId = "workflowCorrelation", ContentType = "application/json", ExternalDocs = "https://example.com/docs/inventory/reservations/request")]
-    public async Task<InventoryReserved> Request(string warehouseId, InventoryReservationRequested message)
+    public async Task<Response<InventoryReserved, InventoryReservationRejected>> Request(string warehouseId, InventoryReservationRequested message)
     {
         message.WarehouseId = warehouseId;
 
-        var response = await _requestClient.GetResponse<InventoryReserved>(message);
-        return response.Message;
+        return await _requestClient.GetResponse<InventoryReserved, InventoryReservationRejected>(message);
     }
 }
