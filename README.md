@@ -6,6 +6,9 @@ Saunter is a code-first [AsyncAPI](https://www.asyncapi.com/) documentation gene
 
 ## Getting Started
 
+For a task-oriented walkthrough with do's and don'ts and a use case cookbook, see
+the [Usage Guide](docs/usage-guide.md).
+
 Start with one of these examples:
 
 - [examples/MassTransitMinimal](examples/MassTransitMinimal) for the happy path and inferred defaults
@@ -137,6 +140,8 @@ Start with one of these examples:
 - Keep controllers and adapters thin.
 - Use `[Message]` only when you need to override inferred message metadata.
 - Use class-level annotations only when shared declaration is genuinely clearer than method-level placement.
+
+The [Usage Guide](docs/usage-guide.md) expands each of these into concrete do's and don'ts, plus a 15-recipe use case cookbook.
 
 ## Configuration
 
