@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 
 <!-- Please update the links section at the bottom when adding a new version. -->
 ## Unreleased
+
+## [v1.3.0]
 ### Added
 - Repeatable `[ReplyMessage]` annotations describe multiple success/error reply variants with independent message metadata and payload schema ids.
 - `OperationAttribute.ReplyMessagePayloadSchemaId` provides a schema-id override for the backward-compatible single-reply authoring surface.
@@ -228,6 +230,7 @@ When updating here set baseVersion to the previous tag and targetVersion to your
 This link will be dead until after you have completed the pull request and tagged the new version in master
 -->
 
+[v1.3.0]: https://github.com/APL-Digital/saunter/compare/v1.2.2...v1.3.0
 [v1.2.2]: https://github.com/APL-Digital/saunter/compare/v1.2.1...v1.2.2
 [v1.2.1]: https://github.com/APL-Digital/saunter/compare/v1.2.0...v1.2.1
 [v1.2.0]: https://github.com/APL-Digital/saunter/compare/v1.1.0...v1.2.0
