@@ -80,11 +80,15 @@ combined in a way that document generation rejects:
 
 - `ReplyChannelAddress` and `ReplyAddressLocation` are mutually exclusive —
   a reply channel is either explicitly addressed or dynamically addressed.
-- `ReplyChannelAddress`, `ReplyAddressLocation`, and `ReplyMessagePayloadType`
-  each require `Reply` to be set to the reply channel id.
+- `ReplyChannelAddress`, `ReplyAddressLocation`, `ReplyMessagePayloadType`, and
+  the legacy single-reply message metadata each require a non-empty `Reply`
+  channel id.
 - `[ReplyMessage]` requires a surrounding operation with `Reply` set.
-- `ReplyMessagePayloadSchemaId` requires `ReplyMessagePayloadType`; use
-  `PayloadSchemaId` on `[ReplyMessage]` for repeatable reply declarations.
+- Unscoped `[ReplyMessage]` annotations require exactly one surrounding operation
+  with `Reply` set; move mixed reply operations to separate members when needed.
+- `ReplyMessagePayloadSchemaId`, `ReplyMessageId`, `ReplyMessageName`, and
+  `ReplyMessageTitle` require `ReplyMessagePayloadType`; use the equivalent
+  properties on `[ReplyMessage]` for repeatable reply declarations.
 
 Fix: set `Reply` to the reply channel id and keep at most one of
 `ReplyChannelAddress`/`ReplyAddressLocation`.

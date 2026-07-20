@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 ### Fixed
 - Dynamically addressed reply channels no longer inherit physical bindings from the request channel.
 - Repeated nested collection types with different generic nullability no longer collide on a shared generated component id.
+- Recursive dictionary graphs retain any component required by their generated `$ref` values.
+- Repeatable reply annotations are scoped to the single reply-enabled operation on mixed-operation members.
+- Reply alternatives with identical payload, headers, content type, and bindings validation are rejected.
+- Blank explicit reply message ids are rejected instead of falling back to a generic component key.
+- Reply analyzer diagnostics now match runtime validation for empty reply ids and legacy single-reply metadata.
 
 ## [v1.2.2]
 ### Added

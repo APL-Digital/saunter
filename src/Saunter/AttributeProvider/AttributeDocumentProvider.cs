@@ -254,6 +254,12 @@ namespace Saunter.AttributeProvider
             ChannelAttribute channel,
             OperationAttribute[] operationAttributes)
         {
+            var replyMessageOperation = GetReplyMessageOperation(member, operationAttributes);
+            foreach (var operationAttribute in operationAttributes)
+            {
+                ValidateReplyConfiguration(member, operationAttribute);
+            }
+
             var operationMessages = operationAttributes
                 .ToDictionary(
                     operationAttribute => operationAttribute,
@@ -266,12 +272,14 @@ namespace Saunter.AttributeProvider
             var replyMessages = operationAttributes
                 .ToDictionary(
                     operationAttribute => operationAttribute,
-                    operationAttribute => member switch
-                    {
-                        MethodInfo method => _messageResolver.ResolveReplyForOperation(method, operationAttribute, options.Inference),
-                        TypeInfo type => _messageResolver.ResolveReplyForOperation(type, operationAttribute, options.Inference),
-                        _ => throw new ArgumentException($"Unsupported member kind '{member.GetType().Name}'.", nameof(member)),
-                    });
+                    operationAttribute => replyMessageOperation is not null && !ReferenceEquals(replyMessageOperation, operationAttribute)
+                        ? EmptyMessageResolution()
+                        : member switch
+                        {
+                            MethodInfo method => _messageResolver.ResolveReplyForOperation(method, operationAttribute, options.Inference),
+                            TypeInfo type => _messageResolver.ResolveReplyForOperation(type, operationAttribute, options.Inference),
+                            _ => throw new ArgumentException($"Unsupported member kind '{member.GetType().Name}'.", nameof(member)),
+                        });
 
             RegisterMessageResolutions(components, operationMessages.Values.Concat(replyMessages.Values));
             var channelItem = _channelBuilder.Build(member, channel, UnionMessageIds(operationMessages.Values), options.Inference);
@@ -282,7 +290,6 @@ namespace Saunter.AttributeProvider
             foreach (var pair in operationMessages)
             {
                 var replyResolution = replyMessages[pair.Key];
-                ValidateReplyConfiguration(member, pair.Key);
                 var replyMessageIds = GetReplyMessageIds(pair.Key, pair.Value, replyResolution);
                 var operation = _operationBuilder.Build(member, pair.Key, channelItem.Id, pair.Value.MessageIds, replyMessageIds);
                 ApplyOperationFilters(member, options, pair.Key, operation);
@@ -425,6 +432,42 @@ namespace Saunter.AttributeProvider
                 : operationResolution.MessageIds;
         }
 
+        private static AsyncApiMessageResolutionDescriptor EmptyMessageResolution()
+        {
+            return new AsyncApiMessageResolutionDescriptor(
+                Array.Empty<string>(),
+                Array.Empty<AsyncApiMessageDescriptor>(),
+                Array.Empty<AsyncApiSchemaComponentDescriptor>());
+        }
+
+        private static OperationAttribute? GetReplyMessageOperation(
+            MemberInfo member,
+            IReadOnlyCollection<OperationAttribute> operationAttributes)
+        {
+            if (!HasReplyMessageAttributes(member))
+            {
+                return null;
+            }
+
+            var replyOperations = operationAttributes
+                .Where(operationAttribute => !string.IsNullOrWhiteSpace(operationAttribute.Reply))
+                .ToArray();
+            if (replyOperations.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Operation member '{FormatMember(member)}' has [ReplyMessage] annotations but no Reply channel id. Set Reply on the surrounding operation or remove the reply messages.");
+            }
+
+            if (replyOperations.Length > 1)
+            {
+                throw new InvalidOperationException(
+                    $"Operation member '{FormatMember(member)}' has [ReplyMessage] annotations and multiple operations with Reply configured. " +
+                    "Move each operation to a separate member or use the operation-specific ReplyMessagePayloadType properties so every reply message has an unambiguous owner.");
+            }
+
+            return replyOperations[0];
+        }
+
         private static void ValidateReplyConfiguration(MemberInfo member, OperationAttribute operationAttribute)
         {
             if (!string.IsNullOrWhiteSpace(operationAttribute.ReplyChannelAddress)
@@ -470,11 +513,6 @@ namespace Saunter.AttributeProvider
                     $"Operation '{FormatMember(member)}' configures reply message metadata but no Reply channel id. Set OperationAttribute.Reply and ReplyMessagePayloadType, or remove the reply metadata.");
             }
 
-            if (HasReplyMessageAttributes(member))
-            {
-                throw new InvalidOperationException(
-                    $"Operation '{FormatMember(member)}' has [ReplyMessage] annotations but no Reply channel id. Set OperationAttribute.Reply to the reply channel id or remove the reply messages.");
-            }
         }
 
         private static bool HasLegacyReplyMessageMetadata(OperationAttribute operationAttribute)
@@ -493,7 +531,9 @@ namespace Saunter.AttributeProvider
             }
 
             return member is TypeInfo type
-                && type.DeclaredMethods.Any(method => method.GetCustomAttributes<ReplyMessageAttribute>().Any());
+                && type.DeclaredMethods
+                    .Where(method => !GetOperationAttributes(method).Any())
+                    .Any(method => method.GetCustomAttributes<ReplyMessageAttribute>().Any());
         }
 
         private static bool TryCreateReplyChannel(

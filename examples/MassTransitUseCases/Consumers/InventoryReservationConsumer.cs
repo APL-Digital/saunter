@@ -29,6 +29,18 @@ public class InventoryReservationConsumer : IConsumer<InventoryReservationReques
     {
         _logger.LogInformation("Reserving {Quantity}x {Sku} in warehouse {WarehouseId}", context.Message.Quantity, context.Message.Sku, context.Message.WarehouseId);
 
+        if (context.Message.Quantity <= 0)
+        {
+            await context.RespondAsync(new InventoryReservationRejected
+            {
+                OrderId = context.Message.OrderId,
+                WarehouseId = context.Message.WarehouseId,
+                Sku = context.Message.Sku,
+                Reason = "Reservation quantity must be greater than zero.",
+            });
+            return;
+        }
+
         await context.RespondAsync(new InventoryReserved
         {
             OrderId = context.Message.OrderId,

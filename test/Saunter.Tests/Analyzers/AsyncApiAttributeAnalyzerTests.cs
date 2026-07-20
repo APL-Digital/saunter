@@ -308,6 +308,182 @@ public class OrdersApi
             diagnostics.ShouldContain(diagnostic => diagnostic.Id == AsyncApiAttributeAnalyzer.InvalidReplyConfigurationDiagnosticId);
         }
 
+        [Fact]
+        public async Task AnalyzeAsync_DetectsLegacyReplyMetadataWithoutPayloadType()
+        {
+            const string source = """
+using Saunter.AttributeProvider.Attributes;
+
+[AsyncApi]
+public class OrdersApi
+{
+    [Channel("orders.id", "orders.id")]
+    [SendOperation(Reply = "ordersReply", ReplyMessageId = "result")]
+    public void PublishWithId() { }
+
+    [Channel("orders.name", "orders.name")]
+    [SendOperation(Reply = "ordersReply", ReplyMessageName = "Result")]
+    public void PublishWithName() { }
+
+    [Channel("orders.title", "orders.title")]
+    [SendOperation(Reply = "ordersReply", ReplyMessageTitle = "Result")]
+    public void PublishWithTitle() { }
+}
+""";
+
+            var diagnostics = await AnalyzeAsync(source);
+
+            diagnostics.Count(diagnostic => diagnostic.Id == AsyncApiAttributeAnalyzer.InvalidReplyConfigurationDiagnosticId).ShouldBe(3);
+        }
+
+        [Fact]
+        public async Task AnalyzeAsync_IgnoresBlankLegacyReplyMetadata()
+        {
+            const string source = """
+using Saunter.AttributeProvider.Attributes;
+
+[AsyncApi]
+public class OrdersApi
+{
+    private const string Blank = " ";
+
+    [Channel("orders", "orders.created")]
+    [SendOperation(Reply = "ordersReply", ReplyMessageName = "", ReplyMessageTitle = Blank)]
+    public void Publish() { }
+}
+""";
+
+            var diagnostics = await AnalyzeAsync(source);
+
+            diagnostics.ShouldNotContain(diagnostic => diagnostic.Id == AsyncApiAttributeAnalyzer.InvalidReplyConfigurationDiagnosticId);
+        }
+
+        [Fact]
+        public async Task AnalyzeAsync_TreatsConstantEmptyReplyAsMissing()
+        {
+            const string source = """
+using Saunter.AttributeProvider.Attributes;
+
+[AsyncApi]
+public class OrdersApi
+{
+    private const string Empty = "";
+
+    [Channel("orders", "orders.created")]
+    [SendOperation(Reply = Empty, ReplyMessagePayloadType = typeof(string))]
+    public void Publish() { }
+}
+""";
+
+            var diagnostics = await AnalyzeAsync(source);
+
+            diagnostics.ShouldContain(diagnostic => diagnostic.Id == AsyncApiAttributeAnalyzer.InvalidReplyConfigurationDiagnosticId);
+        }
+
+        [Fact]
+        public async Task AnalyzeAsync_AllowsReplyMessageWithOneReplyOperationAndOneOneWayOperation()
+        {
+            const string source = """
+using Saunter.AttributeProvider.Attributes;
+
+[AsyncApi]
+public class OrdersApi
+{
+    [Channel("orders", "orders.created")]
+    [SendOperation]
+    [ReceiveOperation(Reply = "ordersReply")]
+    [ReplyMessage(typeof(string))]
+    public void Process() { }
+}
+""";
+
+            var diagnostics = await AnalyzeAsync(source);
+
+            diagnostics.ShouldNotContain(diagnostic => diagnostic.Id == AsyncApiAttributeAnalyzer.InvalidReplyConfigurationDiagnosticId);
+        }
+
+        [Fact]
+        public async Task AnalyzeAsync_DetectsReplyMessageWithMultipleReplyOperations()
+        {
+            const string source = """
+using Saunter.AttributeProvider.Attributes;
+
+[AsyncApi]
+public class OrdersApi
+{
+    [Channel("orders", "orders.created")]
+    [SendOperation(Reply = "sentReplies")]
+    [ReceiveOperation(Reply = "receivedReplies")]
+    [ReplyMessage(typeof(string))]
+    public void Process() { }
+}
+""";
+
+            var diagnostics = await AnalyzeAsync(source);
+
+            diagnostics.ShouldContain(diagnostic => diagnostic.Id == AsyncApiAttributeAnalyzer.InvalidReplyConfigurationDiagnosticId);
+        }
+
+        [Fact]
+        public async Task AnalyzeAsync_IgnoresUnrelatedReplyMessageAttribute()
+        {
+            const string source = """
+using System;
+
+namespace Other
+{
+    [AttributeUsage(AttributeTargets.Method)]
+    public sealed class ReplyMessageAttribute : Attribute
+    {
+        public ReplyMessageAttribute(Type payloadType) { }
+    }
+}
+
+public class OrdersApi
+{
+    [Other.ReplyMessage(typeof(string))]
+    public void Publish() { }
+}
+""";
+
+            var diagnostics = await AnalyzeAsync(source);
+
+            diagnostics.ShouldBeEmpty();
+        }
+
+        [Fact]
+        public async Task AnalyzeAsync_IgnoresUnrelatedChannelParameterAttribute()
+        {
+            const string source = """
+using System;
+using Saunter.AttributeProvider.Attributes;
+
+namespace Other
+{
+    [AttributeUsage(AttributeTargets.Method)]
+    public sealed class ChannelParameterAttribute : Attribute
+    {
+        public ChannelParameterAttribute(string name) { }
+
+        public string Location { get; set; } = "";
+    }
+}
+
+[AsyncApi]
+public class OrdersApi
+{
+    [Channel("orders", "orders.created")]
+    [SendOperation]
+    [Other.ChannelParameter("missing", Location = "$message.header#/missing")]
+    public void Publish() { }
+}
+""";
+
+            var diagnostics = await AnalyzeAsync(source);
+
+            diagnostics.ShouldBeEmpty();
+        }
+
         private static async Task<ImmutableArray<Diagnostic>> AnalyzeAsync(string source)
         {
             var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);

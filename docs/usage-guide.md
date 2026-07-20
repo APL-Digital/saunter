@@ -233,7 +233,18 @@ fully qualified URI (**SAUN002**).
 
 ✅ **Do** stack `[ReplyMessage(typeof(...))]` attributes when the operation can
 return more than one reply variant. Set `MessageId` and `PayloadSchemaId` on each
-attribute when wire identities or same-simple-name CLR types require explicit keys.
+attribute when stable message/component keys or same-simple-name CLR types require
+explicit keys.
+
+✅ **Do** keep each reply variant structurally distinguishable through its payload,
+headers, content type, or bindings. AsyncAPI requires an actual reply to validate against one,
+and only one, listed message. Saunter rejects alternatives with identical payload,
+header, content-type, and bindings references, but does not attempt general
+schema-overlap proofs.
+
+✅ **Do** use unscoped `[ReplyMessage]` annotations only when exactly one operation
+on the member configures `Reply`. Split multiple reply-enabled operations across
+members, or use the operation-specific single-reply properties.
 
 ✅ **Do** keep request-channel bindings on the request channel. A dynamically
 addressed reply channel does not inherit those bindings because the runtime reply

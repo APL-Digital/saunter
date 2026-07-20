@@ -8,7 +8,7 @@ It is not the minimal getting-started path. Start with `examples/MassTransitMini
 
 - `CatalogPriceChangedPublisher` and `CatalogPriceChangedConsumer`: method-level happy-path publish/consume with inference.
 - `InventoryReservationRequester`: request client producer with explicit channel id, channel parameters, rich channel tags, explicit message metadata, headers, correlation id, and success/error reply variants.
-- `InventoryReservationConsumer`: request/reply consumer that documents multiple messages on a dynamically addressed AsyncAPI 3 reply channel.
+- `InventoryReservationConsumer`: request/reply consumer that returns a rejection for non-positive quantities and documents both outcomes on a dynamically addressed AsyncAPI 3 reply channel.
 - `BillingLifecyclePublisher`: class-level send operation that groups multiple message contracts into one producer boundary.
 - `AccountingEventsConsumer`: class-level receive operation that groups multiple consumer message contracts into one consumer boundary.
 - `FulfillmentCommandSender` + `PickPackRequestedConsumer`: direct send-to-endpoint command flow instead of publish/subscribe.

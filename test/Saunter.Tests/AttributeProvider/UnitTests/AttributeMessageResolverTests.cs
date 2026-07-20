@@ -96,6 +96,58 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
         }
 
         [Fact]
+        public void ResolveReplyForOperation_ThrowsWhenExplicitMessageIdIsBlank()
+        {
+            var resolver = new AttributeMessageResolver(new AsyncApiSchemaGenerator());
+            var method = typeof(ReplyMessageFixture).GetMethod(nameof(ReplyMessageFixture.ReplyWithBlankMessageId))!;
+
+            var actual = () => resolver.ResolveReplyForOperation(method, new SendOperationAttribute(), new AsyncApiInferenceOptions());
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldBe("Reply message id cannot be empty.");
+        }
+
+        [Fact]
+        public void ResolveReplyForOperation_ThrowsWhenLegacyExplicitMessageIdIsBlank()
+        {
+            var resolver = new AttributeMessageResolver(new AsyncApiSchemaGenerator());
+            var method = typeof(ReplyMessageFixture).GetMethod(nameof(ReplyMessageFixture.ReplyWithoutAttributes))!;
+            var operation = new SendOperationAttribute
+            {
+                ReplyMessagePayloadType = typeof(OrderCreated),
+                ReplyMessageId = "",
+            };
+
+            var actual = () => resolver.ResolveReplyForOperation(method, operation, new AsyncApiInferenceOptions());
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldBe("Reply message id cannot be empty.");
+        }
+
+        [Fact]
+        public void ResolveReplyForOperation_ThrowsWhenReplyAlternativesHaveIdenticalValidationShapes()
+        {
+            var resolver = new AttributeMessageResolver(new AsyncApiSchemaGenerator());
+            var method = typeof(ReplyMessageFixture).GetMethod(nameof(ReplyMessageFixture.ReplyWithDuplicateValidationShapes))!;
+
+            var actual = () => resolver.ResolveReplyForOperation(method, new SendOperationAttribute(), new AsyncApiInferenceOptions());
+
+            Should.Throw<InvalidOperationException>(actual)
+                .Message.ShouldContain("one and only one message");
+        }
+
+        [Fact]
+        public void ResolveReplyForOperation_AllowsReplyAlternativesWithDistinctBindings()
+        {
+            var resolver = new AttributeMessageResolver(new AsyncApiSchemaGenerator());
+            var method = typeof(ReplyMessageFixture).GetMethod(nameof(ReplyMessageFixture.ReplyWithDistinctBindings))!;
+
+            var resolution = resolver.ResolveReplyForOperation(method, new SendOperationAttribute(), new AsyncApiInferenceOptions());
+
+            resolution.MessageIds.ShouldBe(["accepted", "rejected"]);
+        }
+
+        [Fact]
         public void ResolveForOperation_SkipsAttributeMessageWhenSchemaIdIsBlank()
         {
             var resolver = new AttributeMessageResolver(new BlankSchemaIdGenerator());
@@ -266,6 +318,30 @@ namespace Saunter.Tests.AttributeProvider.UnitTests
 
             [Message(typeof(int?))]
             public void PublishNullablePrimitivePayload()
+            {
+            }
+        }
+
+        private class ReplyMessageFixture
+        {
+            public void ReplyWithoutAttributes()
+            {
+            }
+
+            [ReplyMessage(typeof(OrderCreated), MessageId = "")]
+            public void ReplyWithBlankMessageId()
+            {
+            }
+
+            [ReplyMessage(typeof(OrderCreated), MessageId = "accepted")]
+            [ReplyMessage(typeof(OrderCreated), MessageId = "rejected")]
+            public void ReplyWithDuplicateValidationShapes()
+            {
+            }
+
+            [ReplyMessage(typeof(OrderCreated), MessageId = "accepted", BindingsRef = "acceptedBinding")]
+            [ReplyMessage(typeof(OrderCreated), MessageId = "rejected", BindingsRef = "rejectedBinding")]
+            public void ReplyWithDistinctBindings()
             {
             }
         }

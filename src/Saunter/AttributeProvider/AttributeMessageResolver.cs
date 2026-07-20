@@ -92,7 +92,9 @@ namespace Saunter.AttributeProvider
         {
             var replyMessageAttributes = type
                 .GetCustomAttributes<ReplyMessageAttribute>()
-                .Concat(GetCandidateOperationMethods(type).SelectMany(method => method.GetCustomAttributes<ReplyMessageAttribute>()));
+                .Concat(GetCandidateOperationMethods(type)
+                    .Where(method => !HasOperationAttributes(method))
+                    .SelectMany(method => method.GetCustomAttributes<ReplyMessageAttribute>()));
 
             return ResolveReply(operationAttribute, replyMessageAttributes, inferenceOptions);
         }
@@ -116,9 +118,11 @@ namespace Saunter.AttributeProvider
 
             resolutions.Add(GenerateMessagesFromReplyAttributes(replyMessageAttributes, inferenceOptions));
 
-            return CreateMessageResolution(
+            var resolution = CreateMessageResolution(
                 resolutions.SelectMany(resolution => resolution.Messages),
                 resolutions.SelectMany(resolution => resolution.Schemas));
+            ValidateReplyMessageAlternatives(resolution.Messages);
+            return resolution;
         }
 
         private AsyncApiMessageResolutionDescriptor GenerateMessagesFromReplyAttributes(
@@ -177,6 +181,11 @@ namespace Saunter.AttributeProvider
             string? explicitMessageTitle = null,
             string? explicitPayloadSchemaId = null)
         {
+            if (explicitMessageId is not null && string.IsNullOrWhiteSpace(explicitMessageId))
+            {
+                throw new InvalidOperationException("Reply message id cannot be empty.");
+            }
+
             var payloadSchema = GetAsyncApiSchemaReference(payloadType);
             if (explicitPayloadSchemaId is string schemaId && payloadSchema is not null)
             {
@@ -217,6 +226,12 @@ namespace Saunter.AttributeProvider
             ReplyMessageAttribute replyMessageAttribute,
             AsyncApiInferenceOptions inferenceOptions)
         {
+            if (replyMessageAttribute.MessageId is string configuredMessageId
+                && string.IsNullOrWhiteSpace(configuredMessageId))
+            {
+                throw new InvalidOperationException("Reply message id cannot be empty.");
+            }
+
             var payloadSchema = GetAsyncApiSchemaReference(replyMessageAttribute.PayloadType.GetTypeInfo());
             if (replyMessageAttribute.PayloadSchemaId is string explicitSchemaId && payloadSchema is not null)
             {
@@ -247,6 +262,27 @@ namespace Saunter.AttributeProvider
                 DeduplicateSchemaDescriptors(
                     (payloadSchema?.Schemas ?? Array.Empty<AsyncApiSchemaComponentDescriptor>())
                         .Concat(headersSchema?.Schemas ?? Array.Empty<AsyncApiSchemaComponentDescriptor>())));
+        }
+
+        private static void ValidateReplyMessageAlternatives(IReadOnlyList<AsyncApiMessageDescriptor> messages)
+        {
+            for (var sourceIndex = 0; sourceIndex < messages.Count; sourceIndex++)
+            {
+                for (var candidateIndex = sourceIndex + 1; candidateIndex < messages.Count; candidateIndex++)
+                {
+                    var source = messages[sourceIndex];
+                    var candidate = messages[candidateIndex];
+                    if (string.Equals(source.PayloadSchemaId, candidate.PayloadSchemaId, StringComparison.Ordinal)
+                        && string.Equals(source.HeadersSchemaId, candidate.HeadersSchemaId, StringComparison.Ordinal)
+                        && string.Equals(source.ContentType, candidate.ContentType, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(source.BindingsRef, candidate.BindingsRef, StringComparison.Ordinal))
+                    {
+                        throw new InvalidOperationException(
+                            $"Reply messages '{source.Id}' and '{candidate.Id}' have identical payload, headers, content type, and bindings validation. " +
+                            "AsyncAPI 3.0 requires each reply to validate against one and only one message; use structurally distinct reply schemas, headers, content types, or bindings.");
+                    }
+                }
+            }
         }
 
         private MessageDescriptorResult? GenerateMessageFromAttribute(MessageAttribute messageAttribute, AsyncApiInferenceOptions inferenceOptions)
@@ -635,6 +671,12 @@ namespace Saunter.AttributeProvider
                 !method.IsSpecialName
                 && !method.IsConstructor
                 && !method.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute), inherit: false));
+        }
+
+        private static bool HasOperationAttributes(MethodInfo method)
+        {
+            return method.GetCustomAttribute<SendOperationAttribute>() is not null
+                || method.GetCustomAttribute<ReceiveOperationAttribute>() is not null;
         }
 
         private static IEnumerable<Type> TryInferPayloadTypes(MethodInfo method)

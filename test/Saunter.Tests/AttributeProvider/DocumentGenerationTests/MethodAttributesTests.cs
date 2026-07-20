@@ -84,6 +84,46 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
         }
 
         [Fact]
+        public void GenerateDocument_ScopesReplyMessagesToTheSingleReplyOperationOnMethod()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(MixedOperationReplyPublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            var send = document.AssertAndGetOperation("MixedReplySend", AsyncApiAction.Send);
+            send.Reply.ShouldBeNull();
+
+            var receive = document.AssertAndGetOperation("MixedReplyReceive", AsyncApiAction.Receive);
+            receive.Reply.ShouldNotBeNull();
+            receive.Reply.MessageIds.ShouldBe(["createOrderAccepted"]);
+            document.AssertAndGetChannel("mixed.operation.reply.responses", null);
+        }
+
+        [Fact]
+        public void GenerateDocument_DoesNotLeakMethodReplyMessagesIntoClassOperation()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(MixedClassAndMethodReplyPublisher));
+
+            var document = documentProvider.GetDocument(null, options);
+
+            document.AssertAndGetOperation("ClassOneWay", AsyncApiAction.Send).Reply.ShouldBeNull();
+            var methodReply = document.AssertAndGetOperation("MethodReply", AsyncApiAction.Receive);
+            methodReply.Reply.ShouldNotBeNull();
+            methodReply.Reply.MessageIds.ShouldBe(["createOrderAccepted"]);
+        }
+
+        [Fact]
+        public void GenerateDocument_ThrowsWhenReplyMessagesHaveMultipleReplyOperations()
+        {
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(AmbiguousReplyOperationPublisher));
+
+            var actual = () => documentProvider.GetDocument(null, options);
+
+            var exception = Should.Throw<InvalidOperationException>(actual);
+            exception.Message.ShouldContain("multiple operations with Reply configured");
+        }
+
+        [Fact]
         public void GenerateDocument_AssertByMessage_DoesNotAssumeSchemaKeyMatchesMessageId()
         {
             ArrangeAttributesTests.Arrange(out var options, out var documentProvider, typeof(CustomMessageIdPublisher));
@@ -395,6 +435,43 @@ namespace Saunter.Tests.AttributeProvider.DocumentGenerationTests
             [SendOperation(typeof(AnyTenantCreated), OperationId = "MethodSend")]
             [ReceiveOperation(typeof(AnyTenantUpdated), OperationId = "MethodReceive")]
             public void PublishOrReceive()
+            {
+            }
+        }
+
+        [AsyncApi]
+        public class MixedOperationReplyPublisher
+        {
+            [Channel("mixed.operation.reply", "mixed.operation.reply")]
+            [SendOperation(typeof(CreateOrderRequest), OperationId = "MixedReplySend")]
+            [ReceiveOperation(typeof(CreateOrderRequest), OperationId = "MixedReplyReceive", Reply = "mixed.operation.reply.responses")]
+            [ReplyMessage(typeof(CreateOrderAccepted))]
+            public void Process()
+            {
+            }
+        }
+
+        [AsyncApi]
+        [Channel("mixed.class.operation", "mixed.class.operation")]
+        [SendOperation(typeof(CreateOrderRequest), OperationId = "ClassOneWay")]
+        public class MixedClassAndMethodReplyPublisher
+        {
+            [Channel("mixed.method.reply", "mixed.method.reply")]
+            [ReceiveOperation(typeof(CreateOrderRequest), OperationId = "MethodReply", Reply = "mixed.method.reply.responses")]
+            [ReplyMessage(typeof(CreateOrderAccepted))]
+            public void Process()
+            {
+            }
+        }
+
+        [AsyncApi]
+        public class AmbiguousReplyOperationPublisher
+        {
+            [Channel("ambiguous.operation.reply", "ambiguous.operation.reply")]
+            [SendOperation(typeof(CreateOrderRequest), OperationId = "AmbiguousSend", Reply = "ambiguous.send.replies")]
+            [ReceiveOperation(typeof(CreateOrderRequest), OperationId = "AmbiguousReceive", Reply = "ambiguous.receive.replies")]
+            [ReplyMessage(typeof(CreateOrderAccepted))]
+            public void Process()
             {
             }
         }
