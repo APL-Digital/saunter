@@ -487,6 +487,13 @@ namespace Saunter.SharedKernel
             foreach (var name in typeInfo.GetEnumNames())
             {
                 var field = typeInfo.GetField(name);
+                var jsonStringEnumMemberName = field?.GetCustomAttribute<JsonStringEnumMemberNameAttribute>();
+                if (jsonStringEnumMemberName is not null)
+                {
+                    yield return jsonStringEnumMemberName.Name;
+                    continue;
+                }
+
                 var enumMember = field?.GetCustomAttribute<EnumMemberAttribute>();
                 yield return string.IsNullOrWhiteSpace(enumMember?.Value) ? name : enumMember.Value!;
             }

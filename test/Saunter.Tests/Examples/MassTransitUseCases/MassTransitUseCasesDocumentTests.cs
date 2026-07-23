@@ -50,6 +50,10 @@ namespace Saunter.Tests.Examples.MassTransitUseCases
             document.Components.Parameters["warehouseId"].Examples.ShouldBe(new[] { "primary", "overflow" });
             document.AssertChannelMessages(inventoryChannel, "inventoryReservationRequested");
 
+            var inventoryRequestMessage = document.Components.Messages["inventoryReservationRequested"];
+            var inventoryRequestSchema = document.Components.Schemas[inventoryRequestMessage.PayloadSchemaId!];
+            inventoryRequestSchema.Properties["urgency"].EnumValues.ShouldBe(new[] { "standard", "expedited" });
+
             var requestOperation = document.AssertAndGetOperation("RequestInventoryReservation", ByteBard.AsyncAPI.Models.AsyncApiAction.Send);
             var handleOperation = document.AssertAndGetOperation("HandleInventoryReservation", ByteBard.AsyncAPI.Models.AsyncApiAction.Receive);
             document.AssertByMessage(requestOperation, "inventoryReservationRequested");

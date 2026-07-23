@@ -187,6 +187,22 @@ namespace Saunter.Tests.SharedKernel
         }
 
         [Fact]
+        public void AsyncApiSchemaGenerator_OnGenerateEnumWithJsonStringEnumMemberName_UsesConfiguredValues()
+        {
+            AsyncApiSchemaGenerator generator = new();
+
+            var schema = generator.Generate(typeof(JsonCommandEnvelope));
+
+            schema.ShouldNotBeNull();
+            schema.Value.Root.Properties.ShouldContainKey("command");
+
+            var command = schema.Value.Root.Properties["command"];
+            command.Type.ShouldBe(AsyncApiSchemaValueType.String);
+            command.Format.ShouldBe("enum");
+            command.EnumValues.ShouldBe(new[] { "jsonOn", "jsonOff" });
+        }
+
+        [Fact]
         public void AsyncApiSchemaGenerator_DoesNotKeepStaticNullabilityState()
         {
             typeof(AsyncApiSchemaGenerator)
@@ -387,6 +403,20 @@ namespace Saunter.Tests.SharedKernel
         [EnumMember(Value = "on")]
         On,
         [EnumMember(Value = "off")]
+        Off
+    }
+
+    public class JsonCommandEnvelope
+    {
+        public JsonCommandType Command { get; set; }
+    }
+
+    public enum JsonCommandType
+    {
+        [EnumMember(Value = "legacyOn")]
+        [JsonStringEnumMemberName("jsonOn")]
+        On,
+        [JsonStringEnumMemberName("jsonOff")]
         Off
     }
 

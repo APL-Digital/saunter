@@ -45,6 +45,7 @@ app.MapPost("/inventory/warehouses/{warehouseId}/reservations", async (string wa
             WarehouseId = warehouseId,
             Sku = sku,
             Quantity = quantity,
+            Urgency = InventoryReservationUrgency.Standard,
         });
 
     if (response.Is(out Response<InventoryReserved> accepted))
