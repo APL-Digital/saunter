@@ -12,20 +12,32 @@ using Saunter.SharedKernel.Interfaces;
 
 namespace Saunter.SharedKernel
 {
-    internal class AsyncApiSchemaGenerator : IAsyncApiSchemaGenerator
+    /// <summary>
+    /// Default <see cref="IAsyncApiSchemaGenerator"/> implementation that reflects over CLR types
+    /// to produce JSON Schema descriptors, honoring System.Text.Json attributes and nullability annotations.
+    /// </summary>
+    public class AsyncApiSchemaGenerator : IAsyncApiSchemaGenerator
     {
         private readonly Func<PropertyInfo, string> _propertyNameSelector;
 
+        /// <summary>
+        /// Creates a generator with default <see cref="AsyncApiOptions"/> (camelCase property names).
+        /// </summary>
         public AsyncApiSchemaGenerator()
             : this(Microsoft.Extensions.Options.Options.Create(new AsyncApiOptions()))
         {
         }
 
+        /// <summary>
+        /// Creates a generator using <see cref="AsyncApiOptions.PropertyNameSelector"/> from <paramref name="options"/>.
+        /// </summary>
+        /// <param name="options">The options controlling schema property naming.</param>
         public AsyncApiSchemaGenerator(IOptions<AsyncApiOptions> options)
         {
             _propertyNameSelector = options.Value.PropertyNameSelector ?? DefaultPropertyNameSelector;
         }
 
+        /// <inheritdoc />
         public GeneratedSchemaDescriptors? Generate(Type? type)
         {
             var nullabilityInfoContext = new NullabilityInfoContext();

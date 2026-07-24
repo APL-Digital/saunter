@@ -95,7 +95,12 @@ namespace Saunter.SharedKernel.Descriptors
         public IList<AsyncApiSchemaDescriptor> AllOf { get; } = new List<AsyncApiSchemaDescriptor>();
     }
 
-    internal readonly record struct GeneratedSchemaDescriptors(
+    /// <summary>
+    /// The result of generating schemas for a CLR type.
+    /// </summary>
+    /// <param name="Root">The schema describing the type itself, as used at its usage site.</param>
+    /// <param name="All">All reusable component schemas (including <paramref name="Root"/> when it has an id) discovered while walking the type graph.</param>
+    public readonly record struct GeneratedSchemaDescriptors(
         AsyncApiSchemaDescriptor Root,
         IReadOnlyCollection<AsyncApiSchemaDescriptor> All);
 }

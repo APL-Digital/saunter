@@ -4,8 +4,14 @@ using ByteBard.AsyncAPI.Models.Interfaces;
 
 namespace Saunter.AttributeProvider
 {
-    internal class AsyncApiDocumentValidator : IAsyncApiDocumentValidator
+    /// <summary>
+    /// Default <see cref="IAsyncApiDocumentValidator"/> implementation. Throws
+    /// <see cref="InvalidOperationException"/> with an actionable message on the first
+    /// broken reference or conflicting bindings declaration it encounters.
+    /// </summary>
+    public class AsyncApiDocumentValidator : IAsyncApiDocumentValidator
     {
+        /// <inheritdoc />
         public void Validate(AsyncApiDocumentDescriptor document)
         {
             foreach (var serverPair in document.Servers)

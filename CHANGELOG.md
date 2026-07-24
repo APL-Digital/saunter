@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 <!-- Please update the links section at the bottom when adding a new version. -->
 ## Unreleased
 
+## [v1.4.0]
+### Changed
+- The document-generation pipeline is now usable from external (non-web-host) generators: `IAsyncApiSchemaGenerator`/`AsyncApiSchemaGenerator`, `GeneratedSchemaDescriptors`, and `IAsyncApiDocumentValidator`/`AsyncApiDocumentValidator` are public. Consumers can construct `AsyncApiDocumentDescriptor` programmatically, generate payload schemas from CLR types, and validate referential integrity without assembly scanning or DI.
+
 ## [v1.3.1]
 ### Fixed
 - Generated enum schemas now honor `[JsonStringEnumMemberName]` values before the legacy `[EnumMember]` fallback, keeping AsyncAPI contracts aligned with System.Text.Json wire values.
@@ -234,6 +238,7 @@ When updating here set baseVersion to the previous tag and targetVersion to your
 This link will be dead until after you have completed the pull request and tagged the new version in master
 -->
 
+[v1.4.0]: https://github.com/APL-Digital/saunter/compare/v1.3.1...v1.4.0
 [v1.3.1]: https://github.com/APL-Digital/saunter/compare/v1.3.0...v1.3.1
 [v1.3.0]: https://github.com/APL-Digital/saunter/compare/v1.2.2...v1.3.0
 [v1.2.2]: https://github.com/APL-Digital/saunter/compare/v1.2.1...v1.2.2
