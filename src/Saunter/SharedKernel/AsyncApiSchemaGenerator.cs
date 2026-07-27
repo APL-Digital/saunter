@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 using Saunter.Options;
@@ -84,6 +85,13 @@ namespace Saunter.SharedKernel
                 type = underlyingType;
                 typeInfo = type.GetTypeInfo();
                 isNullable = true;
+            }
+
+            // JsonElement represents the JSON value itself, not its CLR reflection surface.
+            // An empty JSON Schema correctly permits any JSON value, including null.
+            if (type == typeof(JsonElement))
+            {
+                return new(new AsyncApiSchemaDescriptor(), Array.Empty<AsyncApiSchemaDescriptor>());
             }
 
             var schemaType = MapJsonTypeToSchemaType(typeInfo);

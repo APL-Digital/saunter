@@ -3,6 +3,7 @@
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Saunter.Options;
 using Saunter.SharedKernel;
@@ -14,6 +15,22 @@ namespace Saunter.Tests.SharedKernel
 {
     public class SchemaGeneratorTests
     {
+        [Fact]
+        public void AsyncApiSchemaGenerator_OnGenerateJsonElement_ProducesUnconstrainedJsonSchema()
+        {
+            AsyncApiSchemaGenerator generator = new();
+
+            var schema = generator.Generate(typeof(JsonElementEnvelope));
+
+            schema.ShouldNotBeNull();
+            var value = schema.Value.Root.Properties["value"];
+            value.Id.ShouldBeNull();
+            value.Type.ShouldBeNull();
+            value.Format.ShouldBeNull();
+            value.Properties.ShouldBeEmpty();
+            schema.Value.All.ShouldNotContain(component => component.Id == "system.Text.Json.JsonElement");
+        }
+
         [Theory]
         [InlineData(typeof(bool), "boolean", (int)AsyncApiSchemaValueType.Boolean, false, 1)]
         [InlineData(typeof(byte), "byte", (int)AsyncApiSchemaValueType.Integer, false, 1)]
@@ -409,6 +426,11 @@ namespace Saunter.Tests.SharedKernel
     public class JsonCommandEnvelope
     {
         public JsonCommandType Command { get; set; }
+    }
+
+    public class JsonElementEnvelope
+    {
+        public JsonElement Value { get; set; }
     }
 
     public enum JsonCommandType
