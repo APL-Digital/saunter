@@ -7,6 +7,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 <!-- Please update the links section at the bottom when adding a new version. -->
 ## Unreleased
 
+## [v1.5.0]
+### Added
+- `MapAsyncApiUi(uiBaseRoute, documentUrl, title)` overload serves the AsyncAPI UI for a
+  document the host serves itself — typically one generated at build time and returned as
+  static bytes. It requires no `ConfigureAsyncApiDocument` registration and maps no document
+  endpoint, so it composes with a host's own document routes instead of competing with them.
+- `DeriveYamlRoute` is public so hosts serving their own documents can derive the YAML
+  sibling route the same way this library does.
+
+### Fixed
+- `System.Text.Json.JsonElement` payload properties now generate an unconstrained JSON Schema instead of exposing the CLR-only `valueKind` property.
+
 ## [v1.4.0]
 ### Changed
 - The document-generation pipeline is now usable from external (non-web-host) generators: `IAsyncApiSchemaGenerator`/`AsyncApiSchemaGenerator`, `GeneratedSchemaDescriptors`, and `IAsyncApiDocumentValidator`/`AsyncApiDocumentValidator` are public. Consumers can construct `AsyncApiDocumentDescriptor` programmatically, generate payload schemas from CLR types, and validate referential integrity without assembly scanning or DI.
@@ -238,6 +250,7 @@ When updating here set baseVersion to the previous tag and targetVersion to your
 This link will be dead until after you have completed the pull request and tagged the new version in master
 -->
 
+[v1.5.0]: https://github.com/APL-Digital/saunter/compare/v1.4.0...v1.5.0
 [v1.4.0]: https://github.com/APL-Digital/saunter/compare/v1.3.1...v1.4.0
 [v1.3.1]: https://github.com/APL-Digital/saunter/compare/v1.3.0...v1.3.1
 [v1.3.0]: https://github.com/APL-Digital/saunter/compare/v1.2.2...v1.3.0

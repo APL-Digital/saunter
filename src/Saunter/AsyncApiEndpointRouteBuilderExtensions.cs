@@ -21,7 +21,8 @@ namespace Saunter
     {
         /// <summary>
         /// Maps the AsyncAPI document endpoint(s) and the AsyncAPI UI in one call. Equivalent to
-        /// calling <see cref="MapAsyncApiDocuments"/> followed by <see cref="MapAsyncApiUi"/>.
+        /// calling <see cref="MapAsyncApiDocuments"/> followed by
+        /// <see cref="MapAsyncApiUi(IEndpointRouteBuilder)"/>.
         /// Call the two methods separately when per-endpoint conventions are needed.
         /// </summary>
         public static IEndpointRouteBuilder MapAsyncApi(this IEndpointRouteBuilder endpoints)
@@ -106,7 +107,7 @@ namespace Saunter
         /// <c>/asyncapi/asyncapi.json</c> becomes <c>/asyncapi/asyncapi.yaml</c>.
         /// Returns <c>null</c> when the route does not end in <c>.json</c>.
         /// </summary>
-        internal static string? DeriveYamlRoute(string? jsonRoute)
+        public static string? DeriveYamlRoute(string? jsonRoute)
         {
             if (jsonRoute is null || !jsonRoute.EndsWith(".json", System.StringComparison.OrdinalIgnoreCase))
             {
@@ -122,13 +123,7 @@ namespace Saunter
         /// </summary>
         public static IEndpointConventionBuilder MapAsyncApiUi(this IEndpointRouteBuilder endpoints)
         {
-            if (!AsyncApiUiResources.HasUiAssets)
-            {
-                CreateLogger(endpoints)?.LogWarning(
-                    "The AsyncAPI UI assets (index.js, default.min.css) are not embedded in the Saunter assembly, " +
-                    "so the UI will render an explanatory page instead. This happens when Saunter was built from " +
-                    "source without running 'npm install' in src/Saunter.UI first. The document endpoint is unaffected.");
-            }
+            WarnWhenUiAssetsMissing(endpoints);
 
             var options = endpoints.ServiceProvider.GetRequiredService<IOptions<AsyncApiOptions>>();
             if (options.Value.Documents.Count > 0)
@@ -169,16 +164,76 @@ namespace Saunter
             return endpoints.MapGet(route, pipeline);
         }
 
+        /// <summary>
+        /// Maps the AsyncAPI UI endpoints for a document served from somewhere other than this
+        /// library's runtime generation — typically a document generated at build time and served
+        /// as static bytes. Unlike <see cref="MapAsyncApiUi(IEndpointRouteBuilder)"/>, this does not
+        /// consult <see cref="AsyncApiOptions.Documents"/>, so no document registration is required
+        /// and no document endpoint is mapped; the caller keeps serving the document itself.
+        /// </summary>
+        /// <param name="endpoints">The endpoint route builder.</param>
+        /// <param name="uiBaseRoute">
+        /// Base route for the UI, e.g. <c>/asyncapi/v1/ui</c>. A trailing slash is ignored.
+        /// </param>
+        /// <param name="documentUrl">
+        /// Route the UI fetches the document from, e.g. <c>/asyncapi/v1/asyncapi.json</c>.
+        /// </param>
+        /// <param name="title">Page title. Defaults to "AsyncAPI" when null or whitespace.</param>
+        public static IEndpointConventionBuilder MapAsyncApiUi(
+            this IEndpointRouteBuilder endpoints,
+            string uiBaseRoute,
+            string documentUrl,
+            string? title = null)
+        {
+            WarnWhenUiAssetsMissing(endpoints);
+
+            var baseRoute = uiBaseRoute?.TrimEnd('/') ?? string.Empty;
+            var resolvedTitle = string.IsNullOrWhiteSpace(title) ? "AsyncAPI" : title!;
+            var group = endpoints.MapGroup(string.Empty);
+
+            group.MapGet(baseRoute, (HttpRequest request) => Results.Content(
+                RenderUiIndexHtml(request, baseRoute, documentUrl, resolvedTitle),
+                "text/html"));
+            group.MapGet(baseRoute + "/index.html", (HttpRequest request) => Results.Content(
+                RenderUiIndexHtml(request, baseRoute, documentUrl, resolvedTitle),
+                "text/html"));
+            group.MapGet(baseRoute + "/{assetName}", async (HttpContext context, string assetName) =>
+            {
+                await AsyncApiUiResources.RespondWithEmbeddedAsset(context.Response, assetName);
+            });
+
+            return group;
+        }
+
+        private static void WarnWhenUiAssetsMissing(IEndpointRouteBuilder endpoints)
+        {
+            if (!AsyncApiUiResources.HasUiAssets)
+            {
+                CreateLogger(endpoints)?.LogWarning(
+                    "The AsyncAPI UI assets (index.js, default.min.css) are not embedded in the Saunter assembly, " +
+                    "so the UI will render an explanatory page instead. This happens when Saunter was built from " +
+                    "source without running 'npm install' in src/Saunter.UI first. The document endpoint is unaffected.");
+            }
+        }
+
         private static string RenderRegistrationUiIndexHtml(HttpRequest request, AsyncApiDocumentRegistration registration)
         {
-            var documentUrl = WithPathBase(request, registration.Middleware.Route);
-            var uiBaseRoute = WithPathBase(request, registration.Middleware.UiBaseRoute?.TrimEnd('/') ?? string.Empty);
             var title = AsyncApiMiddlewareOptions.ResolveUiTitle(registration.Middleware.UiTitle, registration.Document);
+            return RenderUiIndexHtml(
+                request,
+                registration.Middleware.UiBaseRoute?.TrimEnd('/') ?? string.Empty,
+                registration.Middleware.Route,
+                title);
+        }
+
+        private static string RenderUiIndexHtml(HttpRequest request, string uiBaseRoute, string documentRoute, string title)
+        {
+            var resolvedUiBaseRoute = WithPathBase(request, uiBaseRoute);
             return AsyncApiUiResources.RenderHtml(
                 title,
-                documentUrl,
-                uiBaseRoute + "/default.min.css",
-                uiBaseRoute + "/index.js");
+                WithPathBase(request, documentRoute),
+                resolvedUiBaseRoute + "/default.min.css",
+                resolvedUiBaseRoute + "/index.js");
         }
 
         private static string WithPathBase(HttpRequest request, string route)
