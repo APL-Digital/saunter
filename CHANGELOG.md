@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 
 <!-- Please update the links section at the bottom when adding a new version. -->
 ## Unreleased
+
+## [v1.5.1]
 ### Fixed
 - `System.Object` payload members, including `Dictionary<string, object>` values, now generate an unconstrained JSON Schema instead of `type: object`. System.Text.Json writes such members as whatever JSON the runtime value serializes to, so a string or number there was previously rejected by consumers that validate against the document.
 
@@ -252,6 +254,7 @@ When updating here set baseVersion to the previous tag and targetVersion to your
 This link will be dead until after you have completed the pull request and tagged the new version in master
 -->
 
+[v1.5.1]: https://github.com/APL-Digital/saunter/compare/v1.5.0...v1.5.1
 [v1.5.0]: https://github.com/APL-Digital/saunter/compare/v1.4.0...v1.5.0
 [v1.4.0]: https://github.com/APL-Digital/saunter/compare/v1.3.1...v1.4.0
 [v1.3.1]: https://github.com/APL-Digital/saunter/compare/v1.3.0...v1.3.1
