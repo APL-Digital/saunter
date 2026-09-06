@@ -31,6 +31,30 @@ namespace Saunter.Tests.SharedKernel
             schema.Value.All.ShouldNotContain(component => component.Id == "system.Text.Json.JsonElement");
         }
 
+        [Fact]
+        public void AsyncApiSchemaGenerator_OnGenerateObject_ProducesUnconstrainedJsonSchema()
+        {
+            AsyncApiSchemaGenerator generator = new();
+
+            var schema = generator.Generate(typeof(ObjectEnvelope));
+
+            schema.ShouldNotBeNull();
+            var value = schema.Value.Root.Properties["value"];
+            value.Id.ShouldBeNull();
+            value.Type.ShouldBeNull();
+            value.Format.ShouldBeNull();
+            value.Properties.ShouldBeEmpty();
+
+            var bag = schema.Value.Root.Properties["bag"];
+            bag.Type.ShouldBe(AsyncApiSchemaValueType.Object);
+            bag.AdditionalProperties.ShouldNotBeNull();
+            bag.AdditionalProperties.Id.ShouldBeNull();
+            bag.AdditionalProperties.Type.ShouldBeNull();
+            bag.AdditionalProperties.Properties.ShouldBeEmpty();
+
+            schema.Value.All.ShouldNotContain(component => component.Id == "system.Object");
+        }
+
         [Theory]
         [InlineData(typeof(bool), "boolean", (int)AsyncApiSchemaValueType.Boolean, false, 1)]
         [InlineData(typeof(byte), "byte", (int)AsyncApiSchemaValueType.Integer, false, 1)]
@@ -69,9 +93,8 @@ namespace Saunter.Tests.SharedKernel
         [InlineData(typeof(Guid?), "guid", (int)AsyncApiSchemaValueType.String, true, 1)]
         [InlineData(typeof(Uri), "uri", (int)AsyncApiSchemaValueType.String, false, 1)]
         [InlineData(typeof(byte[]), "byte", (int)AsyncApiSchemaValueType.String, false, 1)]
-        [InlineData(typeof(object), null, (int)AsyncApiSchemaValueType.Object, false, 1)]
         [InlineData(typeof(int[]), null, (int)AsyncApiSchemaValueType.Array, false, 1)]
-        [InlineData(typeof(object[]), null, (int)AsyncApiSchemaValueType.Array, false, 2)]
+        [InlineData(typeof(object[]), null, (int)AsyncApiSchemaValueType.Array, false, 1)]
         public void AsyncApiSchemaGenerator_OnGeneratePrimitive_SchemaTypeAndNameIsMatch(Type type, string format, int schemaType, bool nullable, int schemaCount)
         {
             // Arrange
@@ -431,6 +454,12 @@ namespace Saunter.Tests.SharedKernel
     public class JsonElementEnvelope
     {
         public JsonElement Value { get; set; }
+    }
+
+    public class ObjectEnvelope
+    {
+        public object Value { get; set; } = null!;
+        public global::System.Collections.Generic.Dictionary<string, object> Bag { get; set; } = new();
     }
 
     public enum JsonCommandType
