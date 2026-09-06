@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 
 <!-- Please update the links section at the bottom when adding a new version. -->
 ## Unreleased
+### Fixed
+- `System.Object` payload members, including `Dictionary<string, object>` values, now generate an unconstrained JSON Schema instead of `type: object`. System.Text.Json writes such members as whatever JSON the runtime value serializes to, so a string or number there was previously rejected by consumers that validate against the document.
 
 ## [v1.5.0]
 ### Added
