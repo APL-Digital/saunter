@@ -87,8 +87,10 @@ namespace Saunter.SharedKernel
                 isNullable = true;
             }
 
-            // JsonElement and object can carry any runtime JSON value, not their CLR reflection surface.
-            // An empty JSON Schema correctly permits any JSON value, including null.
+            // JsonElement represents the JSON value itself, not its CLR reflection surface,
+            // and System.Text.Json writes an object-typed member as whatever JSON its runtime
+            // value serializes to (and reads it back as a JsonElement). An empty JSON Schema
+            // correctly permits any JSON value, including null, for both.
             if (type == typeof(JsonElement) || type == typeof(object))
             {
                 return new(new AsyncApiSchemaDescriptor(), Array.Empty<AsyncApiSchemaDescriptor>());

@@ -94,7 +94,7 @@ Scope:
 | Components `externalDocs` / `tags` | Optional | Missing | Not modeled |
 | Components `messageTraits` | Optional | Missing | Not modeled |
 | Components `serverBindings` | Optional | Supported | Modeled in [AsyncApiComponentsDescriptor.cs](src/Saunter/Descriptors/AsyncApiComponentsDescriptor.cs#L9-L30) |
-| Schema primitives / objects / arrays / enums / refs | Core | Supported | Generated in [AsyncApiSchemaGenerator.cs](src/Saunter/SharedKernel/AsyncApiSchemaGenerator.cs#L14-L512); enum values honor `JsonStringEnumMemberNameAttribute` before the legacy `EnumMemberAttribute` fallback; `JsonElement` maps to an unconstrained JSON Schema |
+| Schema primitives / objects / arrays / enums / refs | Core | Supported | Generated in [AsyncApiSchemaGenerator.cs](src/Saunter/SharedKernel/AsyncApiSchemaGenerator.cs#L14-L512); enum values honor `JsonStringEnumMemberNameAttribute` before the legacy `EnumMemberAttribute` fallback; `JsonElement` and `System.Object` map to an unconstrained JSON Schema |
 | Schema `required`, `items`, `additionalProperties`, `oneOf`, `allOf` | Core subset | Supported | Mapped in [AsyncApiSchemaMapper.cs](src/Saunter/SharedKernel/AsyncApiSchemaMapper.cs#L10-L55) |
 | Schema nullability | Core subset | Supported with normalization | Serialized for AsyncAPI 3 as `oneOf` + `null`, without the legacy `nullable` keyword |
 | Rich JSON Schema keywords | Optional but important | Missing | No support for keywords like `pattern`, numeric bounds, schema `default`, schema `examples`, etc. |
@@ -123,6 +123,7 @@ Scope:
 - CLR string-enum wire names are reflected into schema `enum` values. `JsonStringEnumMemberNameAttribute` takes precedence so generated schemas match System.Text.Json; `EnumMemberAttribute` remains supported as a legacy fallback.
   - See [AsyncApiSchemaGenerator.cs](src/Saunter/SharedKernel/AsyncApiSchemaGenerator.cs), [SchemaGeneratorTests.cs](test/Saunter.Tests/SharedKernel/SchemaGeneratorTests.cs), and [InventoryReservationUrgency.cs](examples/MassTransitUseCases/Contracts/InventoryReservationUrgency.cs).
 - `System.Text.Json.JsonElement` is emitted as an unconstrained JSON Schema, matching its wire representation as the contained JSON value instead of reflecting CLR implementation properties such as `ValueKind`.
+- `System.Object` members (for example `Dictionary<string, object>` values) are emitted the same way: System.Text.Json serializes the runtime value, which may be a string, number, boolean, array, object, or null, so `type: object` misdescribed the wire.
   - See [AsyncApiSchemaGenerator.cs](src/Saunter/SharedKernel/AsyncApiSchemaGenerator.cs) and [SchemaGeneratorTests.cs](test/Saunter.Tests/SharedKernel/SchemaGeneratorTests.cs).
 - Nested collection schemas stay inline at their usage site, so repeated CLR dictionary/list types with different nullable generic arguments do not compete for one incompatible reusable component id.
   - See [AsyncApiSchemaGenerator.cs](src/Saunter/SharedKernel/AsyncApiSchemaGenerator.cs) and [SchemaGeneratorRepeatedTypeTests.cs](test/Saunter.Tests/SharedKernel/SchemaGeneratorRepeatedTypeTests.cs).
