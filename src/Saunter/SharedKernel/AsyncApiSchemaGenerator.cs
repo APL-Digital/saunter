@@ -87,9 +87,9 @@ namespace Saunter.SharedKernel
                 isNullable = true;
             }
 
-            // JsonElement represents the JSON value itself, not its CLR reflection surface.
+            // JsonElement and object can carry any runtime JSON value, not their CLR reflection surface.
             // An empty JSON Schema correctly permits any JSON value, including null.
-            if (type == typeof(JsonElement))
+            if (type == typeof(JsonElement) || type == typeof(object))
             {
                 return new(new AsyncApiSchemaDescriptor(), Array.Empty<AsyncApiSchemaDescriptor>());
             }
@@ -215,6 +215,15 @@ namespace Saunter.SharedKernel
             try
             {
                 var nestedSchemas = new List<AsyncApiSchemaDescriptor> { schema };
+                var derivedTypes = type.GetCustomAttributes<JsonDerivedTypeAttribute>(inherit: false).ToArray();
+                if (derivedTypes.Length > 0)
+                {
+                    GeneratePolymorphicAlternatives(type, schema, derivedTypes, nestedSchemas, parents,
+                        nullabilityInfoContext, generationContext);
+                    return new(CreateUsageSchema(schema, isNullable),
+                        DeduplicateSchemas(nestedSchemas, $"building polymorphic alternatives for schema '{name}'"));
+                }
+
                 var properties = typeInfo.AsType()
                     .GetProperties(BindingFlags.Public | BindingFlags.Instance)
                     .Where(p => p.GetMethod is not null && !p.GetMethod.IsStatic && p.GetIndexParameters().Length == 0)
@@ -244,6 +253,74 @@ namespace Saunter.SharedKernel
             finally
             {
                 parents.Remove(name);
+            }
+        }
+
+        private void GeneratePolymorphicAlternatives(
+            Type baseType,
+            AsyncApiSchemaDescriptor schema,
+            IReadOnlyList<JsonDerivedTypeAttribute> derivedTypes,
+            List<AsyncApiSchemaDescriptor> nestedSchemas,
+            HashSet<string> parents,
+            NullabilityInfoContext nullabilityInfoContext,
+            SchemaGenerationContext generationContext)
+        {
+            // A concrete base also permits an untagged instance. Our descriptor model
+            // cannot express the negative discriminator constraint that would keep that
+            // alternative disjoint, so reject it rather than emit an ambiguous oneOf.
+            if (!baseType.IsAbstract && !baseType.IsInterface)
+            {
+                throw new InvalidOperationException(
+                    $"Polymorphic type '{baseType}' must be abstract or an interface to export its alternatives.");
+            }
+
+            var discriminatorName = baseType.GetCustomAttribute<JsonPolymorphicAttribute>(inherit: false)
+                ?.TypeDiscriminatorPropertyName ?? "$type";
+            var discriminators = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var derived in derivedTypes)
+            {
+                if (derived.TypeDiscriminator is not string discriminator)
+                {
+                    throw new InvalidOperationException(
+                        $"Polymorphic type '{baseType}' requires a string discriminator for every derived type; " +
+                        $"'{derived.DerivedType}' has an unsupported discriminator.");
+                }
+
+                if (!discriminators.Add(discriminator)
+                    || !baseType.IsAssignableFrom(derived.DerivedType)
+                    || derived.DerivedType.IsAbstract || derived.DerivedType.IsInterface)
+                {
+                    throw new InvalidOperationException(
+                        $"Polymorphic type '{baseType}' must declare distinct discriminators and concrete assignable alternatives.");
+                }
+
+                var generated = GenerateBranch(derived.DerivedType, parents, nullabilityInfoContext, generationContext)
+                    ?? throw new InvalidOperationException($"Cannot generate polymorphic alternative '{derived.DerivedType}'.");
+                nestedSchemas.AddRange(generated.All);
+                var derivedId = GetSchemaId(derived.DerivedType.GetTypeInfo(), AsyncApiSchemaValueType.Object,
+                    generationContext, isRoot: false, collectionNullability: null);
+                // Inspect the serialized members directly: a recursive alternative may
+                // already be in progress and only return a reference, with no component.
+                if (derived.DerivedType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(property => property.GetMethod is not null && !property.GetMethod.IsStatic
+                        && property.GetIndexParameters().Length == 0 && !IsIgnoredForSerialization(property))
+                    .Any(property => ResolvePropertyName(property) == discriminatorName))
+                {
+                    throw new InvalidOperationException(
+                        $"Polymorphic discriminator '{discriminatorName}' conflicts with a serialized property on '{derived.DerivedType}'.");
+                }
+
+                // Constrain the tag at the base-type usage site, not on the concrete
+                // component: serializing a concrete type directly does not emit a tag.
+                var alternative = new AsyncApiSchemaDescriptor { Type = AsyncApiSchemaValueType.Object };
+                var tag = new AsyncApiSchemaDescriptor { Type = AsyncApiSchemaValueType.String };
+                tag.EnumValues.Add(discriminator);
+                var tagConstraint = new AsyncApiSchemaDescriptor { Type = AsyncApiSchemaValueType.Object };
+                tagConstraint.Properties.Add(discriminatorName, tag);
+                tagConstraint.Required.Add(discriminatorName);
+                alternative.AllOf.Add(new AsyncApiSchemaDescriptor { Reference = $"#/components/schemas/{derivedId}" });
+                alternative.AllOf.Add(tagConstraint);
+                schema.OneOf.Add(alternative);
             }
         }
 

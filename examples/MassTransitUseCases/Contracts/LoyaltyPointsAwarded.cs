@@ -9,4 +9,6 @@ public class LoyaltyPointsAwarded
     public int Points { get; set; }
 
     public DateTimeOffset AwardedAt { get; set; }
+
+    public LoyaltyEffect[] Effects { get; set; } = [];
 }

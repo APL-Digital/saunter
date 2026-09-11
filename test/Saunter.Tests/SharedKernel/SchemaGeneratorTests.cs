@@ -69,10 +69,10 @@ namespace Saunter.Tests.SharedKernel
         [InlineData(typeof(Guid?), "guid", (int)AsyncApiSchemaValueType.String, true, 1)]
         [InlineData(typeof(Uri), "uri", (int)AsyncApiSchemaValueType.String, false, 1)]
         [InlineData(typeof(byte[]), "byte", (int)AsyncApiSchemaValueType.String, false, 1)]
-        [InlineData(typeof(object), null, (int)AsyncApiSchemaValueType.Object, false, 1)]
+        [InlineData(typeof(object), null, null, false, 0)]
         [InlineData(typeof(int[]), null, (int)AsyncApiSchemaValueType.Array, false, 1)]
-        [InlineData(typeof(object[]), null, (int)AsyncApiSchemaValueType.Array, false, 2)]
-        public void AsyncApiSchemaGenerator_OnGeneratePrimitive_SchemaTypeAndNameIsMatch(Type type, string format, int schemaType, bool nullable, int schemaCount)
+        [InlineData(typeof(object[]), null, (int)AsyncApiSchemaValueType.Array, false, 1)]
+        public void AsyncApiSchemaGenerator_OnGeneratePrimitive_SchemaTypeAndNameIsMatch(Type type, string format, int? schemaType, bool nullable, int schemaCount)
         {
             // Arrange
             AsyncApiSchemaGenerator generator = new();
@@ -85,7 +85,7 @@ namespace Saunter.Tests.SharedKernel
             schema.Value.All.Count.ShouldBe(schemaCount);
             schema.Value.Root.Properties.ShouldBeEmpty();
             schema.Value.Root.Format.ShouldBe(format);
-            schema.Value.Root.Type.ShouldBe((AsyncApiSchemaValueType)schemaType);
+            schema.Value.Root.Type.ShouldBe((AsyncApiSchemaValueType?)schemaType);
             schema.Value.Root.Nullable.ShouldBe(nullable);
         }
 

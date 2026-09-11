@@ -23,6 +23,15 @@ public class LoyaltyPointsAwardedConsumer : IConsumer<LoyaltyPointsAwarded>
     public Task Consume(ConsumeContext<LoyaltyPointsAwarded> context)
     {
         _logger.LogInformation("Awarded {Points} loyalty points to {CustomerId}", context.Message.Points, context.Message.CustomerId);
+        foreach (var effect in context.Message.Effects)
+        {
+            if (effect is LoyaltyTierEffect tier)
+            {
+                _logger.LogInformation("Customer {CustomerId} has tier {TierName} from {BackendId}",
+                    context.Message.CustomerId, tier.TierName, tier.BackendId);
+            }
+        }
+
         return Task.CompletedTask;
     }
 }

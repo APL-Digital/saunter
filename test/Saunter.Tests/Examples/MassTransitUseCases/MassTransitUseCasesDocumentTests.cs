@@ -181,6 +181,13 @@ namespace Saunter.Tests.Examples.MassTransitUseCases
             // Convention-discovered consumer: no attributes on LoyaltyPointsAwardedConsumer.
             var loyaltyOperation = document.AssertAndGetOperation("LoyaltyPointsAwardedConsumer.LoyaltyPointsAwarded.receive", ByteBard.AsyncAPI.Models.AsyncApiAction.Receive);
             document.Channels[loyaltyOperation.ChannelId].Address.ShouldBe("MassTransitUseCases.Contracts:LoyaltyPointsAwarded");
+            var loyaltyEffect = document.Components.Schemas.Values.Single(schema => schema.Id!.EndsWith(".LoyaltyEffect"));
+            var loyaltyTier = loyaltyEffect.OneOf.Single();
+            loyaltyTier.AllOf[1].Properties["$type"].EnumValues.ShouldBe(new[] { "loyaltyTier" });
+            loyaltyTier.AllOf[1].Required.ShouldContain("$type");
+            var tierReference = loyaltyTier.AllOf[0].Reference;
+            document.Components.Schemas.Values.Single(schema => "#/components/schemas/" + schema.Id == tierReference)
+                .Properties.Keys.ShouldContain("tierName");
 
             var json = writer.WriteJson(document);
             var root = JsonNode.Parse(json)!;

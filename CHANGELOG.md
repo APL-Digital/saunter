@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 <!-- Please update the links section at the bottom when adding a new version. -->
 ## Unreleased
 
+## [v1.5.2]
+### Added
+- Abstract and interface payloads with string-tagged `JsonDerivedType` alternatives export disjoint `oneOf` schemas that preserve inherited properties, nullable references, and recursive references. Unsupported polymorphic shapes fail explicitly.
+
+### Fixed
+- `object` payloads generate unconstrained JSON Schema, matching their runtime JSON values and the published 1.5.1 behavior.
+
 ## [v1.5.0]
 ### Added
 - `MapAsyncApiUi(uiBaseRoute, documentUrl, title)` overload serves the AsyncAPI UI for a
@@ -250,6 +257,7 @@ When updating here set baseVersion to the previous tag and targetVersion to your
 This link will be dead until after you have completed the pull request and tagged the new version in master
 -->
 
+[v1.5.2]: https://github.com/APL-Digital/saunter/compare/v1.5.0...v1.5.2
 [v1.5.0]: https://github.com/APL-Digital/saunter/compare/v1.4.0...v1.5.0
 [v1.4.0]: https://github.com/APL-Digital/saunter/compare/v1.3.1...v1.4.0
 [v1.3.1]: https://github.com/APL-Digital/saunter/compare/v1.3.0...v1.3.1
