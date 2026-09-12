@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Saunter.AttributeProvider.Attributes;
+using Saunter.Options;
 using Shouldly;
 using Xunit;
 
@@ -17,6 +18,7 @@ namespace Saunter.Tests
             builder.Services.AddAsyncApiSchemaGeneration(options =>
             {
                 options.AssemblyMarkerTypes = new[] { typeof(DuplicateOperationIdApi) };
+                options.NamedApis["startup-conflict"] = new AsyncApiDocumentDescriptor();
                 options.ValidateOnStartup = true;
             });
 
@@ -35,6 +37,7 @@ namespace Saunter.Tests
             builder.Services.AddAsyncApiSchemaGeneration(options =>
             {
                 options.AssemblyMarkerTypes = new[] { typeof(DuplicateOperationIdApi) };
+                options.NamedApis["startup-conflict"] = new AsyncApiDocumentDescriptor();
                 options.ValidateOnStartup = false;
             });
 
@@ -54,6 +57,7 @@ namespace Saunter.Tests
             builder.Services.AddAsyncApiSchemaGeneration(options =>
             {
                 options.AssemblyMarkerTypes = new[] { typeof(DuplicateOperationIdApi) };
+                options.NamedApis["startup-conflict"] = new AsyncApiDocumentDescriptor();
             });
 
             await using var app = builder.Build();
@@ -61,7 +65,7 @@ namespace Saunter.Tests
             await Should.ThrowAsync<InvalidOperationException>(app.StartAsync());
         }
 
-        [AsyncApi]
+        [AsyncApi("startup-conflict")]
         private class DuplicateOperationIdApi
         {
             [Channel("orders.a")]

@@ -55,27 +55,8 @@ namespace Saunter.Tests.AttributeProvider.DocumentProviderTests
         [Fact]
         public void GetDocument_ThrowsWithDetailedOperationConflict()
         {
-            var services = new ServiceCollection();
-
-            services.AddFakeLogging();
-            services.AddAsyncApiSchemaGeneration(o =>
-            {
-                o.AsyncApi = new AsyncApiDocumentDescriptor
-                {
-                    Asyncapi = "3.0.0",
-                    Info = new AsyncApiInfoDescriptor
-                    {
-                        Title = GetType().FullName,
-                        Version = "1.0.0"
-                    },
-                };
-                o.AssemblyMarkerTypes = new[] { typeof(ConflictingPublishOne), typeof(ConflictingPublishTwo) };
-            });
-
-            using var serviceprovider = services.BuildServiceProvider();
-
-            var documentProvider = serviceprovider.GetRequiredService<IAsyncApiDocumentProvider>();
-            var options = serviceprovider.GetRequiredService<IOptions<AsyncApiOptions>>().Value;
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider,
+                typeof(ConflictingPublishOne), typeof(ConflictingPublishTwo));
 
             var actual = () => documentProvider.GetDocument(null, options);
 
@@ -86,31 +67,10 @@ namespace Saunter.Tests.AttributeProvider.DocumentProviderTests
         [Fact]
         public void GetDocument_ThrowsWithDetailedOperationConflictAgainstPreconfiguredOperation()
         {
-            var services = new ServiceCollection();
-
-            services.AddFakeLogging();
-            services.AddAsyncApiSchemaGeneration(o =>
-            {
-                o.AsyncApi = new AsyncApiDocumentDescriptor
-                {
-                    Asyncapi = "3.0.0",
-                    Info = new AsyncApiInfoDescriptor
-                    {
-                        Title = GetType().FullName,
-                        Version = "1.0.0"
-                    },
-                    Operations =
-                    {
-                        ["Publish"] = new AsyncApiOperationDescriptor(ByteBard.AsyncAPI.Models.AsyncApiAction.Send, "existingChannel", null, null, null, null, [], [], null)
-                    }
-                };
-                o.AssemblyMarkerTypes = new[] { typeof(PreconfiguredConflictPublisher) };
-            });
-
-            using var serviceprovider = services.BuildServiceProvider();
-
-            var documentProvider = serviceprovider.GetRequiredService<IAsyncApiDocumentProvider>();
-            var options = serviceprovider.GetRequiredService<IOptions<AsyncApiOptions>>().Value;
+            ArrangeAttributesTests.Arrange(out var options, out var documentProvider,
+                typeof(PreconfiguredConflictPublisher));
+            options.AsyncApi.Operations["Publish"] = new AsyncApiOperationDescriptor(
+                ByteBard.AsyncAPI.Models.AsyncApiAction.Send, "existingChannel", null, null, null, null, [], [], null);
 
             var actual = () => documentProvider.GetDocument(null, options);
 
