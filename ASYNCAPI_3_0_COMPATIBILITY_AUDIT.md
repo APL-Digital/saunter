@@ -94,7 +94,7 @@ Scope:
 | Components `externalDocs` / `tags` | Optional | Missing | Not modeled |
 | Components `messageTraits` | Optional | Missing | Not modeled |
 | Components `serverBindings` | Optional | Supported | Modeled in [AsyncApiComponentsDescriptor.cs](src/Saunter/Descriptors/AsyncApiComponentsDescriptor.cs#L9-L30) |
-| Schema primitives / objects / arrays / enums / refs | Core | Supported | Generated in [AsyncApiSchemaGenerator.cs](src/Saunter/SharedKernel/AsyncApiSchemaGenerator.cs#L14-L512); enum values honor `JsonStringEnumMemberNameAttribute` before the legacy `EnumMemberAttribute` fallback; `JsonElement` and `System.Object` map to an unconstrained JSON Schema |
+| Schema primitives / objects / arrays / enums / refs | Core | Supported | Generated in [AsyncApiSchemaGenerator.cs](src/Saunter/SharedKernel/AsyncApiSchemaGenerator.cs#L14-L512); enum values honor `JsonStringEnumMemberNameAttribute` before the legacy `EnumMemberAttribute` fallback; `JsonElement` maps to an unconstrained JSON Schema |
 | Schema `required`, `items`, `additionalProperties`, `oneOf`, `allOf` | Core subset | Supported | Mapped in [AsyncApiSchemaMapper.cs](src/Saunter/SharedKernel/AsyncApiSchemaMapper.cs#L10-L55) |
 | Schema nullability | Core subset | Supported with normalization | Serialized for AsyncAPI 3 as `oneOf` + `null`, without the legacy `nullable` keyword |
 | Rich JSON Schema keywords | Optional but important | Missing | No support for keywords like `pattern`, numeric bounds, schema `default`, schema `examples`, etc. |
@@ -123,7 +123,6 @@ Scope:
 - CLR string-enum wire names are reflected into schema `enum` values. `JsonStringEnumMemberNameAttribute` takes precedence so generated schemas match System.Text.Json; `EnumMemberAttribute` remains supported as a legacy fallback.
   - See [AsyncApiSchemaGenerator.cs](src/Saunter/SharedKernel/AsyncApiSchemaGenerator.cs), [SchemaGeneratorTests.cs](test/Saunter.Tests/SharedKernel/SchemaGeneratorTests.cs), and [InventoryReservationUrgency.cs](examples/MassTransitUseCases/Contracts/InventoryReservationUrgency.cs).
 - `System.Text.Json.JsonElement` is emitted as an unconstrained JSON Schema, matching its wire representation as the contained JSON value instead of reflecting CLR implementation properties such as `ValueKind`.
-- `System.Object` members (for example `Dictionary<string, object>` values) are emitted the same way: System.Text.Json serializes the runtime value, which may be a string, number, boolean, array, object, or null, so `type: object` misdescribed the wire.
   - See [AsyncApiSchemaGenerator.cs](src/Saunter/SharedKernel/AsyncApiSchemaGenerator.cs) and [SchemaGeneratorTests.cs](test/Saunter.Tests/SharedKernel/SchemaGeneratorTests.cs).
 - Nested collection schemas stay inline at their usage site, so repeated CLR dictionary/list types with different nullable generic arguments do not compete for one incompatible reusable component id.
   - See [AsyncApiSchemaGenerator.cs](src/Saunter/SharedKernel/AsyncApiSchemaGenerator.cs) and [SchemaGeneratorRepeatedTypeTests.cs](test/Saunter.Tests/SharedKernel/SchemaGeneratorRepeatedTypeTests.cs).
@@ -186,3 +185,33 @@ Scope:
   - See [AsyncApiComponentsDescriptor.cs](src/Saunter/Descriptors/AsyncApiComponentsDescriptor.cs#L9-L28).
 - Validation covers several reference relationships and address constraints (unknown channel messages, servers, binding refs, correlation ids, trait refs, reply channels and reply-channel messages, plus the reply-address/channel invariant), but it is still narrow compared with the spec. There is no broad validation of required field presence, URL formats outside the few factory helpers, component key regexes across all maps, reply-message schema exclusivity, or deeper reference and schema invariants.
   - See [AsyncApiDocumentValidator.cs](src/Saunter/AttributeProvider/AsyncApiDocumentValidator.cs).
+
+### System.Text.Json polymorphic effect payloads
+
+Abstract/interface payload types declaring concrete `JsonDerivedType` alternatives
+with string discriminator values now export as disjoint `oneOf` branches. Each
+branch combines the concrete payload schema with a required literal discriminator
+property (`$type` by default or `JsonPolymorphic.TypeDiscriminatorPropertyName`).
+This uses existing JSON Schema `oneOf`, `allOf`, `required`, and single-value
+`enum`; no OpenAPI-only discriminator mapping is emitted. Nullable and recursive
+usages preserve component references. A concrete subtype used directly has no
+artificial tag requirement, matching System.Text.Json's wire behavior.
+
+Concrete polymorphic bases, numeric/absent tags, abstract alternatives, duplicate
+tags and tag/property collisions are rejected explicitly. Those shapes remain
+unsupported. The MassTransit loyalty example and schema/document writer tests
+cover the supported authoring pattern. Unconstrained `object` values continue to
+match the published 1.5.1 behavior alongside `JsonElement` values.
+
+## Property annotation bounds
+
+The schema generator now carries `Description`, `MaxLength`, `MinLength`,
+`StringLength` and numeric `Range` annotations through the descriptor mapper
+and AsyncAPI 3.0 writer. These become standard JSON Schema `description`,
+`maxLength`, `minLength`, `maxItems`, `minItems`, `minimum` and `maximum`
+keywords. Nullable properties and repeated CLR types retain their own limits.
+Byte-array limits describe the corresponding base64 character ceiling.
+
+JSON Schema string lengths count characters, not UTF-8 bytes. Aggregate
+message, token, envelope and work budgets still require server enforcement.
+`SchemaAnnotationTests` covers generated JSON and the Partner export example.

@@ -23,6 +23,7 @@ It is not the minimal getting-started path. Start with `examples/MassTransitMini
 - `GeoInventoryAdjustedPublisher`: simple string-based channel/operation/message tags plus explicit channel-parameter location metadata.
 - `NotificationDigestRequester` + `NotificationDigestConsumer`: request/reply where the logical reply channel is documented but no fixed reply address is declared.
 - `TenantCatalogPublisher`: custom `IChannelResolver` usage.
+- `PartnerExportRequested.PartnerId`: portable `StringLength` and `Description` annotations appear as property constraints in the generated schema. Byte limits still require an application evaluator.
 - `IPartnerExportPublisher` + `PartnerExportPublisher`: interface-based annotation discovery plus named `ChannelId` override on the one-argument `Channel` attribute.
 - `LoyaltyPointsAwarded.Effects`: a nested abstract `JsonPolymorphic` hierarchy with string `JsonDerivedType` tags. Each generated `oneOf` alternative requires its literal `$type` and includes the subtype fields; the consumer reads the typed tier effect. Concrete subtype serialization stays independent of base-type tags.
 - `LoyaltyPointsAwardedConsumer`: convention-based MassTransit consumer discovery — no AsyncAPI attributes at all; documented because `Discovery.DiscoverMassTransitConsumers` is enabled.

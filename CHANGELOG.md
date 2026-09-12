@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 <!-- Please update the links section at the bottom when adding a new version. -->
 ## Unreleased
 
+## [v1.6.0]
+### Added
+- Generated payload schemas preserve descriptions, string and array length annotations, and numeric ranges. Property constraints stay local to each usage, including nullable properties; byte-array bounds describe the base64 wire representation.
+
 ## [v1.5.2]
 ### Added
 - Abstract and interface payloads with string-tagged `JsonDerivedType` alternatives export disjoint `oneOf` schemas that preserve inherited properties, nullable references, and recursive references. Unsupported polymorphic shapes fail explicitly.
@@ -258,6 +262,7 @@ When updating here set baseVersion to the previous tag and targetVersion to your
 This link will be dead until after you have completed the pull request and tagged the new version in master
 -->
 
+[v1.6.0]: https://github.com/APL-Digital/saunter/compare/v1.5.2...v1.6.0
 [v1.5.2]: https://github.com/APL-Digital/saunter/compare/v1.5.1...v1.5.2
 
 [v1.5.1]: https://github.com/APL-Digital/saunter/compare/v1.5.0...v1.5.1
