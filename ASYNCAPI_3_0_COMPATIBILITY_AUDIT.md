@@ -97,7 +97,7 @@ Scope:
 | Schema primitives / objects / arrays / enums / refs | Core | Supported | Generated in [AsyncApiSchemaGenerator.cs](src/Saunter/SharedKernel/AsyncApiSchemaGenerator.cs#L14-L512); enum values honor `JsonStringEnumMemberNameAttribute` before the legacy `EnumMemberAttribute` fallback; `JsonElement` maps to an unconstrained JSON Schema |
 | Schema `required`, `items`, `additionalProperties`, `oneOf`, `allOf` | Core subset | Supported | Mapped in [AsyncApiSchemaMapper.cs](src/Saunter/SharedKernel/AsyncApiSchemaMapper.cs#L10-L55) |
 | Schema nullability | Core subset | Supported with normalization | Serialized for AsyncAPI 3 as `oneOf` + `null`, without the legacy `nullable` keyword |
-| Rich JSON Schema keywords | Optional but important | Missing | No support for keywords like `pattern`, numeric bounds, schema `default`, schema `examples`, etc. |
+| Rich JSON Schema keywords | Optional but important | Missing | No support for keywords like `pattern`, schema `default`, schema `examples`, etc. |
 | Multi Format Schema Object | Supported by spec | Missing in authored surface | Saunter only exposes its JSON-schema-oriented descriptor path |
 | YAML output | Allowed by spec | Supported | `IAsyncApiDocumentWriter.WriteYaml` serializes via ByteBard; every `.json` document route hosts a `.yaml` sibling |
 | Validation coverage | N/A | Partial | Validates several reference relationships and address constraints, but not the full set of AsyncAPI invariants |
@@ -215,3 +215,8 @@ Byte-array limits describe the corresponding base64 character ceiling.
 JSON Schema string lengths count characters, not UTF-8 bytes. Aggregate
 message, token, envelope and work budgets still require server enforcement.
 `SchemaAnnotationTests` covers generated JSON and the Partner export example.
+
+Numeric `Range` support is limited to inclusive bounds declared with the int or
+double constructor. Typed string bounds, exclusive bounds and non-finite doubles
+fail explicitly because ByteBard 2.1.2 cannot preserve their semantics through
+its double-valued boundary properties.

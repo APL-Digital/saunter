@@ -411,6 +411,14 @@ namespace Saunter.SharedKernel
 
             if (range is not null && MapJsonTypeToSchemaType(type.GetTypeInfo()) is AsyncApiSchemaValueType.Integer or AsyncApiSchemaValueType.Number)
             {
+                // ByteBard 2.1.2 exposes double bounds. Typed string ranges can lose
+                // integer/decimal precision or depend on runtime culture, so reject
+                // them instead of publishing a schema with different boundaries.
+                if (range.Minimum is not int and not double || range.Maximum is not int and not double
+                    || range.MinimumIsExclusive || range.MaximumIsExclusive)
+                {
+                    throw new InvalidOperationException($"Numeric range on '{property.DeclaringType}.{property.Name}' must use inclusive int or double bounds. Typed string and exclusive ranges are not supported.");
+                }
                 usage.Minimum = Convert.ToDouble(range.Minimum, CultureInfo.InvariantCulture);
                 usage.Maximum = Convert.ToDouble(range.Maximum, CultureInfo.InvariantCulture);
                 if (!double.IsFinite(usage.Minimum.Value) || !double.IsFinite(usage.Maximum.Value))
@@ -981,7 +989,7 @@ namespace Saunter.SharedKernel
 
         private static string FormatSchemaDescriptor(AsyncApiSchemaDescriptor schema)
         {
-            return $"id={FormatValue(schema.Id)}, type={schema.Type?.ToString() ?? "<null>"}, format={FormatValue(schema.Format)}, nullable={schema.Nullable}, reference={FormatValue(schema.Reference)}, properties={FormatValues(schema.Properties.Keys)}, oneOfCount={schema.OneOf.Count}, allOfCount={schema.AllOf.Count}";
+            return $"id={FormatValue(schema.Id)}, type={schema.Type?.ToString() ?? "<null>"}, format={FormatValue(schema.Format)}, description={FormatValue(schema.Description)}, maxLength={schema.MaxLength}, minLength={schema.MinLength}, maxItems={schema.MaxItems}, minItems={schema.MinItems}, maximum={schema.Maximum?.ToString("R", CultureInfo.InvariantCulture)}, minimum={schema.Minimum?.ToString("R", CultureInfo.InvariantCulture)}, nullable={schema.Nullable}, reference={FormatValue(schema.Reference)}, properties={FormatValues(schema.Properties.Keys)}, oneOfCount={schema.OneOf.Count}, allOfCount={schema.AllOf.Count}";
         }
 
         private static string FormatValues(IEnumerable<string> values)

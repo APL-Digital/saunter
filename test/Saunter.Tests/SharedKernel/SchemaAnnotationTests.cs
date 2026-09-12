@@ -1,4 +1,5 @@
 ﻿#nullable enable
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
@@ -64,6 +65,34 @@ namespace Saunter.Tests.SharedKernel
             {
                 PartnerId = new string('x', 65)
             }));
+        }
+
+        [Theory]
+        [InlineData(typeof(PreciseIntegerRange))]
+        [InlineData(typeof(PreciseDecimalRange))]
+        [InlineData(typeof(ExclusiveRange))]
+        public void Unsupported_numeric_bounds_fail_instead_of_changing_the_schema_boundary(Type payload)
+        {
+            var exception = Should.Throw<InvalidOperationException>(() => new AsyncApiSchemaGenerator().Generate(payload));
+            exception.Message.ShouldContain("inclusive int or double bounds");
+        }
+
+        public class PreciseIntegerRange
+        {
+            [Range(typeof(long), "9007199254740993", "9007199254740995")]
+            public long Value { get; set; }
+        }
+
+        public class PreciseDecimalRange
+        {
+            [Range(typeof(decimal), "0.1234567890123456789012345678", "1")]
+            public decimal Value { get; set; }
+        }
+
+        public class ExclusiveRange
+        {
+            [Range(1, 100, MinimumIsExclusive = true)]
+            public int Value { get; set; }
         }
 
         private static JsonDocument Generate<T>()

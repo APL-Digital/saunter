@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 
 ## [v1.6.0]
 ### Added
-- Generated payload schemas preserve descriptions, string and array length annotations, and numeric ranges. Property constraints stay local to each usage, including nullable properties; byte-array bounds describe the base64 wire representation.
+- Generated payload schemas preserve descriptions, string and array length annotations, and numeric ranges. Property constraints stay local to each usage, including nullable properties; byte-array bounds describe the base64 wire representation. Numeric ranges support inclusive int and double bounds; unsupported typed string or exclusive bounds fail explicitly.
 
 ## [v1.5.2]
 ### Added
