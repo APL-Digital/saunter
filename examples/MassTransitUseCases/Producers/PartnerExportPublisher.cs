@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Threading.Tasks;
 using MassTransit;
 using MassTransitUseCases.Contracts;
 
@@ -15,6 +16,7 @@ public class PartnerExportPublisher : IPartnerExportPublisher
 
     public Task Publish(PartnerExportRequested message)
     {
+        Validator.ValidateObject(message, new ValidationContext(message), validateAllProperties: true);
         return _publishEndpoint.Publish(message);
     }
 }

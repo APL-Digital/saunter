@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
@@ -104,6 +107,7 @@ namespace Saunter.SharedKernel
             {
                 Id = name,
                 Type = schemaType,
+                Description = type.GetCustomAttribute<DescriptionAttribute>()?.Description,
             };
 
             if (schema.Type is not AsyncApiSchemaValueType.Object and not AsyncApiSchemaValueType.Array)
@@ -241,7 +245,7 @@ namespace Saunter.SharedKernel
                     }
 
                     var propertyName = ResolvePropertyName(prop);
-                    schema.Properties[propertyName] = generatedSchemas.Value.Root;
+                    schema.Properties[propertyName] = ApplyPropertyAnnotations(prop, generatedSchemas.Value.Root);
                     if (IsRequiredProperty(prop, propertyNullability))
                     {
                         schema.Required.Add(propertyName);
@@ -352,6 +356,79 @@ namespace Saunter.SharedKernel
             return ignore is not null && ignore.Condition == JsonIgnoreCondition.Always;
         }
 
+        private static AsyncApiSchemaDescriptor ApplyPropertyAnnotations(PropertyInfo property, AsyncApiSchemaDescriptor schema)
+        {
+            var description = property.GetCustomAttribute<DescriptionAttribute>();
+            var maxLength = property.GetCustomAttribute<MaxLengthAttribute>();
+            var minLength = property.GetCustomAttribute<MinLengthAttribute>();
+            var stringLength = property.GetCustomAttribute<StringLengthAttribute>();
+            var range = property.GetCustomAttribute<RangeAttribute>();
+            if (description is null && maxLength is null && minLength is null && stringLength is null && range is null)
+            {
+                return schema;
+            }
+
+            // A property constraint belongs to this usage. It must not change the reusable
+            // component or another property with the same CLR type.
+            var usage = CloneSchema(schema);
+            usage.Id = null;
+            if (usage.Reference is not null)
+            {
+                var reference = usage;
+                usage = new AsyncApiSchemaDescriptor();
+                usage.AllOf.Add(reference);
+            }
+            if (description is not null)
+            {
+                usage.Description = description.Description;
+            }
+
+            var type = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+            var maximum = maxLength is { Length: >= 0 } ? maxLength.Length : (int?)null;
+            var minimum = minLength?.Length;
+            if (type == typeof(string))
+            {
+                if (stringLength is not null)
+                {
+                    maximum = maximum is null ? stringLength.MaximumLength : Math.Min(maximum.Value, stringLength.MaximumLength);
+                    minimum = Math.Max(minimum ?? 0, stringLength.MinimumLength);
+                }
+                usage.MaxLength = maximum;
+                usage.MinLength = minimum;
+            }
+            else if (type == typeof(byte[]))
+            {
+                // System.Text.Json writes bytes as base64. Length attributes constrain
+                // raw bytes, so document the corresponding encoded character ceiling.
+                usage.MaxLength = maximum is null ? null : checked((int)(((long)maximum.Value + 2) / 3 * 4));
+                usage.MinLength = minimum is null ? null : checked((int)(((long)minimum.Value + 2) / 3 * 4));
+            }
+            else if (MapJsonTypeToSchemaType(type.GetTypeInfo()) == AsyncApiSchemaValueType.Array)
+            {
+                usage.MaxItems = maximum;
+                usage.MinItems = minimum;
+            }
+
+            if (range is not null && MapJsonTypeToSchemaType(type.GetTypeInfo()) is AsyncApiSchemaValueType.Integer or AsyncApiSchemaValueType.Number)
+            {
+                // ByteBard 2.1.2 exposes double bounds. Typed string ranges can lose
+                // integer/decimal precision or depend on runtime culture, so reject
+                // them instead of publishing a schema with different boundaries.
+                if (range.Minimum is not int and not double || range.Maximum is not int and not double
+                    || range.MinimumIsExclusive || range.MaximumIsExclusive)
+                {
+                    throw new InvalidOperationException($"Numeric range on '{property.DeclaringType}.{property.Name}' must use inclusive int or double bounds. Typed string and exclusive ranges are not supported.");
+                }
+                usage.Minimum = Convert.ToDouble(range.Minimum, CultureInfo.InvariantCulture);
+                usage.Maximum = Convert.ToDouble(range.Maximum, CultureInfo.InvariantCulture);
+                if (!double.IsFinite(usage.Minimum.Value) || !double.IsFinite(usage.Maximum.Value))
+                {
+                    throw new InvalidOperationException($"Numeric range on '{property.DeclaringType}.{property.Name}' must have finite bounds.");
+                }
+            }
+            return usage;
+        }
+
         private static AsyncApiSchemaDescriptor CreateUsageSchema(AsyncApiSchemaDescriptor schema, bool isNullable)
         {
             if (!isNullable)
@@ -424,6 +501,13 @@ namespace Saunter.SharedKernel
                 Id = schema.Id,
                 Type = schema.Type,
                 Format = schema.Format,
+                Description = schema.Description,
+                MaxLength = schema.MaxLength,
+                MinLength = schema.MinLength,
+                MaxItems = schema.MaxItems,
+                MinItems = schema.MinItems,
+                Maximum = schema.Maximum,
+                Minimum = schema.Minimum,
                 Nullable = schema.Nullable,
                 Reference = schema.Reference,
                 Items = schema.Items is null ? null : CloneSchema(schema.Items),
@@ -844,6 +928,13 @@ namespace Saunter.SharedKernel
                 || source.Type != additional.Type
                 || !string.Equals(source.Format, additional.Format, StringComparison.Ordinal)
                 || source.Nullable != additional.Nullable
+                || source.Description != additional.Description
+                || source.MaxLength != additional.MaxLength
+                || source.MinLength != additional.MinLength
+                || source.MaxItems != additional.MaxItems
+                || source.MinItems != additional.MinItems
+                || source.Maximum != additional.Maximum
+                || source.Minimum != additional.Minimum
                 || !string.Equals(source.Reference, additional.Reference, StringComparison.Ordinal))
             {
                 return false;
@@ -898,7 +989,7 @@ namespace Saunter.SharedKernel
 
         private static string FormatSchemaDescriptor(AsyncApiSchemaDescriptor schema)
         {
-            return $"id={FormatValue(schema.Id)}, type={schema.Type?.ToString() ?? "<null>"}, format={FormatValue(schema.Format)}, nullable={schema.Nullable}, reference={FormatValue(schema.Reference)}, properties={FormatValues(schema.Properties.Keys)}, oneOfCount={schema.OneOf.Count}, allOfCount={schema.AllOf.Count}";
+            return $"id={FormatValue(schema.Id)}, type={schema.Type?.ToString() ?? "<null>"}, format={FormatValue(schema.Format)}, description={FormatValue(schema.Description)}, maxLength={schema.MaxLength}, minLength={schema.MinLength}, maxItems={schema.MaxItems}, minItems={schema.MinItems}, maximum={schema.Maximum?.ToString("R", CultureInfo.InvariantCulture)}, minimum={schema.Minimum?.ToString("R", CultureInfo.InvariantCulture)}, nullable={schema.Nullable}, reference={FormatValue(schema.Reference)}, properties={FormatValues(schema.Properties.Keys)}, oneOfCount={schema.OneOf.Count}, allOfCount={schema.AllOf.Count}";
         }
 
         private static string FormatValues(IEnumerable<string> values)

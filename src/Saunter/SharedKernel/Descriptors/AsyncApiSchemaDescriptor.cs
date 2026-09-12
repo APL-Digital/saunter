@@ -47,6 +47,28 @@ namespace Saunter.SharedKernel.Descriptors
         /// </summary>
         public string? Format { get; set; }
 
+        /// <summary>Human-readable schema policy and value description.</summary>
+        public string? Description { get; set; }
+
+        /// <summary>Maximum JSON string length, measured in Unicode characters.</summary>
+        public int? MaxLength { get; set; }
+
+        /// <summary>Minimum JSON string length, measured in Unicode characters.</summary>
+        public int? MinLength { get; set; }
+
+        /// <summary>Maximum number of array items.</summary>
+        public int? MaxItems { get; set; }
+
+        /// <summary>Minimum number of array items.</summary>
+        public int? MinItems { get; set; }
+
+        /// <summary>Inclusive maximum numeric value.</summary>
+        public double? Maximum { get; set; }
+
+        /// <summary>Inclusive minimum numeric value.</summary>
+        public double? Minimum { get; set; }
+
+
         /// <summary>
         /// Whether the value may be <c>null</c>; emitted as a nullable type in the generated schema.
         /// </summary>

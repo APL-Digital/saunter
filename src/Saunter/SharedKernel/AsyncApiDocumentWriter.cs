@@ -102,6 +102,13 @@ namespace Saunter.SharedKernel
                 Title = schema.Title,
                 Type = schema.Type,
                 Format = schema.Format,
+                Description = schema.Description,
+                MaxLength = schema.MaxLength,
+                MinLength = schema.MinLength,
+                MaxItems = schema.MaxItems,
+                MinItems = schema.MinItems,
+                Maximum = schema.Maximum,
+                Minimum = schema.Minimum,
             };
 
             if (schema.Items is not null)

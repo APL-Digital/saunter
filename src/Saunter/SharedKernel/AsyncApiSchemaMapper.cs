@@ -19,6 +19,13 @@ namespace Saunter.SharedKernel
                 Title = descriptor.Id,
                 Type = MapSchemaType(descriptor.Type),
                 Format = descriptor.Format,
+                Description = descriptor.Description,
+                MaxLength = descriptor.MaxLength,
+                MinLength = descriptor.MinLength,
+                MaxItems = descriptor.MaxItems,
+                MinItems = descriptor.MinItems,
+                Maximum = descriptor.Maximum,
+                Minimum = descriptor.Minimum,
                 Nullable = descriptor.Nullable,
             };
 
